@@ -4,6 +4,7 @@ import userRoutes from './user.routes.js'
 import agentRoutes from './inboundAgent.routes.js'
 import phoneRoutes from './inboundPhone.routes.js'
 import callLogRoutes from './callLog.routes.js'
+import leadRoutes from './lead.routes.js'
 
 const router = express.Router()
 
@@ -13,5 +14,6 @@ router.use('/users', userRoutes)
 router.use('/agents', agentRoutes)
 router.use('/phone-numbers', phoneRoutes)
 router.use('/call-logs', callLogRoutes)
+router.use('/leads', leadRoutes)
 
 export default router
