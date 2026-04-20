@@ -8,6 +8,7 @@ import leadRoutes from './lead.routes.js'
 import campaignRoutes from './campaign.routes.js'
 import scriptRequestRoutes from './scriptRequest.routes.js'
 import voiceCloneRoutes from './voiceClone.routes.js'
+import targetUploadRoutes from './targetUpload.routes.js'
 
 const router = express.Router()
 
@@ -21,5 +22,6 @@ router.use('/leads', leadRoutes)
 router.use('/campaigns', campaignRoutes)
 router.use('/script-requests', scriptRequestRoutes)
 router.use('/voice-clones', voiceCloneRoutes)
+router.use('/target-uploads', targetUploadRoutes)
 
 export default router
