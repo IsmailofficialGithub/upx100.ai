@@ -7,6 +7,7 @@ import callLogRoutes from './callLog.routes.js'
 import leadRoutes from './lead.routes.js'
 import campaignRoutes from './campaign.routes.js'
 import scriptRequestRoutes from './scriptRequest.routes.js'
+import voiceCloneRoutes from './voiceClone.routes.js'
 
 const router = express.Router()
 
@@ -19,5 +20,6 @@ router.use('/call-logs', callLogRoutes)
 router.use('/leads', leadRoutes)
 router.use('/campaigns', campaignRoutes)
 router.use('/script-requests', scriptRequestRoutes)
+router.use('/voice-clones', voiceCloneRoutes)
 
 export default router
