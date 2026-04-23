@@ -10,12 +10,12 @@ interface TopbarProps {
 
 const Topbar: React.FC<TopbarProps> = ({ title, onMenuClick }) => {
   const { toggleMode, isLight } = useTheme();
-  const { isAuthenticated, logout, login } = useAuth();
+  const { isAuthenticated, logout, login, canPauseCampaigns } = useAuth();
   const [showPauseModal, setShowPauseModal] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
 
   const handleLogin = () => {
-    login('cm');
+    login('client_admin');
   };
 
   return (
@@ -52,17 +52,19 @@ const Topbar: React.FC<TopbarProps> = ({ title, onMenuClick }) => {
                 <span>Export</span>
               </button>
 
-              <button
-                onClick={() => setShowPauseModal(true)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                  isPaused
-                    ? 'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25'
-                    : 'bg-yellow-500/15 text-yellow-400 hover:bg-yellow-500/25'
-                }`}
-              >
-                {isPaused ? <Play size={14} /> : <Pause size={14} />}
-                <span className="hidden sm:inline">{isPaused ? 'Resume' : 'Pause'}</span>
-              </button>
+              {canPauseCampaigns && (
+                <button
+                  onClick={() => setShowPauseModal(true)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    isPaused
+                      ? 'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25'
+                      : 'bg-yellow-500/15 text-yellow-400 hover:bg-yellow-500/25'
+                  }`}
+                >
+                  {isPaused ? <Play size={14} /> : <Pause size={14} />}
+                  <span className="hidden sm:inline">{isPaused ? 'Resume' : 'Pause'}</span>
+                </button>
+              )}
 
               <button
                 onClick={logout}

@@ -12,16 +12,22 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isGCC, isSP, isClient, isSPPrimary } = useAuth();
   const { complianceLabel } = useTheme();
 
   const navItems = [
-    { label: 'Dashboard', path: '/client/dashboard', icon: LayoutDashboard, group: 'CAMPAIGN' },
-    { label: 'Calendar \u0026 Meetings', path: '/client/calendar', icon: CalendarDays, group: 'CAMPAIGN' },
-    { label: 'Analytics \u0026 Insights', path: '/client/analytics', icon: BarChart3, group: 'CAMPAIGN' },
-    { label: 'AI Engine', path: '/client/engine', icon: Cpu, group: 'INTELLIGENCE' },
-    { label: 'Sales Playbook', path: '/client/playbook', icon: BookOpen, group: 'INTELLIGENCE' },
+    { label: 'Dashboard', path: '/client/dashboard', icon: LayoutDashboard, group: 'CAMPAIGN', roles: ['gcc_admin', 'gcc_reviewer', 'sp_primary', 'sp_sub', 'client_admin', 'client_sub'] },
+    { label: 'Calendar & Meetings', path: '/client/calendar', icon: CalendarDays, group: 'CAMPAIGN', roles: ['gcc_admin', 'gcc_reviewer', 'sp_primary', 'sp_sub', 'client_admin', 'client_sub'] },
+    { label: 'Analytics & Insights', path: '/client/analytics', icon: BarChart3, group: 'CAMPAIGN', roles: ['gcc_admin', 'gcc_reviewer', 'sp_primary', 'sp_sub', 'client_admin', 'client_sub'] },
+    { label: 'AI Engine', path: '/client/engine', icon: Cpu, group: 'INTELLIGENCE', roles: ['gcc_admin', 'gcc_reviewer', 'client_admin'] },
+    { label: 'Sales Playbook', path: '/client/playbook', icon: BookOpen, group: 'INTELLIGENCE', roles: ['gcc_admin', 'gcc_reviewer', 'sp_primary', 'sp_sub', 'client_admin', 'client_sub'] },
   ];
+
+  // Add Commissions for SP Primary
+  if (isSPPrimary) {
+    // navItems.push({ label: 'Commissions', path: '/client/commissions', icon: DollarSign, group: 'FINANCIAL', roles: ['sp_primary'] });
+  }
+
 
   const handleNav = (path: string) => {
     navigate(path);
@@ -60,9 +66,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 {group}
               </p>
               {navItems
-                .filter(item => item.group === group)
+                .filter(item => item.group === group && item.roles.includes(user?.role || ''))
                 .map(item => {
                   const isActive = location.pathname === item.path;
+
                   const Icon = item.icon;
                   return (
                     <button

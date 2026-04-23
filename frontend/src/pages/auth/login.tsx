@@ -27,10 +27,11 @@ const Login = () => {
     setIsLoading(true);
     // Simulate API call
     setTimeout(() => {
-      login('cm'); // Default to Sarah Mitchell for demo
+      login('client_admin'); // Default to Sarah Mitchell (Client Admin) for demo
       navigate('/client/dashboard');
       setIsLoading(false);
     }, 1500);
+
   };
 
   return (

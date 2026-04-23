@@ -1,7 +1,8 @@
-import React, { useState, useRef } from 'react';
-import { scripts, voiceConfig } from '@/data/mockData';
-import StatusBadge from '@/components/shared/StatusBadge';
 import { Upload, Download, Play, FileText } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import { useRef, useState } from 'react';
+import StatusBadge from '../shared/StatusBadge';
+import { scripts, voiceConfig } from '@/data/mockData';
 
 type ScriptTag = 'DISCLOSURE' | 'PITCH' | 'QUALIFY' | 'VALUE' | 'CLOSE';
 
@@ -20,6 +21,7 @@ const EngineView: React.FC = () => {
   const [csvFileName, setCsvFileName] = useState('');
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { canSubmitScripts, canUploadTargets } = useAuth();
 
   const currentScript = scripts[scriptTab];
 
@@ -80,7 +82,7 @@ const EngineView: React.FC = () => {
         </div>
 
         <div className="space-y-3">
-          {currentScript.map((line) => (
+          {currentScript.map((line:any) => (
             <div key={line.id} className="flex gap-3 p-3 bg-[hsl(var(--muted))] rounded-lg border border-[hsl(var(--border-v))]">
               <span className={`flex-shrink-0 px-2 py-0.5 rounded-full text-[9px] font-mono font-semibold border h-fit ${tagColors[line.tag as ScriptTag]}`}>
                 {line.tag}
@@ -91,25 +93,28 @@ const EngineView: React.FC = () => {
         </div>
 
         {/* Script Change Request */}
-        <div className="mt-4 p-4 border border-[hsl(var(--border-v))] rounded-lg bg-[hsl(var(--muted))]/30">
-          <p className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] mb-2 tracking-wider">Request Script Change</p>
-          <textarea
-            value={scriptChange}
-            onChange={e => setScriptChange(e.target.value)}
-            placeholder="Describe the change you'd like to make to the script..."
-            className="w-full h-20 px-3 py-2 bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-lg text-xs text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--muted-foreground))]/50 focus:outline-none focus:border-[hsl(var(--primary))]/50 resize-none"
-          />
-          <div className="flex justify-end mt-2">
-            <button
-              onClick={() => { setScriptChange(''); alert('Script change request submitted!'); }}
-              disabled={!scriptChange.trim()}
-              className="px-4 py-1.5 rounded-lg text-xs font-medium bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed transition-opacity"
-            >
-              Submit Request
-            </button>
+        {canSubmitScripts && (
+          <div className="mt-4 p-4 border border-[hsl(var(--border-v))] rounded-lg bg-[hsl(var(--muted))]/30">
+            <p className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] mb-2 tracking-wider">Request Script Change</p>
+            <textarea
+              value={scriptChange}
+              onChange={e => setScriptChange(e.target.value)}
+              placeholder="Describe the change you'd like to make to the script..."
+              className="w-full h-20 px-3 py-2 bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-lg text-xs text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--muted-foreground))]/50 focus:outline-none focus:border-[hsl(var(--primary))]/50 resize-none"
+            />
+            <div className="flex justify-end mt-2">
+              <button
+                onClick={() => { setScriptChange(''); alert('Script change request submitted!'); }}
+                disabled={!scriptChange.trim()}
+                className="px-4 py-1.5 rounded-lg text-xs font-medium bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed transition-opacity"
+              >
+                Submit Request
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
+
 
       {/* Target Accounts CSV Upload */}
       <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-4">
@@ -121,22 +126,29 @@ const EngineView: React.FC = () => {
         </div>
 
         {/* Upload Zone */}
-        <div
-          onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={handleFileDrop}
-          onClick={() => fileInputRef.current?.click()}
-          className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
-            dragOver
-              ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5'
-              : 'border-[hsl(var(--border-v))] hover:border-[hsl(var(--border-v))] hover:bg-[hsl(var(--muted))]'
-          }`}
-        >
-          <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={handleFileSelect} />
-          <Upload size={24} className="mx-auto mb-2 text-[hsl(var(--muted-foreground))]" />
-          <p className="text-sm text-[hsl(var(--foreground))]">Drop CSV file here or click to browse</p>
-          <p className="text-[11px] text-[hsl(var(--muted-foreground))] mt-1">Name, Company, Title, Email columns required</p>
-        </div>
+        {canUploadTargets ? (
+          <div
+            onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={handleFileDrop}
+            onClick={() => fileInputRef.current?.click()}
+            className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
+              dragOver
+                ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5'
+                : 'border-[hsl(var(--border-v))] hover:border-[hsl(var(--border-v))] hover:bg-[hsl(var(--muted))]'
+            }`}
+          >
+            <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={handleFileSelect} />
+            <Upload size={24} className="mx-auto mb-2 text-[hsl(var(--muted-foreground))]" />
+            <p className="text-sm text-[hsl(var(--foreground))]">Drop CSV file here or click to browse</p>
+            <p className="text-[11px] text-[hsl(var(--muted-foreground))] mt-1">Name, Company, Title, Email columns required</p>
+          </div>
+        ) : (
+          <div className="border-2 border-dashed border-[hsl(var(--border-v))] rounded-xl p-8 text-center bg-[hsl(var(--muted))]/30">
+            <p className="text-sm text-[hsl(var(--muted-foreground))] italic">Target account upload restricted to Client Admins only.</p>
+          </div>
+        )}
+
 
         {/* Preview Table */}
         {csvData && (

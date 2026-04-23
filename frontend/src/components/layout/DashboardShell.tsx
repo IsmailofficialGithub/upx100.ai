@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
+import { useAuth } from '@/context/AuthContext';
 import LiveTicker from '@/components/shared/LiveTicker';
+
 
 const pageTitles: Record<string, string> = {
   '/client/dashboard': 'Campaign Dashboard',
@@ -15,7 +17,18 @@ const pageTitles: Record<string, string> = {
 const DashboardShell: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const title = pageTitles[location.pathname] || 'Dashboard';
+
+  React.useEffect(() => {
+    if (!isAuthenticated) {
+      navigate('/login');
+    }
+  }, [isAuthenticated, navigate]);
+
+  if (!isAuthenticated) return null;
+
 
   return (
     <div className="min-h-screen bg-[hsl(var(--background))]">
