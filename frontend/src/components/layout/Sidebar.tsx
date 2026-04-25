@@ -2,7 +2,19 @@ import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
-import { LayoutDashboard, CalendarDays, BarChart3, Cpu, BookOpen, X } from 'lucide-react';
+import { 
+  LayoutDashboard, 
+  CalendarDays, 
+  BarChart3, 
+  Cpu, 
+  BookOpen, 
+  X, 
+  Users, 
+  Building2, 
+  Phone, 
+  FileText 
+} from 'lucide-react';
+
 
 interface SidebarProps {
   isOpen: boolean;
@@ -15,13 +27,21 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const { user, isGCC, isSP, isClient, isSPPrimary } = useAuth();
   const { complianceLabel } = useTheme();
 
+  const rolePrefix = isGCC ? 'admin' : isSP ? 'partner' : 'client';
+  const portalName = isGCC ? 'Admin Portal' : isSP ? 'Partner Portal' : 'Client Portal';
+
   const navItems = [
-    { label: 'Dashboard', path: '/client/dashboard', icon: LayoutDashboard, group: 'CAMPAIGN', roles: ['gcc_admin', 'gcc_reviewer', 'sp_primary', 'sp_sub', 'client_admin', 'client_sub'] },
-    { label: 'Calendar & Meetings', path: '/client/calendar', icon: CalendarDays, group: 'CAMPAIGN', roles: ['gcc_admin', 'gcc_reviewer', 'sp_primary', 'sp_sub', 'client_admin', 'client_sub'] },
-    { label: 'Analytics & Insights', path: '/client/analytics', icon: BarChart3, group: 'CAMPAIGN', roles: ['gcc_admin', 'gcc_reviewer', 'sp_primary', 'sp_sub', 'client_admin', 'client_sub'] },
-    { label: 'AI Engine', path: '/client/engine', icon: Cpu, group: 'INTELLIGENCE', roles: ['gcc_admin', 'gcc_reviewer', 'client_admin'] },
-    { label: 'Sales Playbook', path: '/client/playbook', icon: BookOpen, group: 'INTELLIGENCE', roles: ['gcc_admin', 'gcc_reviewer', 'sp_primary', 'sp_sub', 'client_admin', 'client_sub'] },
+    { label: 'Dashboard', path: `/${rolePrefix}/dashboard`, icon: LayoutDashboard, group: 'CAMPAIGN', roles: ['gcc_admin', 'gcc_reviewer', 'sp_primary', 'sp_sub', 'client_admin', 'client_sub'] },
+    { label: 'Users', path: `/${rolePrefix}/user`, icon: Users, group: 'MANAGEMENT', roles: ['gcc_admin'] },
+    { label: 'Organizations', path: `/${rolePrefix}/organizations`, icon: Building2, group: 'MANAGEMENT', roles: ['gcc_admin'] },
+    { label: 'Global Call Logs', path: `/${rolePrefix}/call-logs`, icon: Phone, group: 'MANAGEMENT', roles: ['gcc_admin'] },
+    { label: 'Global Leads', path: `/${rolePrefix}/leads`, icon: FileText, group: 'MANAGEMENT', roles: ['gcc_admin'] },
+    { label: 'Calendar & Meetings', path: `/${rolePrefix}/calendar`, icon: CalendarDays, group: 'CAMPAIGN', roles: ['gcc_admin', 'gcc_reviewer', 'sp_primary', 'sp_sub', 'client_admin', 'client_sub'] },
+    { label: 'Analytics & Insights', path: `/${rolePrefix}/analytics`, icon: BarChart3, group: 'CAMPAIGN', roles: ['gcc_admin', 'gcc_reviewer', 'sp_primary', 'sp_sub', 'client_admin', 'client_sub'] },
+    { label: 'AI Engine', path: `/${rolePrefix}/engine`, icon: Cpu, group: 'INTELLIGENCE', roles: ['gcc_admin', 'gcc_reviewer', 'client_admin'] },
+    { label: 'Sales Playbook', path: `/${rolePrefix}/playbook`, icon: BookOpen, group: 'INTELLIGENCE', roles: ['gcc_admin', 'gcc_reviewer', 'sp_primary', 'sp_sub', 'client_admin', 'client_sub'] },
   ];
+
 
   // Add Commissions for SP Primary
   if (isSPPrimary) {
@@ -48,11 +68,18 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           <div>
             <h1 className="font-mono text-sm font-bold text-[hsl(var(--primary))]">Q-UP.AI</h1>
             <p className="text-[10px] font-mono text-[hsl(var(--muted-foreground))] mt-0.5">
-              {user?.entityName || 'Client Portal'}
+              {user?.entityName || portalName}
             </p>
-            <p className="text-[9px] font-mono text-[hsl(var(--muted-foreground))]">
-              {user?.name || 'Guest'}
-            </p>
+
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <p className="text-[9px] font-mono text-[hsl(var(--muted-foreground))]">
+                {user?.name || 'Guest'}
+              </p>
+              <span className="text-[8px] px-1 py-0.5 rounded bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] font-bold text-[hsl(var(--foreground))]">
+                {user?.region || 'US'}
+              </span>
+            </div>
+
           </div>
           <button onClick={onClose} className="md:hidden text-[hsl(var(--muted-foreground))]">
             <X size={20} />
@@ -60,8 +87,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         </div>
 
         <nav className="flex-1 py-4 overflow-y-auto">
-          {['CAMPAIGN', 'INTELLIGENCE'].map(group => (
+          {['CAMPAIGN', 'INTELLIGENCE', 'MANAGEMENT'].map(group => (
             <div key={group} className="mb-4">
+
               <p className="px-4 py-2 text-[9px] font-mono font-semibold uppercase tracking-[0.15em] text-[hsl(var(--muted-foreground))]">
                 {group}
               </p>

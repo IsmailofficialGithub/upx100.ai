@@ -12,8 +12,9 @@ import {
 import { Phone, Headphones, Mic, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
 
 const DashboardView: React.FC = () => {
-  const { isUK } = useTheme();
+  const { isUK, currencySymbol, complianceLabel } = useTheme();
   const [activityPeriod, setActivityPeriod] = useState<'daily' | 'weekly' | 'monthly'>('weekly');
+
   const [expandedMeeting, setExpandedMeeting] = useState<string | null>(null);
   const [selectedTranscript, setSelectedTranscript] = useState<string | null>(liveCalls[0].id);
   const [transcriptIndex, setTranscriptIndex] = useState(2);
@@ -55,13 +56,13 @@ const DashboardView: React.FC = () => {
         />
         <MetricCard
           label={metrics.pipeline.label}
-          value={metrics.pipeline.formatted}
+          value={metrics.pipeline.formatted.replace('$', currencySymbol)}
           tooltip={metrics.pipeline.tooltip}
         />
         <MetricCard
           label={metrics.hoursSaved.label}
           value={metrics.hoursSaved.formatted}
-          subtext={`≈ ${metrics.hoursSaved.dollarValue}`}
+          subtext={`≈ ${currencySymbol}${isUK ? '11,286' : '16,038'}`}
           tooltip={metrics.hoursSaved.tooltip}
         />
       </div>

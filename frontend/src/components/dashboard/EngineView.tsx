@@ -1,5 +1,7 @@
 import { Upload, Download, Play, FileText } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { toast } from 'sonner';
+
 import { useRef, useState } from 'react';
 import StatusBadge from '../shared/StatusBadge';
 import { scripts, voiceConfig } from '@/data/mockData';
@@ -104,8 +106,9 @@ const EngineView: React.FC = () => {
             />
             <div className="flex justify-end mt-2">
               <button
-                onClick={() => { setScriptChange(''); alert('Script change request submitted!'); }}
+                onClick={() => { setScriptChange(''); toast.success('Script change request submitted!'); }}
                 disabled={!scriptChange.trim()}
+
                 className="px-4 py-1.5 rounded-lg text-xs font-medium bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed transition-opacity"
               >
                 Submit Request

@@ -11,21 +11,36 @@ export const login = async (req, res) => {
   }
 
   const { data, error } = await authService.signIn(email, password)
-
   if (error) {
     return res.status(StatusCodes.UNAUTHORIZED).json({
       error: { code: 'AUTH_FAILED', message: error.message }
     })
   }
 
+  // Fetch Profile to get role and organization info
+  const { data: profile, error: profileError } = await authService.getUserProfile(data.user.id)
+  if (profileError) {
+    console.error('Profile fetch error:', profileError)
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      error: { code: 'PROFILE_FETCH_FAILED', message: 'Could not retrieve user profile' }
+    })
+  }
+
+
+
+
   return res.status(StatusCodes.OK).json({
     message: 'Login successful',
     data: {
-      user: data.user,
+      user: {
+        ...data.user,
+        profile: profile
+      },
       session: data.session
     }
   })
 }
+
 
 export const logout = async (req, res) => {
   const { error } = await authService.signOut()

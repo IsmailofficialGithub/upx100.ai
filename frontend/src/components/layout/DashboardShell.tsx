@@ -12,22 +12,45 @@ const pageTitles: Record<string, string> = {
   '/client/analytics': 'Analytics & Insights',
   '/client/engine': 'AI Engine',
   '/client/playbook': 'Sales Playbook',
+  '/admin/dashboard': 'Global Operations',
+  '/admin/analytics': 'Network Analytics',
+  '/partner/dashboard': 'Partner Portal',
+  '/partner/analytics': 'Sales Performance',
 };
 
 const DashboardShell: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const title = pageTitles[location.pathname] || 'Dashboard';
 
   React.useEffect(() => {
     if (!isAuthenticated) {
       navigate('/login');
+      return;
     }
-  }, [isAuthenticated, navigate]);
+
+    // Role-based route protection
+    const pathPrefix = location.pathname.split('/')[1];
+    const userRole = user?.role || '';
+    
+    const isAccessingAdmin = pathPrefix === 'admin';
+    const isAccessingPartner = pathPrefix === 'partner';
+    const isAccessingClient = pathPrefix === 'client';
+
+    const hasAdminRole = userRole.startsWith('gcc_');
+    const hasPartnerRole = userRole.startsWith('sp_');
+    const hasClientRole = userRole.startsWith('client_');
+
+    if (isAccessingAdmin && !hasAdminRole) navigate('/login');
+    if (isAccessingPartner && !hasPartnerRole) navigate('/login');
+    if (isAccessingClient && !hasClientRole) navigate('/login');
+    
+  }, [isAuthenticated, user, location.pathname, navigate]);
 
   if (!isAuthenticated) return null;
+
 
 
   return (

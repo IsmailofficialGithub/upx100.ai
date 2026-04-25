@@ -9,12 +9,15 @@ import campaignRoutes from './campaign.routes.js'
 import scriptRequestRoutes from './scriptRequest.routes.js'
 import voiceCloneRoutes from './voiceClone.routes.js'
 import targetUploadRoutes from './targetUpload.routes.js'
+import adminRoutes from './admin.routes.js'
 
 const router = express.Router()
 
 // Mount sub-routers
 router.use('/auth', authRoutes)
+router.use('/admin', adminRoutes)
 router.use('/users', userRoutes)
+
 router.use('/agents', agentRoutes)
 router.use('/phone-numbers', phoneRoutes)
 router.use('/call-logs', callLogRoutes)

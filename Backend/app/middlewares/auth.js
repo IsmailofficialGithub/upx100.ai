@@ -58,3 +58,16 @@ export const auth = async (req, res, next) => {
     })
   }
 }
+
+/**
+ * Middleware to restrict access to GCC roles only
+ */
+export const isAdmin = (req, res, next) => {
+  if (!req.user.role.startsWith('gcc_')) {
+    return res.status(StatusCodes.FORBIDDEN).json({
+      error: { code: 'ACCESS_DENIED', message: 'This action requires administrative privileges' }
+    })
+  }
+  next()
+}
+

@@ -9,7 +9,8 @@ CREATE TABLE public.organizations (
 
 CREATE TABLE public.profiles (
   id              uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  organization_id uuid NOT NULL REFERENCES public.organizations(id),
+  organization_id uuid REFERENCES public.organizations(id),
+
   email           text NOT NULL,
   full_name       text,
   role            public.user_role NOT NULL DEFAULT 'client_sub',

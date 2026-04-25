@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
+import { toast } from 'sonner';
 import { 
   Mail, 
   Lock, 
@@ -22,17 +23,34 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      login('client_admin'); // Default to Sarah Mitchell (Client Admin) for demo
-      navigate('/client/dashboard');
-      setIsLoading(false);
-    }, 1500);
+    try {
+      await login(email, password);
+      toast.success('Welcome back!');
+      
+      // Dynamic redirection based on role
+      const savedAuth = localStorage.getItem('up100x_auth');
+      if (savedAuth) {
+        const { user } = JSON.parse(savedAuth);
+        if (user.role.startsWith('gcc_')) {
+          navigate('/admin/dashboard');
+        } else if (user.role.startsWith('sp_')) {
+          navigate('/partner/dashboard');
+        } else {
+          navigate('/client/dashboard');
+        }
+      }
+    } catch (err: any) {
 
+      toast.error(err.response?.data?.error?.message || 'Login failed. Please check your credentials.');
+    } finally {
+
+      setIsLoading(false);
+    }
   };
+
 
   return (
     <div className="min-h-screen bg-[hsl(var(--background))] flex items-center justify-center p-4 overflow-hidden relative">

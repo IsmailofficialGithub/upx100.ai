@@ -1,4 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import api from '@/lib/api';
+import { useTheme } from './ThemeContext';
+
 
 // Official roles from RBAC Spec v1
 export type UserRole = 
@@ -37,18 +40,9 @@ interface AuthContextType {
   canManageUsers: boolean;
   canViewFinances: boolean;
   canUploadTargets: boolean;
-  login: (role?: UserRole) => void;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => void;
 }
-
-const roleMap: Record<UserRole, Partial<User>> = {
-  gcc_admin: { name: 'Operations Lead', entityName: 'UP100X AI', role: 'gcc_admin' },
-  gcc_reviewer: { name: 'Quality Reviewer', entityName: 'UP100X AI', role: 'gcc_reviewer' },
-  sp_primary: { name: 'Partner Sales', entityName: 'Acme Partners', role: 'sp_primary' },
-  sp_sub: { name: 'Sales Associate', entityName: 'Acme Partners', role: 'sp_sub' },
-  client_admin: { name: 'Sarah Mitchell', entityName: 'NexGen IT Solutions', role: 'client_admin' },
-  client_sub: { name: 'Team Member', entityName: 'NexGen IT Solutions', role: 'client_sub' },
-};
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
@@ -67,39 +61,64 @@ const AuthContext = createContext<AuthContextType>({
   canManageUsers: false,
   canViewFinances: false,
   canUploadTargets: false,
-  login: () => {},
+  login: async () => {},
   logout: () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(() => {
-    // Check localStorage for persisted session
+  const { setRegion } = useTheme();
+  const [authData, setAuthData] = useState<{ user: User; session: any } | null>(() => {
     const saved = localStorage.getItem('up100x_auth');
-    return saved ? JSON.parse(saved) : null;
+    if (saved) {
+      const data = JSON.parse(saved);
+      return data;
+    }
+    return null;
   });
 
-  const login = useCallback((role: UserRole = 'client_admin') => {
-    const roleData = roleMap[role];
-    const userData = {
-      ...(roleData as Omit<User, 'id' | 'email' | 'region'>),
-      id: `user-${role}-${Math.random().toString(36).substr(2, 9)}`,
-      email: `${role}@up100x.ai`,
-      region: 'US',
-    } as User;
-    
-    setUser(userData);
-    localStorage.setItem('up100x_auth', JSON.stringify(userData));
+  // Sync region on mount
+  React.useEffect(() => {
+    if (authData?.user?.region) {
+      setRegion(authData.user.region);
+    }
+  }, [authData, setRegion]);
+
+  const login = useCallback(async (email: string, password: string) => {
+    try {
+      const response = await api.post('/auth/login', { email, password });
+      const { user: apiUser, session } = response.data.data;
+      
+      const userData: User = {
+        id: apiUser.id,
+        name: apiUser.user_metadata?.full_name || apiUser.profile?.full_name || 'User',
+        email: apiUser.email,
+        role: apiUser.profile?.role as UserRole,
+        entityName: apiUser.profile?.organizations?.name || 'My Organization',
+        region: apiUser.profile?.organizations?.country_code === 'GB' ? 'UK' : 'US',
+      };
+
+      const newAuthData = { user: userData, session };
+      setAuthData(newAuthData);
+      localStorage.setItem('up100x_auth', JSON.stringify(newAuthData));
+      setRegion(userData.region);
+    } catch (error: any) {
+
+      console.error('Login error:', error.response?.data?.error || error.message);
+      throw error;
+    }
   }, []);
 
   const logout = useCallback(() => {
-    setUser(null);
+    setAuthData(null);
     localStorage.removeItem('up100x_auth');
   }, []);
 
+  const user = authData?.user || null;
+
   // Role Checks
-  const isAuthenticated = user !== null;
+  const isAuthenticated = authData !== null;
   const isGCC = user?.role === 'gcc_admin' || user?.role === 'gcc_reviewer';
   const isGCCAdmin = user?.role === 'gcc_admin';
   const isGCCReviewer = user?.role === 'gcc_reviewer';
@@ -135,4 +154,5 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 };
 
 export default AuthContext;
+
 
