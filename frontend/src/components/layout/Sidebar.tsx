@@ -33,9 +33,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const navItems = [
     { label: 'Dashboard', path: `/${rolePrefix}/dashboard`, icon: LayoutDashboard, group: 'CAMPAIGN', roles: ['gcc_admin', 'gcc_reviewer', 'sp_primary', 'sp_sub', 'client_admin', 'client_sub'] },
     { label: 'Users', path: `/${rolePrefix}/user`, icon: Users, group: 'MANAGEMENT', roles: ['gcc_admin'] },
+    { label: 'Team', path: `/${rolePrefix}/team`, icon: Users, group: 'MANAGEMENT', roles: ['sp_primary', 'client_admin'] },
     { label: 'Organizations', path: `/${rolePrefix}/organizations`, icon: Building2, group: 'MANAGEMENT', roles: ['gcc_admin'] },
-    { label: 'Global Call Logs', path: `/${rolePrefix}/call-logs`, icon: Phone, group: 'MANAGEMENT', roles: ['gcc_admin'] },
-    { label: 'Global Leads', path: `/${rolePrefix}/leads`, icon: FileText, group: 'MANAGEMENT', roles: ['gcc_admin'] },
+    { label: 'Call Logs', path: `/${rolePrefix}/call-logs`, icon: Phone, group: 'MANAGEMENT', roles: ['gcc_admin', 'sp_primary', 'sp_sub', 'client_admin', 'client_sub'] },
+    { label: 'Leads', path: `/${rolePrefix}/leads`, icon: FileText, group: 'MANAGEMENT', roles: ['gcc_admin', 'sp_primary', 'sp_sub', 'client_admin', 'client_sub'] },
+    { label: 'Review Scripts', path: `/${rolePrefix}/scripts`, icon: BookOpen, group: 'MANAGEMENT', roles: ['gcc_admin', 'gcc_reviewer'] },
+    { label: 'Review Uploads', path: `/${rolePrefix}/uploads`, icon: BarChart3, group: 'MANAGEMENT', roles: ['gcc_admin', 'gcc_reviewer'] },
+    { label: 'Review Clones', path: `/${rolePrefix}/clones`, icon: Users, group: 'MANAGEMENT', roles: ['gcc_admin', 'gcc_reviewer'] },
     { label: 'Calendar & Meetings', path: `/${rolePrefix}/calendar`, icon: CalendarDays, group: 'CAMPAIGN', roles: ['gcc_admin', 'gcc_reviewer', 'sp_primary', 'sp_sub', 'client_admin', 'client_sub'] },
     { label: 'Analytics & Insights', path: `/${rolePrefix}/analytics`, icon: BarChart3, group: 'CAMPAIGN', roles: ['gcc_admin', 'gcc_reviewer', 'sp_primary', 'sp_sub', 'client_admin', 'client_sub'] },
     { label: 'AI Engine', path: `/${rolePrefix}/engine`, icon: Cpu, group: 'INTELLIGENCE', roles: ['gcc_admin', 'gcc_reviewer', 'client_admin'] },
@@ -45,7 +49,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
   // Add Commissions for SP Primary
   if (isSPPrimary) {
-    // navItems.push({ label: 'Commissions', path: '/client/commissions', icon: DollarSign, group: 'FINANCIAL', roles: ['sp_primary'] });
+    navItems.push({ label: 'Commissions', path: `/${rolePrefix}/commissions`, icon: BarChart3, group: 'CAMPAIGN', roles: ['sp_primary'] });
   }
 
 

@@ -1,32 +1,67 @@
 import React, { useState, useEffect } from 'react';
+import api from '@/lib/api';
 import { useTheme } from '@/context/ThemeContext';
 import MetricCard from '@/components/shared/MetricCard';
 import StatusBadge from '@/components/shared/StatusBadge';
 import {
-  metrics, funnelData, outreachActivity, usStateData, ukRegionData,
-  emailStats, benchmarks, liveCalls, contactsData, meetings,
+  metrics as mockMetrics, funnelData as mockFunnel, outreachActivity, usStateData, ukRegionData,
+  emailStats, benchmarks, liveCalls as mockLiveCalls, contactsData as mockContacts, meetings as mockMeetings,
 } from '@/data/mockData';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
 } from 'recharts';
-import { Phone, Headphones, Mic, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
+import { Phone, Headphones, Mic, ChevronRight, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 const DashboardView: React.FC = () => {
   const { isUK, currencySymbol, complianceLabel } = useTheme();
   const [activityPeriod, setActivityPeriod] = useState<'daily' | 'weekly' | 'monthly'>('weekly');
 
   const [expandedMeeting, setExpandedMeeting] = useState<string | null>(null);
-  const [selectedTranscript, setSelectedTranscript] = useState<string | null>(liveCalls[0].id);
+  const [selectedTranscript, setSelectedTranscript] = useState<string | null>(null);
   const [transcriptIndex, setTranscriptIndex] = useState(2);
   const [showContacts, setShowContacts] = useState(false);
   const [showMeetings, setShowMeetings] = useState(false);
 
+  // Live Data State
+  const [stats, setStats] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const response = await api.get('/dashboard/stats');
+        setStats(response.data.data);
+      } catch (error) {
+        toast.error('Failed to load dashboard metrics');
+        console.error(error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchStats();
+  }, []);
+
   const currentActivity = outreachActivity[activityPeriod];
   const mapData = isUK ? ukRegionData : usStateData;
-  const activeCall = liveCalls.find(c => c.id === selectedTranscript) || liveCalls[0];
+  
+  const metrics = stats?.metrics || mockMetrics;
+  const funnelData = stats?.funnelData || mockFunnel;
+  const liveCalls = stats?.liveCalls?.length > 0 ? stats.liveCalls : mockLiveCalls;
+  const contactsData = stats?.contactsData || mockContacts;
+  const meetings = stats?.meetings || mockMeetings;
 
-  // Simulate transcript updates
+  const activeCall = liveCalls.find((c: any) => c.id === selectedTranscript) || liveCalls[0];
+
   useEffect(() => {
+    if (activeCall?.status !== 'in_progress') {
+      setTranscriptIndex(activeCall?.transcript?.length || 0);
+      return;
+    }
+    
+    // Simulate transcript updates for live calls
+    if (!activeCall?.transcript) return;
+    setTranscriptIndex(1); // Start at beginning for live
     const interval = setInterval(() => {
       setTranscriptIndex(prev => Math.min(prev + 1, activeCall.transcript.length - 1));
     }, 5000);
@@ -34,9 +69,17 @@ const DashboardView: React.FC = () => {
   }, [activeCall]);
 
   const handleMetricClick = (label: string) => {
-    if (label === 'Outreach') setShowContacts(true);
-    else if (label === 'Meetings') setShowMeetings(true);
+    if (label === 'Outreach Activity' || label === 'Outreach') setShowContacts(true);
+    else if (label === 'Meetings Booked' || label === 'Meetings') setShowMeetings(true);
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="animate-spin text-[hsl(var(--primary))]" size={32} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

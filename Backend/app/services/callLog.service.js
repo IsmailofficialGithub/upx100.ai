@@ -30,6 +30,7 @@ export const createCallLog = async (logData) => {
 
 export const listLogsByOrg = async (orgId) => {
   const { data, error } = await supabase
+    .schema('inbound')
     .from('call_logs')
     .select('*, agents(name)')
     .eq('organization_id', orgId)
@@ -41,6 +42,7 @@ export const listLogsByOrg = async (orgId) => {
 
 export const listAllLogs = async () => {
   const { data, error } = await supabase
+    .schema('inbound')
     .from('call_logs')
     .select('*, agents(name), organizations(name)')
     .order('created_at', { ascending: false })
@@ -51,6 +53,7 @@ export const listAllLogs = async () => {
 
 export const getLogById = async (logId) => {
   const { data, error } = await supabase
+    .schema('inbound')
     .from('call_logs')
     .select('*, agents(*)')
     .eq('id', logId)

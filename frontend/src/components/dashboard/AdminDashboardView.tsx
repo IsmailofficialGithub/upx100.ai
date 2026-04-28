@@ -33,12 +33,41 @@ const AdminDashboardView: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <MetricCard label="Total Organizations" value={stats.organizations} icon={<Building2 size={16} />} />
         <MetricCard label="Total Users" value={stats.users} icon={<Users size={16} />} />
         <MetricCard label="Global Call Volume" value={stats.calls} icon={<Phone size={16} />} />
-        <MetricCard label="Total Leads" value={stats.leads} icon={<FileText size={16} />} />
         <MetricCard label="Active AI Agents" value={stats.agents} icon={<BarChart3 size={16} />} />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-4 flex items-center justify-between">
+          <div>
+            <p className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] mb-1">Pending Scripts</p>
+            <p className="text-2xl font-bold font-display text-[hsl(var(--foreground))]">{stats.pendingScripts}</p>
+          </div>
+          <div className="p-3 bg-amber-500/10 rounded-lg text-amber-500">
+            <FileText size={24} />
+          </div>
+        </div>
+        <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-4 flex items-center justify-between">
+          <div>
+            <p className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] mb-1">Pending Uploads</p>
+            <p className="text-2xl font-bold font-display text-[hsl(var(--foreground))]">{stats.pendingUploads}</p>
+          </div>
+          <div className="p-3 bg-blue-500/10 rounded-lg text-blue-500">
+            <BarChart3 size={24} />
+          </div>
+        </div>
+        <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-4 flex items-center justify-between">
+          <div>
+            <p className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] mb-1">Voice Clones</p>
+            <p className="text-2xl font-bold font-display text-[hsl(var(--foreground))]">{stats.pendingClones}</p>
+          </div>
+          <div className="p-3 bg-purple-500/10 rounded-lg text-purple-500">
+            <Users size={24} />
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

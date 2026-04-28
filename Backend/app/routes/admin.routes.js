@@ -11,15 +11,15 @@ router.get('/stats', adminController.getStats);
 
 // Users
 router.get('/users', adminController.getUsers);
-router.post('/users', adminController.createUser);
-router.patch('/users/:id', adminController.updateUser);
-router.delete('/users/:id', adminController.deleteUser);
+router.post('/users', requireRole(['gcc_admin']), adminController.createUser);
+router.patch('/users/:id', requireRole(['gcc_admin']), adminController.updateUser);
+router.delete('/users/:id', requireRole(['gcc_admin']), adminController.deleteUser);
 
 // Organizations
 router.get('/organizations', adminController.getOrganizations);
-router.post('/organizations', adminController.createOrganization);
-router.patch('/organizations/:id', adminController.updateOrganization);
-router.delete('/organizations/:id', adminController.deleteOrganization);
+router.post('/organizations', requireRole(['gcc_admin']), adminController.createOrganization);
+router.patch('/organizations/:id', requireRole(['gcc_admin']), adminController.updateOrganization);
+router.delete('/organizations/:id', requireRole(['gcc_admin']), adminController.deleteOrganization);
 
 router.get('/call-logs', adminController.getCallLogs);
 router.get('/leads', adminController.getLeads);

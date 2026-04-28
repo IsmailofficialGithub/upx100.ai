@@ -17,12 +17,19 @@ export const getGlobalStats = async () => {
   // Note: if RPC doesn't exist, we'd do a grouped query. 
   // Let's assume we do a raw query for now or just return the counts.
 
+  const { count: pendingScripts } = await supabase.from('script_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending');
+  const { count: pendingUploads } = await supabase.from('target_uploads').select('*', { count: 'exact', head: true }).eq('status', 'pending');
+  const { count: pendingClones } = await supabase.from('voice_clones').select('*', { count: 'exact', head: true }).eq('status', 'pending');
+
   return {
     organizations: totalOrgs || 0,
     users: totalUsers || 0,
     calls: totalCalls || 0,
     leads: totalLeads || 0,
-    agents: totalAgents || 0
+    agents: totalAgents || 0,
+    pendingScripts: pendingScripts || 0,
+    pendingUploads: pendingUploads || 0,
+    pendingClones: pendingClones || 0
   };
 };
 

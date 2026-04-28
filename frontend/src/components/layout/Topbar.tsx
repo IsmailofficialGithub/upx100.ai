@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { Menu, Moon, Sun, Bell, Download, Pause, Play, LogOut } from 'lucide-react';
+import api from '@/lib/api';
+import { toast } from 'sonner';
 
 interface TopbarProps {
   title: string;
@@ -16,6 +18,30 @@ const Topbar: React.FC<TopbarProps> = ({ title, onMenuClick }) => {
 
   const handleLogin = () => {
     login('client_admin');
+  };
+
+  const handlePause = async (reason: string) => {
+    try {
+      await api.post('/campaigns/global/pause', { reason });
+      setIsPaused(true);
+      setShowPauseModal(false);
+      toast.success('Campaigns paused successfully');
+    } catch (err: any) {
+      toast.error('Failed to pause campaigns');
+      console.error(err);
+    }
+  };
+
+  const handleResume = async () => {
+    try {
+      await api.post('/campaigns/global/resume', { reason: 'Manual resume' });
+      setIsPaused(false);
+      setShowPauseModal(false);
+      toast.success('Campaigns resumed successfully');
+    } catch (err: any) {
+      toast.error('Failed to resume campaigns');
+      console.error(err);
+    }
   };
 
   return (
@@ -112,10 +138,7 @@ const Topbar: React.FC<TopbarProps> = ({ title, onMenuClick }) => {
                   <button
                     key={reason}
                     className="w-full text-left px-3 py-2 rounded-lg text-xs font-medium bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]/80 transition-colors"
-                    onClick={() => {
-                      setIsPaused(true);
-                      setShowPauseModal(false);
-                    }}
+                    onClick={() => handlePause(reason)}
                   >
                     {reason}
                   </button>
@@ -126,10 +149,7 @@ const Topbar: React.FC<TopbarProps> = ({ title, onMenuClick }) => {
             {isPaused && (
               <div className="flex gap-3">
                 <button
-                  onClick={() => {
-                    setIsPaused(false);
-                    setShowPauseModal(false);
-                  }}
+                  onClick={handleResume}
                   className="flex-1 px-4 py-2 rounded-lg text-sm font-medium bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:opacity-90"
                 >
                   Resume

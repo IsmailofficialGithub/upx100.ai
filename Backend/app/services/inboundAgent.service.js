@@ -56,6 +56,7 @@ export const deleteAgent = async (agentId) => {
 
   // 2. Soft delete in local database
   const { error } = await supabase
+    .schema('inbound')
     .from('agents')
     .update({ deleted_at: new Date().toISOString(), status: 'deleted' })
     .eq('id', agentId)
@@ -66,6 +67,7 @@ export const deleteAgent = async (agentId) => {
 
 export const getAgentById = async (agentId) => {
   const { data, error } = await supabase
+    .schema('inbound')
     .from('agents')
     .select('*')
     .eq('id', agentId)

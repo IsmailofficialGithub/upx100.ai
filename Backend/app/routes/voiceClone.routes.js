@@ -7,10 +7,9 @@ const router = express.Router()
 
 router.use(auth)
 
-router.get('/', voiceController.getClones)
-router.post('/', voiceController.submit)
+router.get('/', requireRole(['gcc_admin', 'gcc_reviewer', 'client_admin', 'client_sub']), voiceController.getClones)
+router.post('/', requireRole(['gcc_admin', 'client_admin', 'client_sub']), voiceController.submit)
 
-// Reviewing is restricted to GCC staff
-router.patch('/:cloneId/review', requireRole(['gcc_admin', 'gcc_reviewer']), voiceController.review)
+router.patch('/:cloneId/review', requireRole(['gcc_admin', 'gcc_reviewer', 'client_admin']), voiceController.review)
 
 export default router

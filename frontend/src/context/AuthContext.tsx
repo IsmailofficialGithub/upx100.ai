@@ -17,6 +17,7 @@ interface User {
   name: string;
   email: string;
   role: UserRole;
+  orgId: string;
   entityName: string;
   region: 'US' | 'UK';
 }
@@ -95,6 +96,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         name: apiUser.user_metadata?.full_name || apiUser.profile?.full_name || 'User',
         email: apiUser.email,
         role: apiUser.profile?.role as UserRole,
+        orgId: apiUser.profile?.organization_id || '',
         entityName: apiUser.profile?.organizations?.name || 'My Organization',
         region: apiUser.profile?.organizations?.country_code === 'GB' ? 'UK' : 'US',
       };

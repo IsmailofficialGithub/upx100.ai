@@ -14,6 +14,9 @@ const pageTitles: Record<string, string> = {
   '/client/playbook': 'Sales Playbook',
   '/admin/dashboard': 'Global Operations',
   '/admin/analytics': 'Network Analytics',
+  '/admin/scripts': 'Review Script Requests',
+  '/admin/uploads': 'Review Target Uploads',
+  '/admin/clones': 'Review Voice Clones',
   '/partner/dashboard': 'Partner Portal',
   '/partner/analytics': 'Sales Performance',
 };

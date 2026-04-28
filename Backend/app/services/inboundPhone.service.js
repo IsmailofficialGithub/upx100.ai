@@ -53,6 +53,7 @@ export const deleteNumber = async (numberId) => {
 
   // 2. Remove from local database (or soft delete if required, but schema doesn't have deleted_at for numbers)
   const { error } = await supabase
+    .schema('inbound')
     .from('phone_numbers')
     .delete()
     .eq('id', numberId)
@@ -64,6 +65,7 @@ export const deleteNumber = async (numberId) => {
 export const requestPort = async (numberId, portData) => {
   // Logic for port request (roadmap: client_admin submits, gcc processes)
   const { data, error } = await supabase
+    .schema('inbound')
     .from('phone_numbers')
     .update({ 
       port_requested: true, 
@@ -80,6 +82,7 @@ export const requestPort = async (numberId, portData) => {
 
 export const listNumbersByOrg = async (orgId) => {
   const { data, error } = await supabase
+    .schema('inbound')
     .from('phone_numbers')
     .select('*')
     .eq('organization_id', orgId)

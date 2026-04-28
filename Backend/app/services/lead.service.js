@@ -5,8 +5,9 @@ import { supabase } from '../config/supabase.js'
  * Manages qualified leads, status updates, and CRM synchronization.
  */
 
-export const listLogsByOrg = async (orgId) => {
+export const listLeadsByOrg = async (orgId) => {
   const { data, error } = await supabase
+    .schema('inbound')
     .from('leads')
     .select('*, call_logs(*), agents(name)')
     .eq('organization_id', orgId)
@@ -18,6 +19,7 @@ export const listLogsByOrg = async (orgId) => {
 
 export const listAllLeads = async () => {
   const { data, error } = await supabase
+    .schema('inbound')
     .from('leads')
     .select('*, call_logs(*), agents(name), organizations(name)')
     .order('created_at', { ascending: false })
@@ -28,6 +30,7 @@ export const listAllLeads = async () => {
 
 export const getLeadById = async (leadId) => {
   const { data, error } = await supabase
+    .schema('inbound')
     .from('leads')
     .select('*, call_logs(*), agents(*)')
     .eq('id', leadId)

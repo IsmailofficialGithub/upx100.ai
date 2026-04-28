@@ -1,18 +1,46 @@
-import React, { useState, useMemo } from 'react';
-import { winLossData, objectionInsights, roiDefaults, revenueProjection } from '@/data/mockData';
+import React, { useState, useMemo, useEffect } from 'react';
+import api from '@/lib/api';
+import { winLossData as mockWinLoss, objectionInsights as mockObjections, roiDefaults as mockRoi, revenueProjection as mockProjection } from '@/data/mockData';
 import { useTheme } from '@/context/ThemeContext';
 import {
   XAxis, YAxis, Tooltip, ResponsiveContainer, Area, AreaChart,
 } from 'recharts';
-import { TrendingUp, TrendingDown, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
+import { TrendingUp, TrendingDown, AlertTriangle, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 const AnalyticsView: React.FC = () => {
   const { currencySymbol } = useTheme();
-  const [acv, setAcv] = useState(roiDefaults.acv);
-  const [closeRate, setCloseRate] = useState(roiDefaults.closeRate);
-  const [runway, setRunway] = useState(roiDefaults.runway);
+  const [data, setData] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const [acv, setAcv] = useState(mockRoi.acv);
+  const [closeRate, setCloseRate] = useState(mockRoi.closeRate);
+  const [runway, setRunway] = useState(mockRoi.runway);
   const [expandedObj, setExpandedObj] = useState<number | null>(null);
   const [expandedLoss, setExpandedLoss] = useState<number | null>(null);
+
+  useEffect(() => {
+    const fetchAnalytics = async () => {
+      try {
+        const response = await api.get('/analytics/stats');
+        const result = response.data.data;
+        setData(result);
+        setAcv(result.roiDefaults.acv);
+        setCloseRate(result.roiDefaults.closeRate);
+        setRunway(result.roiDefaults.runway);
+      } catch (err) {
+        toast.error('Failed to load analytics data');
+        console.error(err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchAnalytics();
+  }, []);
+
+  const winLossData = data?.winLossData || mockWinLoss;
+  const objectionInsights = data?.objectionInsights || mockObjections;
+  const revenueProjection = data?.revenueProjection || mockProjection;
 
   const roiCalc = useMemo(() => {
     const monthlyMeetings = 18;
@@ -24,11 +52,20 @@ const AnalyticsView: React.FC = () => {
     return { projectedMeetings, pipelineValue, expectedRevenue, totalCost, roi };
   }, [acv, closeRate, runway]);
 
-  const projectionData = revenueProjection.labels.slice(0, runway).map((label, i) => ({
+  const projectionData = revenueProjection.labels.slice(0, runway).map((label: string, i: number) => ({
     name: label,
     revenue: revenueProjection.data[i] * (closeRate / 100) * (acv / 145000),
     costs: revenueProjection.costs[i] * runway / 12,
   }));
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="animate-spin text-[hsl(var(--primary))]" size={32} />
+      </div>
+    );
+  }
+
 
   return (
     <div className="space-y-6">

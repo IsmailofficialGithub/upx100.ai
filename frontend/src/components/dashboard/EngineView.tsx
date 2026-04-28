@@ -1,8 +1,9 @@
-import { Upload, Download, Play, FileText } from 'lucide-react';
+import { Upload, Download, Play, FileText, Loader2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
+import api from '@/lib/api';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import StatusBadge from '../shared/StatusBadge';
 import { scripts, voiceConfig } from '@/data/mockData';
 
@@ -22,10 +23,46 @@ const EngineView: React.FC = () => {
   const [csvData, setCsvData] = useState<Array<{ name: string; company: string; title: string; email: string }> | null>(null);
   const [csvFileName, setCsvFileName] = useState('');
   const [dragOver, setDragOver] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploads, setUploads] = useState<any[]>([]);
+  const [isLoadingUploads, setIsLoadingUploads] = useState(true);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { canSubmitScripts, canUploadTargets } = useAuth();
 
   const currentScript = scripts[scriptTab];
+  const [isCloning, setIsCloning] = useState(false);
+
+  const handleVoiceCloneSubmit = async () => {
+    setIsCloning(true);
+    try {
+      await api.post('/voice-clones', {
+        voice_name: 'Custom Voice Clone',
+        sample_url: 'sample_file_reference'
+      });
+      toast.success('Voice clone request submitted!');
+    } catch (err) {
+      toast.error('Failed to submit voice clone request');
+    } finally {
+      setIsCloning(false);
+    }
+  };
+
+
+  useEffect(() => {
+    fetchUploads();
+  }, []);
+
+  const fetchUploads = async () => {
+    try {
+      const response = await api.get('/target-uploads');
+      setUploads(response.data.data);
+    } catch (err) {
+      console.error('Failed to fetch uploads');
+    } finally {
+      setIsLoadingUploads(false);
+    }
+  };
 
   const handleFileDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -56,9 +93,29 @@ const EngineView: React.FC = () => {
           email: cols[3]?.trim() || '',
         };
       }).filter(r => r.name);
-      setCsvData(parsed.slice(0, 10));
+      setCsvData(parsed);
     };
     reader.readAsText(file);
+  };
+
+  const handleUpload = async () => {
+    if (!csvData) return;
+    setIsUploading(true);
+    try {
+      await api.post('/target-uploads', {
+        file_url: csvFileName,
+        row_count: csvData.length,
+        // In a real app we would send the JSON or a file upload reference
+      });
+      toast.success('Target list uploaded successfully');
+      setCsvData(null);
+      setCsvFileName('');
+      fetchUploads();
+    } catch (err) {
+      toast.error('Failed to upload target list');
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   return (
@@ -106,9 +163,19 @@ const EngineView: React.FC = () => {
             />
             <div className="flex justify-end mt-2">
               <button
-                onClick={() => { setScriptChange(''); toast.success('Script change request submitted!'); }}
+                onClick={async () => { 
+                  try {
+                    await api.post('/script-requests', {
+                      script_text: scriptChange,
+                      campaign_type: scriptTab
+                    });
+                    setScriptChange(''); 
+                    toast.success('Script change request submitted!'); 
+                  } catch (err) {
+                    toast.error('Failed to submit request');
+                  }
+                }}
                 disabled={!scriptChange.trim()}
-
                 className="px-4 py-1.5 rounded-lg text-xs font-medium bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed transition-opacity"
               >
                 Submit Request
@@ -156,15 +223,25 @@ const EngineView: React.FC = () => {
         {/* Preview Table */}
         {csvData && (
           <div className="mt-4">
-            <div className="flex items-center gap-2 mb-2">
-              <FileText size={14} className="text-[hsl(var(--primary))]" />
-              <span className="text-xs font-mono text-[hsl(var(--foreground))]">{csvFileName}</span>
-              <span className="text-[10px] font-mono text-[hsl(var(--muted-foreground))]">({csvData.length} rows)</span>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <FileText size={14} className="text-[hsl(var(--primary))]" />
+                <span className="text-xs font-mono text-[hsl(var(--foreground))]">{csvFileName}</span>
+                <span className="text-[10px] font-mono text-[hsl(var(--muted-foreground))]">({csvData.length} rows)</span>
+              </div>
+              <button
+                onClick={handleUpload}
+                disabled={isUploading}
+                className="px-4 py-1.5 bg-[hsl(var(--primary))] text-black rounded-lg text-xs font-semibold hover:opacity-90 transition-opacity flex items-center gap-2"
+              >
+                {isUploading ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
+                Confirm & Upload
+              </button>
             </div>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto max-h-60">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="border-b border-[hsl(var(--border-v))]">
+                  <tr className="border-b border-[hsl(var(--border-v))] sticky top-0 bg-[hsl(var(--card))]">
                     <th className="text-left py-2 px-2 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Name</th>
                     <th className="text-left py-2 px-2 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Company</th>
                     <th className="text-left py-2 px-2 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Title</th>
@@ -172,7 +249,7 @@ const EngineView: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {csvData.map((row, idx) => (
+                  {csvData.slice(0, 10).map((row, idx) => (
                     <tr key={idx} className="border-b border-[hsl(var(--border))] hover:bg-[hsl(var(--muted))] transition-colors">
                       <td className="py-2 px-2 text-[hsl(var(--foreground))]">{row.name}</td>
                       <td className="py-2 px-2 text-[hsl(var(--foreground))]">{row.company}</td>
@@ -180,6 +257,13 @@ const EngineView: React.FC = () => {
                       <td className="py-2 px-2 text-[hsl(var(--foreground))]">{row.email}</td>
                     </tr>
                   ))}
+                  {csvData.length > 10 && (
+                    <tr>
+                      <td colSpan={4} className="py-2 text-center text-[10px] text-[hsl(var(--muted-foreground))] italic">
+                        + {csvData.length - 10} more rows
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -190,22 +274,26 @@ const EngineView: React.FC = () => {
         <div className="mt-4">
           <p className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] mb-2 tracking-wider">Recent Submissions</p>
           <div className="space-y-2">
-            {[
-              { name: 'Q3_enterprise_targets.csv', date: 'Jul 20, 2025', status: 'deployed' as const, count: 142 },
-              { name: 'healthcare_leads_july.csv', date: 'Jul 15, 2025', status: 'pending' as const, count: 89 },
-              { name: 'fintech_outbound.csv', date: 'Jul 10, 2025', status: 'approved' as const, count: 210 },
-            ].map((sub, i) => (
-              <div key={i} className="flex items-center justify-between p-2.5 bg-[hsl(var(--muted))] rounded-lg">
-                <div className="flex items-center gap-2">
-                  <FileText size={14} className="text-[hsl(var(--muted-foreground))]" />
-                  <div>
-                    <p className="text-xs text-[hsl(var(--foreground))]">{sub.name}</p>
-                    <p className="text-[10px] font-mono text-[hsl(var(--muted-foreground))]">{sub.date} · {sub.count} accounts</p>
+            {isLoadingUploads ? (
+              <div className="flex justify-center p-4"><Loader2 className="animate-spin text-[hsl(var(--primary))]" size={20} /></div>
+            ) : uploads.length > 0 ? (
+              uploads.map((sub) => (
+                <div key={sub.id} className="flex items-center justify-between p-2.5 bg-[hsl(var(--muted))] rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <FileText size={14} className="text-[hsl(var(--muted-foreground))]" />
+                    <div>
+                      <p className="text-xs text-[hsl(var(--foreground))]">{sub.file_url}</p>
+                      <p className="text-[10px] font-mono text-[hsl(var(--muted-foreground))]">
+                        {new Date(sub.created_at).toLocaleDateString()} · {sub.row_count} accounts
+                      </p>
+                    </div>
                   </div>
+                  <StatusBadge status={sub.status} />
                 </div>
-                <StatusBadge status={sub.status} />
-              </div>
-            ))}
+              ))
+            ) : (
+              <p className="text-center py-4 text-xs text-[hsl(var(--muted-foreground))]">No submissions found.</p>
+            )}
           </div>
         </div>
       </div>
@@ -257,8 +345,13 @@ const EngineView: React.FC = () => {
         <div className="mt-4 p-4 border border-dashed border-[hsl(var(--border-v))] rounded-lg text-center">
           <p className="text-xs text-[hsl(var(--foreground))]">Upload a voice sample to create a custom AI voice clone</p>
           <p className="text-[11px] text-[hsl(var(--muted-foreground))] mt-1">MP3 or WAV, 30 seconds minimum</p>
-          <button className="mt-2 px-4 py-1.5 rounded-lg text-xs font-medium bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]/80 transition-colors">
-            Choose File
+          <button 
+            onClick={handleVoiceCloneSubmit}
+            disabled={isCloning}
+            className="mt-2 px-4 py-1.5 rounded-lg text-xs font-medium bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]/80 transition-colors flex items-center gap-2 mx-auto"
+          >
+            {isCloning ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
+            {isCloning ? 'Submitting...' : 'Upload & Clone Voice'}
           </button>
         </div>
       </div>

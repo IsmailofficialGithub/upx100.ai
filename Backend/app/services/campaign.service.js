@@ -7,12 +7,15 @@ import { supabase } from '../config/supabase.js'
 
 export const pauseCampaign = async (agentId, orgId, userId, reason) => {
   // 1. Update agent status
-  const { data, error: agentError } = await supabase
-    .from('agents')
-    .update({ status: 'paused' })
-    .eq('id', agentId)
-    .select()
-    .single()
+  let query = supabase.from('agents').update({ status: 'paused' })
+  
+  if (agentId === 'global') {
+    query = query.eq('organization_id', orgId)
+  } else {
+    query = query.eq('id', agentId)
+  }
+  
+  const { data, error: agentError } = await query.select()
 
   if (agentError) throw agentError
 
@@ -20,7 +23,7 @@ export const pauseCampaign = async (agentId, orgId, userId, reason) => {
   const { error: logError } = await supabase
     .from('campaign_pause_log')
     .insert({
-      agent_id: agentId,
+      agent_id: agentId === 'global' ? null : agentId, // If schema requires UUID, passing null for global
       organization_id: orgId,
       user_id: userId,
       action: 'pause',
@@ -28,8 +31,6 @@ export const pauseCampaign = async (agentId, orgId, userId, reason) => {
     })
 
   if (logError) {
-    // If the table doesn't exist yet, we'll gracefully continue or handle the error
-    // In a real migration, this table would be present.
     console.warn('Logging check:', logError.message)
   }
 
@@ -38,12 +39,15 @@ export const pauseCampaign = async (agentId, orgId, userId, reason) => {
 
 export const resumeCampaign = async (agentId, orgId, userId, reason) => {
   // 1. Update agent status
-  const { data, error: agentError } = await supabase
-    .from('agents')
-    .update({ status: 'activating' }) // or 'active'
-    .eq('id', agentId)
-    .select()
-    .single()
+  let query = supabase.schema('inbound').from('agents').update({ status: 'activating' })
+  
+  if (agentId === 'global') {
+    query = query.eq('organization_id', orgId)
+  } else {
+    query = query.eq('id', agentId)
+  }
+  
+  const { data, error: agentError } = await query.select()
 
   if (agentError) throw agentError
 
@@ -51,7 +55,7 @@ export const resumeCampaign = async (agentId, orgId, userId, reason) => {
   await supabase
     .from('campaign_pause_log')
     .insert({
-      agent_id: agentId,
+      agent_id: agentId === 'global' ? null : agentId,
       organization_id: orgId,
       user_id: userId,
       action: 'resume',

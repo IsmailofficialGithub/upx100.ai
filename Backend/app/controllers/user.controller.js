@@ -1,5 +1,6 @@
 import * as userService from '../services/user.service.js'
 import { StatusCodes } from 'http-status-codes'
+import { supabase } from '../config/supabase.js'
 
 /**
  * Get all users based on role-based scoping
@@ -76,7 +77,7 @@ export const getUser = async (req, res) => {
  * Real implementation would involve supabase.auth.admin.createUser
  */
 export const createUser = async (req, res) => {
-  const { email, role, organization_id, full_name } = req.body
+  const { email, password, role, organization_id, full_name } = req.body
   const creatorRole = req.user.role
 
   // RBAC validation as per matrix
@@ -94,13 +95,56 @@ export const createUser = async (req, res) => {
         error: { message: 'Client Admin can only create Client Sub-users' }
       })
     }
+  } else {
+    return res.status(StatusCodes.FORBIDDEN).json({
+      error: { message: 'You do not have permission to create users' }
+    })
   }
 
-  // Note: Actual Auth creation requires service_role and should be done via admin API
-  // For now, returning success placeholder or simple profile insert if auth exists
-  return res.status(StatusCodes.NOT_IMPLEMENTED).json({ 
-    message: 'User creation logic depends on Supabase Admin API setup' 
-  })
+  try {
+    // 1. Create Auth User using Admin API
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      email,
+      password: password || 'DefaultPass123!', // Require changing on first login in real prod
+      email_confirm: true,
+      user_metadata: { full_name, role }
+    })
+
+    if (authError) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        error: { code: 'AUTH_ERROR', message: authError.message }
+      })
+    }
+
+    // 2. Create Public Profile
+    const profileData = {
+      id: authData.user.id,
+      organization_id: creatorRole === 'gcc_admin' ? organization_id : req.user.orgId,
+      email,
+      full_name,
+      role,
+      is_active: true
+    }
+
+    const { data: profile, error: profileError } = await userService.createUserProfile(profileData)
+
+    if (profileError) {
+      // Cleanup auth user if profile fails
+      await supabase.auth.admin.deleteUser(authData.user.id)
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        error: { code: 'PROFILE_ERROR', message: 'Failed to create user profile' }
+      })
+    }
+
+    return res.status(StatusCodes.CREATED).json({ 
+      message: 'User created successfully',
+      data: profile
+    })
+  } catch (error) {
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      error: { code: 'SERVER_ERROR', message: error.message }
+    })
+  }
 }
 
 export const updateUser = async (req, res) => {
