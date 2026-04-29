@@ -1,4 +1,4 @@
-import { supabase } from '../config/supabase.js'
+import { supabaseAdmin } from '../config/supabase.js'
 
 /**
  * Analytics Service
@@ -6,7 +6,7 @@ import { supabase } from '../config/supabase.js'
 
 export const getClientAnalytics = async (orgId) => {
   // 1. Get Win/Loss data from leads
-  const { data: leads } = await supabase.schema('inbound')
+  const { data: leads } = await supabaseAdmin.schema('inbound')
     .from('leads')
     .select('*')
     .eq('organization_id', orgId)

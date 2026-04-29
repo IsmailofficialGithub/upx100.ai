@@ -1,4 +1,4 @@
-import { supabase } from '../config/supabase.js'
+import { supabaseAdmin } from '../config/supabase.js'
 
 /**
  * Voice Clone Service
@@ -6,7 +6,7 @@ import { supabase } from '../config/supabase.js'
  */
 
 export const submitCloneRequest = async (cloneData) => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('voice_clones')
     .insert([{
       ...cloneData,
@@ -20,7 +20,7 @@ export const submitCloneRequest = async (cloneData) => {
 }
 
 export const listClonesByOrg = async (orgId) => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('voice_clones')
     .select('*')
     .eq('organization_id', orgId)
@@ -31,7 +31,7 @@ export const listClonesByOrg = async (orgId) => {
 }
 
 export const listAllClones = async () => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('voice_clones')
     .select('*, organizations(name), profiles(full_name)')
     .order('created_at', { ascending: false })
@@ -41,7 +41,7 @@ export const listAllClones = async () => {
 }
 
 export const updateCloneStatus = async (cloneId, status, reviewerId) => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('voice_clones')
     .update({
       status,

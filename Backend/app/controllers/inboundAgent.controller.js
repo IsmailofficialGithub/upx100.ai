@@ -6,17 +6,11 @@ import { StatusCodes } from 'http-status-codes'
  */
 
 export const getAgents = async (req, res) => {
-  const { role, orgId, userId } = req.user
+  const { role, orgId } = req.user
   let agents
 
-  // Scoping logic based on role
   if (role === 'gcc_admin') {
-    // Roadmaps says GCC Admin sees all, but usually we filter by org if passed
-    // For now, listing all for admin as per requirement
-    const { data, error } = await agentService.listAgentsByOrg(req.query.organization_id || orgId) 
-    // Wait, let's stick to the Spec: GCC Admin sees all
-    // I'll implement a listAll if needed, but for now let's use listAgentsByOrg with optionality
-    agents = await agentService.listAgentsByOrg(orgId) // Default to own org if not specifying
+    agents = await agentService.listAllAgents()
   } else {
     agents = await agentService.listAgentsByOrg(orgId)
   }

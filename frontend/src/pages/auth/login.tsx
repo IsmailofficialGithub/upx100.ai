@@ -192,31 +192,11 @@ const Login = () => {
                   )}
                 </button>
               </form>
-
-              <div className="relative my-8">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-white/10"></div>
-                </div>
-                <div className="relative flex justify-center text-xs">
-                  <span className="px-4 bg-[hsl(var(--card))] text-[hsl(var(--muted-foreground))] font-mono uppercase tracking-widest">Or continue with</span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <button className="flex items-center justify-center gap-3 py-3 border border-white/10 rounded-2xl hover:bg-white/5 transition-colors text-sm font-medium">
-                  <Chrome size={18} />
-                  Google
-                </button>
-                <button className="flex items-center justify-center gap-3 py-3 border border-white/10 rounded-2xl hover:bg-white/5 transition-colors text-sm font-medium">
-                  <Github size={18} />
-                  GitHub
-                </button>
-              </div>
-
+{/* 
               <p className="text-center text-sm text-[hsl(var(--muted-foreground))] mt-10">
                 Don't have an account? {' '}
                 <button className="font-bold text-[hsl(var(--foreground))] hover:text-[hsl(var(--primary))] transition-colors">Contact Administrator</button>
-              </p>
+              </p> */}
             </div>
           </div>
           
@@ -229,4 +209,4 @@ const Login = () => {
   );
 };
 
-export default Login;
+export default Login;

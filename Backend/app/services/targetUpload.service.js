@@ -1,4 +1,4 @@
-import { supabase } from '../config/supabase.js'
+import { supabaseAdmin } from '../config/supabase.js'
 
 /**
  * Target Upload Service
@@ -6,7 +6,7 @@ import { supabase } from '../config/supabase.js'
  */
 
 export const submitUpload = async (uploadData) => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('target_uploads')
     .insert([{
       ...uploadData,
@@ -20,7 +20,7 @@ export const submitUpload = async (uploadData) => {
 }
 
 export const listUploadsByOrg = async (orgId) => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('target_uploads')
     .select('*')
     .eq('organization_id', orgId)
@@ -31,7 +31,7 @@ export const listUploadsByOrg = async (orgId) => {
 }
 
 export const listAllUploads = async () => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('target_uploads')
     .select('*, organizations(name), profiles(full_name)')
     .order('created_at', { ascending: false })
@@ -41,7 +41,7 @@ export const listAllUploads = async () => {
 }
 
 export const updateUploadStatus = async (uploadId, status, reviewerId) => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('target_uploads')
     .update({
       status,

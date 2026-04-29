@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { supabase } from '../config/supabase.js'
+import { supabaseAdmin } from '../config/supabase.js'
 
 /**
  * Inbound Phone Service
@@ -13,7 +13,8 @@ export const provisionNumber = async (numberData) => {
   const webhookResponse = await axios.post(webhookUrl, numberData)
 
   // 2. Save to local database
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
+    .schema('inbound')
     .from('phone_numbers')
     .insert({
       ...numberData,
@@ -34,7 +35,8 @@ export const bindNumberToAgent = async (numberId, agentId) => {
   const webhookResponse = await axios.post(webhookUrl, { numberId, agentId })
 
   // 2. Update local database
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
+    .schema('inbound')
     .from('phone_numbers')
     .update({ agent_id: agentId })
     .eq('id', numberId)
@@ -52,7 +54,7 @@ export const deleteNumber = async (numberId) => {
   const webhookResponse = await axios.delete(webhookUrl, { data: { numberId } })
 
   // 2. Remove from local database (or soft delete if required, but schema doesn't have deleted_at for numbers)
-  const { error } = await supabase
+  const { error } = await supabaseAdmin
     .schema('inbound')
     .from('phone_numbers')
     .delete()
@@ -64,7 +66,7 @@ export const deleteNumber = async (numberId) => {
 
 export const requestPort = async (numberId, portData) => {
   // Logic for port request (roadmap: client_admin submits, gcc processes)
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .schema('inbound')
     .from('phone_numbers')
     .update({ 
@@ -81,7 +83,7 @@ export const requestPort = async (numberId, portData) => {
 }
 
 export const listNumbersByOrg = async (orgId) => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .schema('inbound')
     .from('phone_numbers')
     .select('*')
@@ -92,7 +94,8 @@ export const listNumbersByOrg = async (orgId) => {
 }
 
 export const listAllNumbers = async () => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
+    .schema('inbound')
     .from('phone_numbers')
     .select('*')
 

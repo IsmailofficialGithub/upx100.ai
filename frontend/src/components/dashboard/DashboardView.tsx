@@ -4,10 +4,6 @@ import { useTheme } from '@/context/ThemeContext';
 import MetricCard from '@/components/shared/MetricCard';
 import StatusBadge from '@/components/shared/StatusBadge';
 import {
-  metrics as mockMetrics, funnelData as mockFunnel, outreachActivity, usStateData, ukRegionData,
-  emailStats, benchmarks, liveCalls as mockLiveCalls, contactsData as mockContacts, meetings as mockMeetings,
-} from '@/data/mockData';
-import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
 } from 'recharts';
 import { Phone, Headphones, Mic, ChevronRight, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
@@ -42,14 +38,29 @@ const DashboardView: React.FC = () => {
     fetchStats();
   }, []);
 
-  const currentActivity = outreachActivity[activityPeriod];
-  const mapData = isUK ? ukRegionData : usStateData;
   
-  const metrics = stats?.metrics || mockMetrics;
-  const funnelData = stats?.funnelData || mockFunnel;
-  const liveCalls = stats?.liveCalls?.length > 0 ? stats.liveCalls : mockLiveCalls;
-  const contactsData = stats?.contactsData || mockContacts;
-  const meetings = stats?.meetings || mockMeetings;
+  const metrics = stats?.metrics || {
+    outreach: { value: 0, label: 'Call Logs' },
+    agents: { value: 0, label: 'Agents Assigned' },
+    phoneNumbers: { value: 0, label: 'Numbers Imported' },
+    callTime: { value: '0h 0m', label: 'Total Call Time' }
+  };
+  const funnelData = stats?.funnelData || [];
+  const liveCalls = stats?.liveCalls || [];
+  const contactsData = stats?.contactsData || [];
+  const meetings = stats?.meetings || [];
+  const outreachChartData = stats?.outreachActivity || {
+    daily: { labels: [], data: [] },
+    weekly: { labels: [], data: [] },
+    monthly: { labels: [], data: [] }
+  };
+  const regionalData = stats?.regionalData || [];
+  const emailPerformance = stats?.emailStats || { sent: 0, openRate: 0, replyRate: 0 };
+  const networkBenchmarks = stats?.benchmarks || {
+    meetings: { yours: 0, network: 0, top25: 0, unit: '/week' },
+    connection: { yours: 0, network: 0, top25: 0, unit: '%' },
+    response: { yours: 0, network: 0, top25: 0, unit: '%' }
+  };
 
   const activeCall = liveCalls.find((c: any) => c.id === selectedTranscript) || liveCalls[0];
 
@@ -86,27 +97,25 @@ const DashboardView: React.FC = () => {
       {/* Metrics Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <MetricCard
-          label={metrics.outreach.label}
+          label="Call Logs"
           value={metrics.outreach.value.toLocaleString()}
-          subtext={metrics.outreach.change}
+          subtext="Total processed"
           onClick={() => handleMetricClick('Outreach')}
         />
         <MetricCard
-          label={metrics.meetings.label}
-          value={metrics.meetings.value.toString()}
-          subtext={metrics.meetings.change}
-          onClick={() => handleMetricClick('Meetings')}
+          label="Agents Assigned"
+          value={metrics.agents.value.toString()}
+          subtext="Active AI engines"
         />
         <MetricCard
-          label={metrics.pipeline.label}
-          value={metrics.pipeline.formatted.replace('$', currencySymbol)}
-          tooltip={metrics.pipeline.tooltip}
+          label="Numbers Imported"
+          value={metrics.phoneNumbers.value.toLocaleString()}
+          subtext="Active inbound lines"
         />
         <MetricCard
-          label={metrics.hoursSaved.label}
-          value={metrics.hoursSaved.formatted}
-          subtext={`≈ ${currencySymbol}${isUK ? '11,286' : '16,038'}`}
-          tooltip={metrics.hoursSaved.tooltip}
+          label="Total Call Time"
+          value={metrics.callTime.value}
+          subtext="Cumulative duration"
         />
       </div>
 
@@ -123,7 +132,7 @@ const DashboardView: React.FC = () => {
           </div>
 
           <div className="space-y-3">
-            {liveCalls.map(call => (
+            {liveCalls.length > 0 ? liveCalls.map(call => (
               <div
                 key={call.id}
                 className={`p-3 rounded-lg border transition-colors cursor-pointer ${
@@ -145,35 +154,43 @@ const DashboardView: React.FC = () => {
                 </div>
                 <p className="text-xs text-[hsl(var(--foreground))]">{call.prospect} · {call.company}</p>
               </div>
-            ))}
-          </div>
-
-          {/* Transcript */}
-          <div className="mt-3 p-3 bg-[hsl(var(--muted))] rounded-lg border border-[hsl(var(--border-v))] max-h-40 overflow-y-auto">
-            {activeCall.transcript.slice(0, transcriptIndex + 1).map((line, i) => (
-              <div key={i} className="mb-1.5 text-xs">
-                <span className={`font-mono font-semibold ${line.speaker === 'Eva' ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--accent-blue))]'}`}>
-                  {line.speaker}:
-                </span>{' '}
-                <span className="text-[hsl(var(--foreground))]">{line.text}</span>
-              </div>
-            ))}
-            {transcriptIndex < activeCall.transcript.length - 1 && (
-              <div className="flex items-center gap-1 mt-2">
-                <span className="w-1.5 h-1.5 bg-[hsl(var(--primary))] rounded-full animate-pulse" />
-                <span className="text-[10px] font-mono text-[hsl(var(--muted-foreground))]">Live transcription...</span>
+            )) : (
+              <div className="py-8 text-center border border-dashed border-[hsl(var(--border-v))] rounded-lg">
+                <p className="text-[10px] font-mono text-[hsl(var(--muted-foreground))] uppercase tracking-widest">No active calls</p>
               </div>
             )}
           </div>
 
-          <div className="flex gap-2 mt-3">
-            <button className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border border-emerald-500/40 text-emerald-400 text-xs font-medium hover:bg-emerald-500/10 transition-colors">
-              <Headphones size={14} /> Listen In
-            </button>
-            <button className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border border-red-500/40 text-red-400 text-xs font-medium hover:bg-red-500/10 transition-colors">
-              <Mic size={14} /> Take Over
-            </button>
-          </div>
+          {/* Transcript */}
+          {liveCalls.length > 0 && (
+            <>
+              <div className="mt-3 p-3 bg-[hsl(var(--muted))] rounded-lg border border-[hsl(var(--border-v))] max-h-40 overflow-y-auto">
+                {activeCall?.transcript?.slice(0, transcriptIndex + 1).map((line: any, i: number) => (
+                  <div key={i} className="mb-1.5 text-xs">
+                    <span className={`font-mono font-semibold ${line.speaker === 'Eva' ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--accent-blue))]'}`}>
+                      {line.speaker}:
+                    </span>{' '}
+                    <span className="text-[hsl(var(--foreground))]">{line.text}</span>
+                  </div>
+                ))}
+                {activeCall?.status === 'in_progress' && transcriptIndex < activeCall.transcript.length - 1 && (
+                  <div className="flex items-center gap-1 mt-2">
+                    <span className="w-1.5 h-1.5 bg-[hsl(var(--primary))] rounded-full animate-pulse" />
+                    <span className="text-[10px] font-mono text-[hsl(var(--muted-foreground))]">Live transcription...</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-2 mt-3">
+                <button className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border border-emerald-500/40 text-emerald-400 text-xs font-medium hover:bg-emerald-500/10 transition-colors">
+                  <Headphones size={14} /> Listen In
+                </button>
+                <button className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border border-red-500/40 text-red-400 text-xs font-medium hover:bg-red-500/10 transition-colors">
+                  <Mic size={14} /> Take Over
+                </button>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Pipeline Funnel */}
@@ -233,7 +250,7 @@ const DashboardView: React.FC = () => {
           </div>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={currentActivity.labels.map((label, i) => ({ name: label, value: currentActivity.data[i] }))}>
+              <BarChart data={outreachChartData[activityPeriod].labels.map((label: string, i: number) => ({ name: label, value: outreachChartData[activityPeriod].data[i] }))}>
                 <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#888' }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 11, fill: '#888' }} axisLine={false} tickLine={false} />
                 <Tooltip
@@ -245,8 +262,8 @@ const DashboardView: React.FC = () => {
                   }}
                 />
                 <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                  {currentActivity.data.map((_, i) => (
-                    <Cell key={i} fill={i === currentActivity.data.length - 1 ? 'hsl(var(--primary))' : 'hsl(var(--accent-blue))'} />
+                  {outreachChartData[activityPeriod].data.map((_: any, i: number) => (
+                    <Cell key={i} fill={i === outreachChartData[activityPeriod].data.length - 1 ? 'hsl(var(--primary))' : 'hsl(var(--accent-blue))'} />
                   ))}
                 </Bar>
               </BarChart>
@@ -260,10 +277,10 @@ const DashboardView: React.FC = () => {
             {isUK ? 'UK Regions' : 'US States'}
           </h3>
           <div className="space-y-2.5">
-            {mapData.map((item, i) => {
-              const maxCount = mapData[0].count;
+            {regionalData.map((item: any, i: number) => {
+              const maxCount = regionalData[0]?.count || 1;
               const width = (item.count / maxCount) * 100;
-              const label = 'state' in item ? `${(item as any).state} - ${(item as any).label}` : (item as any).region;
+              const label = item.state ? `${item.state} - ${item.label}` : item.region;
               return (
                 <div key={i}>
                   <div className="flex items-center justify-between mb-1">
@@ -295,15 +312,15 @@ const DashboardView: React.FC = () => {
           <div className="grid grid-cols-3 gap-3">
             <div className="text-center p-3 bg-[hsl(var(--muted))] rounded-lg">
               <p className="text-[10px] font-mono uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Sent</p>
-              <p className="text-xl font-bold font-display text-[hsl(var(--foreground))] mt-1">{emailStats.sent}</p>
+              <p className="text-xl font-bold font-display text-[hsl(var(--foreground))] mt-1">{emailPerformance.sent}</p>
             </div>
             <div className="text-center p-3 bg-[hsl(var(--muted))] rounded-lg">
               <p className="text-[10px] font-mono uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Open Rate</p>
-              <p className="text-xl font-bold font-display text-[hsl(var(--primary))] mt-1">{emailStats.openRate}%</p>
+              <p className="text-xl font-bold font-display text-[hsl(var(--primary))] mt-1">{emailPerformance.openRate}%</p>
             </div>
             <div className="text-center p-3 bg-[hsl(var(--muted))] rounded-lg">
               <p className="text-[10px] font-mono uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Reply Rate</p>
-              <p className="text-xl font-bold font-display text-[hsl(var(--accent-blue))] mt-1">{emailStats.replyRate}%</p>
+              <p className="text-xl font-bold font-display text-[hsl(var(--accent-blue))] mt-1">{emailPerformance.replyRate}%</p>
             </div>
           </div>
         </div>
@@ -317,7 +334,7 @@ const DashboardView: React.FC = () => {
             </span>
           </div>
           <div className="space-y-4">
-            {Object.entries(benchmarks).map(([key, data]) => (
+            {Object.entries(networkBenchmarks).map(([key, data]: [string, any]) => (
               <div key={key}>
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="text-[11px] font-medium text-[hsl(var(--foreground))]">

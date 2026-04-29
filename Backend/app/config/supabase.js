@@ -14,7 +14,7 @@ if (!supabaseUrl || !supabaseServiceKey) {
  * Service role client for administrative tasks (bypasses RLS)
  * Use this only on the server.
  */
-export const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
   auth: {
     autoRefreshToken: false,
     persistSession: false

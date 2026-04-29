@@ -12,7 +12,7 @@ export const getLeads = async (req, res) => {
   if (['gcc_admin', 'gcc_reviewer'].includes(role)) {
     leads = await leadService.listAllLeads()
   } else {
-    leads = await leadService.listLogsByOrg(orgId)
+    leads = await leadService.listLeadsByOrg(orgId)
   }
 
   return res.json({ data: leads })

@@ -1,6 +1,6 @@
 import * as userService from '../services/user.service.js'
 import { StatusCodes } from 'http-status-codes'
-import { supabase } from '../config/supabase.js'
+import { supabaseAdmin } from '../config/supabase.js'
 
 /**
  * Get all users based on role-based scoping
@@ -74,7 +74,7 @@ export const getUser = async (req, res) => {
 
 /**
  * Placeholder for user creation logic
- * Real implementation would involve supabase.auth.admin.createUser
+ * Real implementation would involve supabaseAdmin.auth.admin.createUser
  */
 export const createUser = async (req, res) => {
   const { email, password, role, organization_id, full_name } = req.body
@@ -103,7 +103,7 @@ export const createUser = async (req, res) => {
 
   try {
     // 1. Create Auth User using Admin API
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password: password || 'DefaultPass123!', // Require changing on first login in real prod
       email_confirm: true,
@@ -130,7 +130,7 @@ export const createUser = async (req, res) => {
 
     if (profileError) {
       // Cleanup auth user if profile fails
-      await supabase.auth.admin.deleteUser(authData.user.id)
+      await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         error: { code: 'PROFILE_ERROR', message: 'Failed to create user profile' }
       })

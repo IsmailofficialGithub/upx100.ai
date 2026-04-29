@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
+import api from '@/lib/api';
 import { 
   LayoutDashboard, 
   CalendarDays, 
@@ -14,7 +15,6 @@ import {
   Phone, 
   FileText 
 } from 'lucide-react';
-
 
 interface SidebarProps {
   isOpen: boolean;
@@ -35,6 +35,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     { label: 'Users', path: `/${rolePrefix}/user`, icon: Users, group: 'MANAGEMENT', roles: ['gcc_admin'] },
     { label: 'Team', path: `/${rolePrefix}/team`, icon: Users, group: 'MANAGEMENT', roles: ['sp_primary', 'client_admin'] },
     { label: 'Organizations', path: `/${rolePrefix}/organizations`, icon: Building2, group: 'MANAGEMENT', roles: ['gcc_admin'] },
+    { label: 'Phone Numbers', path: `/${rolePrefix}/phone-numbers`, icon: Phone, group: 'MANAGEMENT', roles: ['gcc_admin', 'client_admin', 'client_sub', 'sp_primary', 'sp_sub'] },
+    { label: 'AI Agents', path: `/${rolePrefix}/agents`, icon: Cpu, group: 'MANAGEMENT', roles: ['gcc_admin', 'client_admin', 'client_sub', 'sp_primary', 'sp_sub'] },
     { label: 'Call Logs', path: `/${rolePrefix}/call-logs`, icon: Phone, group: 'MANAGEMENT', roles: ['gcc_admin', 'sp_primary', 'sp_sub', 'client_admin', 'client_sub'] },
     { label: 'Leads', path: `/${rolePrefix}/leads`, icon: FileText, group: 'MANAGEMENT', roles: ['gcc_admin', 'sp_primary', 'sp_sub', 'client_admin', 'client_sub'] },
     { label: 'Review Scripts', path: `/${rolePrefix}/scripts`, icon: BookOpen, group: 'MANAGEMENT', roles: ['gcc_admin', 'gcc_reviewer'] },
@@ -46,12 +48,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     { label: 'Sales Playbook', path: `/${rolePrefix}/playbook`, icon: BookOpen, group: 'INTELLIGENCE', roles: ['gcc_admin', 'gcc_reviewer', 'sp_primary', 'sp_sub', 'client_admin', 'client_sub'] },
   ];
 
-
-  // Add Commissions for SP Primary
   if (isSPPrimary) {
     navItems.push({ label: 'Commissions', path: `/${rolePrefix}/commissions`, icon: BarChart3, group: 'CAMPAIGN', roles: ['sp_primary'] });
   }
-
 
   const handleNav = (path: string) => {
     navigate(path);
@@ -74,7 +73,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             <p className="text-[10px] font-mono text-[hsl(var(--muted-foreground))] mt-0.5">
               {user?.entityName || portalName}
             </p>
-
             <div className="flex items-center gap-1.5 mt-0.5">
               <p className="text-[9px] font-mono text-[hsl(var(--muted-foreground))]">
                 {user?.name || 'Guest'}
@@ -83,17 +81,15 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 {user?.region || 'US'}
               </span>
             </div>
-
           </div>
           <button onClick={onClose} className="md:hidden text-[hsl(var(--muted-foreground))]">
             <X size={20} />
           </button>
         </div>
 
-        <nav className="flex-1 py-4 overflow-y-auto">
+        <nav className="flex-1 py-4 overflow-y-auto custom-scrollbar">
           {['CAMPAIGN', 'INTELLIGENCE', 'MANAGEMENT'].map(group => (
             <div key={group} className="mb-4">
-
               <p className="px-4 py-2 text-[9px] font-mono font-semibold uppercase tracking-[0.15em] text-[hsl(var(--muted-foreground))]">
                 {group}
               </p>
@@ -101,7 +97,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 .filter(item => item.group === group && item.roles.includes(user?.role || ''))
                 .map(item => {
                   const isActive = location.pathname === item.path;
-
                   const Icon = item.icon;
                   return (
                     <button

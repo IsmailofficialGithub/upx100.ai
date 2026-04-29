@@ -1,4 +1,4 @@
-import { supabase } from '../config/supabase.js'
+import { supabaseAdmin } from '../config/supabase.js'
 
 /**
  * Script Request Service
@@ -6,7 +6,7 @@ import { supabase } from '../config/supabase.js'
  */
 
 export const submitRequest = async (requestData) => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('script_requests')
     .insert([{
       ...requestData,
@@ -20,7 +20,7 @@ export const submitRequest = async (requestData) => {
 }
 
 export const listRequestsByOrg = async (orgId) => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('script_requests')
     .select('*')
     .eq('organization_id', orgId)
@@ -31,7 +31,7 @@ export const listRequestsByOrg = async (orgId) => {
 }
 
 export const listAllRequests = async () => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('script_requests')
     .select('*, organizations(name), profiles(full_name)')
     .order('created_at', { ascending: false })
@@ -41,7 +41,7 @@ export const listAllRequests = async () => {
 }
 
 export const updateRequestStatus = async (requestId, status, reviewerNotes, reviewerId) => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('script_requests')
     .update({
       status,

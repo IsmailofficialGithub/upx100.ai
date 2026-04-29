@@ -1,4 +1,4 @@
-import { supabase } from '../config/supabase.js'
+import { supabaseAdmin } from '../config/supabase.js'
 
 /**
  * Lead Service
@@ -6,10 +6,9 @@ import { supabase } from '../config/supabase.js'
  */
 
 export const listLeadsByOrg = async (orgId) => {
-  const { data, error } = await supabase
-    .schema('inbound')
-    .from('leads')
-    .select('*, call_logs(*), agents(name)')
+  const { data, error } = await supabaseAdmin
+    .from('view_leads')
+    .select('*')
     .eq('organization_id', orgId)
     .order('created_at', { ascending: false })
 
@@ -18,10 +17,9 @@ export const listLeadsByOrg = async (orgId) => {
 }
 
 export const listAllLeads = async () => {
-  const { data, error } = await supabase
-    .schema('inbound')
-    .from('leads')
-    .select('*, call_logs(*), agents(name), organizations(name)')
+  const { data, error } = await supabaseAdmin
+    .from('view_leads')
+    .select('*')
     .order('created_at', { ascending: false })
 
   if (error) throw error
@@ -29,7 +27,7 @@ export const listAllLeads = async () => {
 }
 
 export const getLeadById = async (leadId) => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .schema('inbound')
     .from('leads')
     .select('*, call_logs(*), agents(*)')
@@ -41,7 +39,8 @@ export const getLeadById = async (leadId) => {
 }
 
 export const updateLead = async (leadId, updateData) => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
+    .schema('inbound')
     .from('leads')
     .update(updateData)
     .eq('id', leadId)
@@ -66,7 +65,8 @@ export const syncToCRM = async (leadId) => {
   const success = true 
 
   // 4. Update sync status
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
+    .schema('inbound')
     .from('leads')
     .update({ 
       crm_sync: success ? 'synced' : 'failed' 

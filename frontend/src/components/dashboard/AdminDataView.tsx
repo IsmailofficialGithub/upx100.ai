@@ -26,7 +26,8 @@ const AdminDataView: React.FC<AdminDataViewProps> = ({ endpoint, title, columns,
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const response = await api.get(`/admin/${endpoint}`);
+        const fullPath = endpoint.startsWith('/') ? endpoint : `/admin/${endpoint}`;
+        const response = await api.get(fullPath);
         setData(response.data.data);
       } catch (error) {
         toast.error(`Failed to fetch ${title}`);

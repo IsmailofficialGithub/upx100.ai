@@ -37,7 +37,10 @@ export const liveCalls = [
 ];
 
 export const metrics = {
-  outreach: { value: 1584, change: '+22%', label: 'Outreach' },
+  outreach: { value: 1584, change: '+22%', label: 'Call Logs' },
+  agents: { value: 3, change: '+1', label: 'Agents Assigned' },
+  phoneNumbers: { value: 5, change: '+2', label: 'Numbers Imported' },
+  callTime: { value: '42h 15m', change: '+12%', label: 'Total Call Time' },
   meetings: { value: 18, change: '+7', subtext: 'vs last month', label: 'Meetings' },
   pipeline: { value: 1620000, formatted: '$1.62M', label: 'Pipeline Value', tooltip: 'Pipeline = Meetings × ACV × Win Rate' },
   hoursSaved: { value: 396, formatted: '396', dollarValue: '$16,038', label: 'Hours Saved', tooltip: 'Hours saved = Outreach ÷ 4 per hour' },

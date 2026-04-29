@@ -1,4 +1,4 @@
-import { supabase } from '../config/supabase.js';
+import { supabaseAdmin } from '../config/supabase.js';
 
 /**
  * Admin Service - Global access to all data
@@ -6,20 +6,20 @@ import { supabase } from '../config/supabase.js';
 
 export const getGlobalStats = async () => {
   // Aggregate stats across all organizations
-  const { count: totalOrgs } = await supabase.from('organizations').select('*', { count: 'exact', head: true });
-  const { count: totalUsers } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
-  const { count: totalCalls } = await supabase.schema('inbound').from('call_logs').select('*', { count: 'exact', head: true });
-  const { count: totalLeads } = await supabase.schema('inbound').from('leads').select('*', { count: 'exact', head: true });
-  const { count: totalAgents } = await supabase.schema('inbound').from('agents').select('*', { count: 'exact', head: true });
+  const { count: totalOrgs } = await supabaseAdmin.from('organizations').select('*', { count: 'exact', head: true });
+  const { count: totalUsers } = await supabaseAdmin.from('profiles').select('*', { count: 'exact', head: true });
+  const { count: totalCalls } = await supabaseAdmin.schema('inbound').from('call_logs').select('*', { count: 'exact', head: true });
+  const { count: totalLeads } = await supabaseAdmin.schema('inbound').from('leads').select('*', { count: 'exact', head: true });
+  const { count: totalAgents } = await supabaseAdmin.schema('inbound').from('agents').select('*', { count: 'exact', head: true });
 
   // Get status breakdown for calls
-  const { data: callStatusBreakdown } = await supabase.rpc('get_call_status_breakdown'); 
+  const { data: callStatusBreakdown } = await supabaseAdmin.rpc('get_call_status_breakdown'); 
   // Note: if RPC doesn't exist, we'd do a grouped query. 
   // Let's assume we do a raw query for now or just return the counts.
 
-  const { count: pendingScripts } = await supabase.from('script_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending');
-  const { count: pendingUploads } = await supabase.from('target_uploads').select('*', { count: 'exact', head: true }).eq('status', 'pending');
-  const { count: pendingClones } = await supabase.from('voice_clones').select('*', { count: 'exact', head: true }).eq('status', 'pending');
+  const { count: pendingScripts } = await supabaseAdmin.from('script_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending');
+  const { count: pendingUploads } = await supabaseAdmin.from('target_uploads').select('*', { count: 'exact', head: true }).eq('status', 'pending');
+  const { count: pendingClones } = await supabaseAdmin.from('voice_clones').select('*', { count: 'exact', head: true }).eq('status', 'pending');
 
   return {
     organizations: totalOrgs || 0,
@@ -34,7 +34,7 @@ export const getGlobalStats = async () => {
 };
 
 export const getAllUsers = async () => {
-  return await supabase
+  return await supabaseAdmin
     .from('profiles')
     .select('*, organizations!profiles_organization_id_fkey(name, country_code)')
 
@@ -42,14 +42,14 @@ export const getAllUsers = async () => {
 };
 
 export const getAllOrganizations = async () => {
-  return await supabase
+  return await supabaseAdmin
     .from('organizations')
     .select('*')
     .order('created_at', { ascending: false });
 };
 
 export const getAllCallLogs = async () => {
-  return await supabase
+  return await supabaseAdmin
     .schema('inbound')
     .from('call_logs')
     .select('*, organizations(name), agents(name)')
@@ -58,7 +58,7 @@ export const getAllCallLogs = async () => {
 };
 
 export const getAllLeads = async () => {
-  return await supabase
+  return await supabaseAdmin
     .schema('inbound')
     .from('leads')
     .select('*, organizations(name), agents(name)')
@@ -67,7 +67,7 @@ export const getAllLeads = async () => {
 };
 
 export const getAllPhoneNumbers = async () => {
-  return await supabase
+  return await supabaseAdmin
     .schema('inbound')
     .from('phone_numbers')
     .select('*, organizations(name), agents(name)')
@@ -85,7 +85,7 @@ export const createUser = async (userData) => {
   }
 
   // 1. Create User in Supabase Auth
-  const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
+  const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
@@ -95,7 +95,7 @@ export const createUser = async (userData) => {
   if (authError) return { error: authError };
 
   // 2. Create Profile
-  const { data: profile, error: profileError } = await supabase
+  const { data: profile, error: profileError } = await supabaseAdmin
     .from('profiles')
     .insert([{
       id: authUser.user.id,
@@ -110,7 +110,7 @@ export const createUser = async (userData) => {
   if (profileError) {
     console.error('Profile creation failed:', profileError);
     // Cleanup auth user if profile fails
-    await supabase.auth.admin.deleteUser(authUser.user.id);
+    await supabaseAdmin.auth.admin.deleteUser(authUser.user.id);
     return { error: profileError };
   }
 
@@ -128,14 +128,14 @@ export const updateUser = async (id, updates) => {
 
   // 1. Update Auth User if password is provided
   if (password && password.trim() !== '') {
-    const { error: authError } = await supabase.auth.admin.updateUserById(id, {
+    const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(id, {
       password: password
     });
     if (authError) return { error: authError };
   }
 
   // 2. Update Profile
-  return await supabase
+  return await supabaseAdmin
     .from('profiles')
     .update({ role, organization_id, is_active, full_name })
     .eq('id', id)
@@ -147,14 +147,14 @@ export const updateUser = async (id, updates) => {
 
 export const deleteUser = async (id) => {
   // Delete from Auth first (cascade will handle profiles if configured, but let's be explicit)
-  const { error: authError } = await supabase.auth.admin.deleteUser(id);
+  const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(id);
   if (authError) return { error: authError };
   
-  return await supabase.from('profiles').delete().eq('id', id);
+  return await supabaseAdmin.from('profiles').delete().eq('id', id);
 };
 
 export const createOrganization = async (orgData) => {
-  return await supabase
+  return await supabaseAdmin
     .from('organizations')
     .insert([orgData])
     .select()
@@ -162,7 +162,7 @@ export const createOrganization = async (orgData) => {
 };
 
 export const updateOrganization = async (id, updates) => {
-  return await supabase
+  return await supabaseAdmin
     .from('organizations')
     .update(updates)
     .eq('id', id)
@@ -171,6 +171,6 @@ export const updateOrganization = async (id, updates) => {
 };
 
 export const deleteOrganization = async (id) => {
-  return await supabase.from('organizations').delete().eq('id', id);
+  return await supabaseAdmin.from('organizations').delete().eq('id', id);
 };
 

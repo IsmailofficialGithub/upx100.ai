@@ -38,7 +38,7 @@ function App() {
             <Route path="call-logs" element={
               <AdminDataView 
                 title="Call Logs" 
-                endpoint="call-logs"
+                endpoint="/call-logs"
                 columns={[
                   { key: 'started_at', label: 'Date', render: (val) => new Date(val).toLocaleString() },
                   { key: 'status', label: 'Status' },
@@ -50,12 +50,36 @@ function App() {
             <Route path="leads" element={
               <AdminDataView 
                 title="Captured Leads" 
-                endpoint="leads"
+                endpoint="/leads"
                 columns={[
                   { key: 'name', label: 'Name' },
                   { key: 'email', label: 'Email' },
                   { key: 'status', label: 'Status' },
                   { key: 'created_at', label: 'Captured', render: (val) => new Date(val).toLocaleDateString() }
+                ]}
+              />
+            } />
+            <Route path="phone-numbers" element={
+              <AdminDataView 
+                title="Phone Numbers" 
+                endpoint="/phone-numbers"
+                columns={[
+                  { key: 'phone_number', label: 'Number' },
+                  { key: 'status', label: 'Status' },
+                  { key: 'label', label: 'Label' },
+                  { key: 'provider', label: 'Provider' }
+                ]}
+              />
+            } />
+            <Route path="agents" element={
+              <AdminDataView 
+                title="AI Agents" 
+                endpoint="/agents"
+                columns={[
+                  { key: 'name', label: 'Agent Name' },
+                  { key: 'status', label: 'Status' },
+                  { key: 'vapi_id', label: 'Vapi ID' },
+                  { key: 'created_at', label: 'Created', render: (val) => new Date(val).toLocaleDateString() }
                 ]}
               />
             } />
@@ -151,7 +175,7 @@ function App() {
             <Route path="commissions" element={
               <AdminDataView 
                 title="Commission Earnings" 
-                endpoint="commissions"
+                endpoint="/commissions"
                 columns={[
                   { key: 'period', label: 'Period' },
                   { key: 'collected_mrr', label: 'Collected MRR ($)' },
@@ -164,7 +188,7 @@ function App() {
             <Route path="call-logs" element={
               <AdminDataView 
                 title="Client Call Logs" 
-                endpoint="call-logs"
+                endpoint="/call-logs"
                 columns={[
                   { key: 'started_at', label: 'Date', render: (val) => new Date(val).toLocaleString() },
                   { key: 'organizations', label: 'Client', render: (val) => val?.name },
@@ -176,13 +200,37 @@ function App() {
             <Route path="leads" element={
               <AdminDataView 
                 title="Client Leads" 
-                endpoint="leads"
+                endpoint="/leads"
                 columns={[
                   { key: 'name', label: 'Name' },
                   { key: 'email', label: 'Email' },
                   { key: 'organizations', label: 'Client', render: (val) => val?.name },
                   { key: 'status', label: 'Status' },
                   { key: 'created_at', label: 'Captured', render: (val) => new Date(val).toLocaleDateString() }
+                ]}
+              />
+            } />
+            <Route path="phone-numbers" element={
+              <AdminDataView 
+                title="Client Phone Numbers" 
+                endpoint="/phone-numbers"
+                columns={[
+                  { key: 'phone_number', label: 'Number' },
+                  { key: 'status', label: 'Status' },
+                  { key: 'label', label: 'Label' },
+                  { key: 'provider', label: 'Provider' }
+                ]}
+              />
+            } />
+            <Route path="agents" element={
+              <AdminDataView 
+                title="Client AI Agents" 
+                endpoint="/agents"
+                columns={[
+                  { key: 'name', label: 'Agent Name' },
+                  { key: 'status', label: 'Status' },
+                  { key: 'vapi_id', label: 'Vapi ID' },
+                  { key: 'created_at', label: 'Created', render: (val) => new Date(val).toLocaleDateString() }
                 ]}
               />
             } />

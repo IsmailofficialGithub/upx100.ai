@@ -1,4 +1,4 @@
-import { supabase } from '../config/supabase.js'
+import { supabaseAdmin } from '../config/supabase.js'
 
 /**
  * Call Log Service
@@ -6,7 +6,8 @@ import { supabase } from '../config/supabase.js'
  */
 
 export const createCallLog = async (logData) => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
+    .schema('inbound')
     .from('call_logs')
     .insert([logData])
     .select()
@@ -16,7 +17,10 @@ export const createCallLog = async (logData) => {
 
   // If the call is flagged as a lead, automatically create a lead record
   if (logData.is_lead) {
-    await supabase.from('leads').insert({
+    await supabaseAdmin
+      .schema('inbound')
+      .from('leads')
+      .insert({
       organization_id: logData.organization_id,
       call_log_id: data.id,
       agent_id: logData.agent_id,
@@ -29,10 +33,9 @@ export const createCallLog = async (logData) => {
 }
 
 export const listLogsByOrg = async (orgId) => {
-  const { data, error } = await supabase
-    .schema('inbound')
-    .from('call_logs')
-    .select('*, agents(name)')
+  const { data, error } = await supabaseAdmin
+    .from('view_call_logs')
+    .select('*')
     .eq('organization_id', orgId)
     .order('created_at', { ascending: false })
 
@@ -41,10 +44,9 @@ export const listLogsByOrg = async (orgId) => {
 }
 
 export const listAllLogs = async () => {
-  const { data, error } = await supabase
-    .schema('inbound')
-    .from('call_logs')
-    .select('*, agents(name), organizations(name)')
+  const { data, error } = await supabaseAdmin
+    .from('view_call_logs')
+    .select('*')
     .order('created_at', { ascending: false })
 
   if (error) throw error
@@ -52,7 +54,7 @@ export const listAllLogs = async () => {
 }
 
 export const getLogById = async (logId) => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .schema('inbound')
     .from('call_logs')
     .select('*, agents(*)')

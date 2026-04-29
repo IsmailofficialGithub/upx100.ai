@@ -1,31 +1,31 @@
-import { supabase } from '../config/supabase.js'
+import { supabaseAdmin } from '../config/supabase.js'
 
 /**
  * User Service - Handles interactions with profiles and auth users
  */
 
 export const listAllUsers = async () => {
-  return await supabase
+  return await supabaseAdmin
     .from('profiles')
     .select('*')
 }
 
 export const listUsersByOrg = async (orgId) => {
-  return await supabase
+  return await supabaseAdmin
     .from('profiles')
     .select('*')
     .eq('organization_id', orgId)
 }
 
 export const listUsersByOrgs = async (orgIds) => {
-  return await supabase
+  return await supabaseAdmin
     .from('profiles')
     .select('*')
     .in('organization_id', orgIds)
 }
 
 export const getUserById = async (userId) => {
-  return await supabase
+  return await supabaseAdmin
     .from('profiles')
     .select('*')
     .eq('id', userId)
@@ -33,7 +33,7 @@ export const getUserById = async (userId) => {
 }
 
 export const createUserProfile = async (profileData) => {
-  return await supabase
+  return await supabaseAdmin
     .from('profiles')
     .insert(profileData)
     .select()
@@ -41,7 +41,7 @@ export const createUserProfile = async (profileData) => {
 }
 
 export const updateUserProfile = async (userId, updateData) => {
-  return await supabase
+  return await supabaseAdmin
     .from('profiles')
     .update(updateData)
     .eq('id', userId)
@@ -50,7 +50,7 @@ export const updateUserProfile = async (userId, updateData) => {
 }
 
 export const deactivateUser = async (userId) => {
-  return await supabase
+  return await supabaseAdmin
     .from('profiles')
     .update({ is_active: false })
     .eq('id', userId)
@@ -58,7 +58,7 @@ export const deactivateUser = async (userId) => {
 
 // For Sales Partner specifics
 export const getSPClientAssignments = async (spUserId) => {
-  return await supabase
+  return await supabaseAdmin
     .from('sp_client_assignments')
     .select('client_org_id')
     .eq('sp_user_id', spUserId)

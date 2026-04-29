@@ -1,6 +1,6 @@
 import * as phoneService from '../services/inboundPhone.service.js'
 import axios from 'axios'
-import { supabase } from '../config/supabase.js'
+import { supabaseAdmin } from '../config/supabase.js'
 
 jest.mock('axios')
 jest.mock('../config/supabase.js', () => ({
@@ -29,7 +29,7 @@ describe('InboundPhone Service', () => {
     await phoneService.provisionNumber(mockData)
 
     expect(axios.post).toHaveBeenCalledWith('http://test-phone-webhook', mockData)
-    expect(supabase.insert).toHaveBeenCalled()
+    expect(supabaseAdmin.insert).toHaveBeenCalled()
   })
 
   it('bindNumberToAgent should call bind webhook', async () => {
@@ -41,6 +41,6 @@ describe('InboundPhone Service', () => {
       numberId: 'phone1', 
       agentId: 'agent1' 
     })
-    expect(supabase.update).toHaveBeenCalled()
+    expect(supabaseAdmin.update).toHaveBeenCalled()
   })
 })

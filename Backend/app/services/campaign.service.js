@@ -1,4 +1,4 @@
-import { supabase } from '../config/supabase.js'
+import { supabaseAdmin } from '../config/supabase.js'
 
 /**
  * Campaign Service
@@ -7,7 +7,7 @@ import { supabase } from '../config/supabase.js'
 
 export const pauseCampaign = async (agentId, orgId, userId, reason) => {
   // 1. Update agent status
-  let query = supabase.from('agents').update({ status: 'paused' })
+  let query = supabaseAdmin.from('agents').update({ status: 'paused' })
   
   if (agentId === 'global') {
     query = query.eq('organization_id', orgId)
@@ -20,7 +20,7 @@ export const pauseCampaign = async (agentId, orgId, userId, reason) => {
   if (agentError) throw agentError
 
   // 2. Log the event
-  const { error: logError } = await supabase
+  const { error: logError } = await supabaseAdmin
     .from('campaign_pause_log')
     .insert({
       agent_id: agentId === 'global' ? null : agentId, // If schema requires UUID, passing null for global
@@ -39,7 +39,7 @@ export const pauseCampaign = async (agentId, orgId, userId, reason) => {
 
 export const resumeCampaign = async (agentId, orgId, userId, reason) => {
   // 1. Update agent status
-  let query = supabase.schema('inbound').from('agents').update({ status: 'activating' })
+  let query = supabaseAdmin.schema('inbound').from('agents').update({ status: 'activating' })
   
   if (agentId === 'global') {
     query = query.eq('organization_id', orgId)
@@ -52,7 +52,7 @@ export const resumeCampaign = async (agentId, orgId, userId, reason) => {
   if (agentError) throw agentError
 
   // 2. Log the event
-  await supabase
+  await supabaseAdmin
     .from('campaign_pause_log')
     .insert({
       agent_id: agentId === 'global' ? null : agentId,
@@ -66,7 +66,7 @@ export const resumeCampaign = async (agentId, orgId, userId, reason) => {
 }
 
 export const getPauseHistory = async (agentId) => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('campaign_pause_log')
     .select('*, profiles(full_name)')
     .eq('agent_id', agentId)

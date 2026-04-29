@@ -1,6 +1,7 @@
 import express from 'express';
 import * as adminController from '../controllers/admin.controller.js';
 import { auth, isAdmin } from '../middlewares/auth.js';
+import { requireRole } from '../middlewares/rbac.js'
 
 const router = express.Router();
 
@@ -10,7 +11,7 @@ router.use(auth, isAdmin);
 router.get('/stats', adminController.getStats);
 
 // Users
-router.get('/users', adminController.getUsers);
+router.get('/users', requireRole(['gcc_admin']), adminController.getUsers);
 router.post('/users', requireRole(['gcc_admin']), adminController.createUser);
 router.patch('/users/:id', requireRole(['gcc_admin']), adminController.updateUser);
 router.delete('/users/:id', requireRole(['gcc_admin']), adminController.deleteUser);

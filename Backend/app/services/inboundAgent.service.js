@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { supabase } from '../config/supabase.js'
+import { supabaseAdmin } from '../config/supabase.js'
 
 /**
  * Inbound Agent Service
@@ -13,7 +13,8 @@ export const createAgent = async (agentData) => {
   const webhookResponse = await axios.post(webhookUrl, agentData)
 
   // 2. Synchronize with local database
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
+    .schema('inbound')
     .from('agents')
     .insert({
       ...agentData,
@@ -34,7 +35,8 @@ export const updateAgent = async (agentId, updateData) => {
   const webhookResponse = await axios.patch(webhookUrl, { agentId, ...updateData })
 
   // 2. Update local database
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
+    .schema('inbound')
     .from('agents')
     .update({
       ...updateData,
@@ -55,7 +57,7 @@ export const deleteAgent = async (agentId) => {
   const webhookResponse = await axios.delete(webhookUrl, { data: { agentId } })
 
   // 2. Soft delete in local database
-  const { error } = await supabase
+  const { error } = await supabaseAdmin
     .schema('inbound')
     .from('agents')
     .update({ deleted_at: new Date().toISOString(), status: 'deleted' })
@@ -66,7 +68,7 @@ export const deleteAgent = async (agentId) => {
 }
 
 export const getAgentById = async (agentId) => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .schema('inbound')
     .from('agents')
     .select('*')
@@ -78,10 +80,22 @@ export const getAgentById = async (agentId) => {
 }
 
 export const listAgentsByOrg = async (orgId) => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
+    .schema('inbound')
     .from('agents')
     .select('*')
     .eq('organization_id', orgId)
+    .is('deleted_at', null)
+
+  if (error) throw error
+  return data
+}
+
+export const listAllAgents = async () => {
+  const { data, error } = await supabaseAdmin
+    .schema('inbound')
+    .from('agents')
+    .select('*')
     .is('deleted_at', null)
 
   if (error) throw error

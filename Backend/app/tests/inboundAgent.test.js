@@ -1,6 +1,6 @@
 import * as agentService from '../services/inboundAgent.service.js'
 import axios from 'axios'
-import { supabase } from '../config/supabase.js'
+import { supabaseAdmin } from '../config/supabase.js'
 
 jest.mock('axios')
 jest.mock('../config/supabase.js', () => ({
@@ -28,7 +28,7 @@ describe('InboundAgent Service', () => {
     const result = await agentService.createAgent(mockAgentData)
 
     expect(axios.post).toHaveBeenCalledWith('http://test-webhook', mockAgentData)
-    expect(supabase.from).toHaveBeenCalledWith('agents')
+    expect(supabaseAdmin.from).toHaveBeenCalledWith('agents')
     expect(result.db.id).toBe('mock-uuid')
   })
 
@@ -42,6 +42,6 @@ describe('InboundAgent Service', () => {
       process.env.INBOUND_DELETE_AGENT_WEBHOOK_URL, 
       { data: { agentId } }
     )
-    expect(supabase.update).toHaveBeenCalledWith(expect.objectContaining({ status: 'deleted' }))
+    expect(supabaseAdmin.update).toHaveBeenCalledWith(expect.objectContaining({ status: 'deleted' }))
   })
 })
