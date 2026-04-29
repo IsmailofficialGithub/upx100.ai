@@ -14,7 +14,7 @@ const app = express()
 
 // Security & Logging Middlewares
 app.use(helmet())
-app.use(cors())
+app.use(cors({ origin: ['http://localhost:3000'], credentials: true }))
 app.use(express.json())
 
 // Conditionally use morgan to avoid noise in tests
