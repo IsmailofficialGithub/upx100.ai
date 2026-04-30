@@ -132,7 +132,7 @@ const DashboardView: React.FC = () => {
           </div>
 
           <div className="space-y-3">
-            {liveCalls.length > 0 ? liveCalls.map(call => (
+            {liveCalls.length > 0 ? liveCalls.map((call: any) => (
               <div
                 key={call.id}
                 className={`p-3 rounded-lg border transition-colors cursor-pointer ${
@@ -197,7 +197,7 @@ const DashboardView: React.FC = () => {
         <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-4">
           <h3 className="text-sm font-display font-semibold text-[hsl(var(--foreground))] mb-4">Pipeline Funnel</h3>
           <div className="space-y-3">
-            {funnelData.map((stage, i) => {
+            {funnelData.map((stage: any, i: number) => {
               const maxCount = funnelData[0].count;
               const width = Math.max(20, (stage.count / maxCount) * 100);
               return (
@@ -392,7 +392,7 @@ const DashboardView: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {contactsData.map(contact => (
+                    {contactsData.map((contact: any) => (
                       <tr key={contact.id} className="border-b border-[hsl(var(--border))] hover:bg-[hsl(var(--muted))] transition-colors">
                         <td className="py-2 px-2 text-[hsl(var(--foreground))]">{contact.name}</td>
                         <td className="py-2 px-2 text-[hsl(var(--foreground))]">{contact.company}</td>
@@ -419,7 +419,7 @@ const DashboardView: React.FC = () => {
               </div>
               <h3 className="text-sm font-display font-semibold text-[hsl(var(--foreground))] mb-3">Meetings</h3>
               <div className="space-y-2">
-                {meetings.map(meeting => (
+                {meetings.map((meeting: any) => (
                   <div key={meeting.id} className="border border-[hsl(var(--border-v))] rounded-lg overflow-hidden">
                     <button
                       className="w-full flex items-center justify-between p-3 text-left hover:bg-[hsl(var(--muted))] transition-colors"

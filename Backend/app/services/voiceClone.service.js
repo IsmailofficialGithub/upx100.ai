@@ -7,10 +7,11 @@ import { supabaseAdmin } from '../config/supabase.js'
 
 export const submitCloneRequest = async (cloneData) => {
   const { data, error } = await supabaseAdmin
-    .from('voice_clones')
+    .schema('inbound')
+    .from('voice_clone_submissions')
     .insert([{
       ...cloneData,
-      status: 'pending'
+      status: 'submitted'
     }])
     .select()
     .single()
@@ -21,10 +22,11 @@ export const submitCloneRequest = async (cloneData) => {
 
 export const listClonesByOrg = async (orgId) => {
   const { data, error } = await supabaseAdmin
-    .from('voice_clones')
+    .schema('inbound')
+    .from('voice_clone_submissions')
     .select('*')
     .eq('organization_id', orgId)
-    .order('created_at', { ascending: false })
+    .order('submitted_at', { ascending: false })
 
   if (error) throw error
   return data
@@ -32,9 +34,10 @@ export const listClonesByOrg = async (orgId) => {
 
 export const listAllClones = async () => {
   const { data, error } = await supabaseAdmin
-    .from('voice_clones')
-    .select('*, organizations(name), profiles(full_name)')
-    .order('created_at', { ascending: false })
+    .schema('inbound')
+    .from('voice_clone_submissions')
+    .select('*, organizations!voice_clone_submissions_organization_id_fkey(name), profiles:submitted_by(full_name)')
+    .order('submitted_at', { ascending: false })
 
   if (error) throw error
   return data
@@ -42,7 +45,8 @@ export const listAllClones = async () => {
 
 export const updateCloneStatus = async (cloneId, status, reviewerId) => {
   const { data, error } = await supabaseAdmin
-    .from('voice_clones')
+    .schema('inbound')
+    .from('voice_clone_submissions')
     .update({
       status,
       reviewed_by: reviewerId,

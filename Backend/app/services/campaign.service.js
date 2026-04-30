@@ -7,7 +7,7 @@ import { supabaseAdmin } from '../config/supabase.js'
 
 export const pauseCampaign = async (agentId, orgId, userId, reason) => {
   // 1. Update agent status
-  let query = supabaseAdmin.from('agents').update({ status: 'paused' })
+  let query = supabaseAdmin.schema('inbound').from('agents').update({ status: 'paused' })
   
   if (agentId === 'global') {
     query = query.eq('organization_id', orgId)
@@ -21,11 +21,11 @@ export const pauseCampaign = async (agentId, orgId, userId, reason) => {
 
   // 2. Log the event
   const { error: logError } = await supabaseAdmin
+    .schema('inbound')
     .from('campaign_pause_log')
     .insert({
-      agent_id: agentId === 'global' ? null : agentId, // If schema requires UUID, passing null for global
-      organization_id: orgId,
-      user_id: userId,
+      agent_id: agentId === 'global' ? null : agentId,
+      actioned_by: userId,
       action: 'pause',
       reason: reason
     })
@@ -53,11 +53,11 @@ export const resumeCampaign = async (agentId, orgId, userId, reason) => {
 
   // 2. Log the event
   await supabaseAdmin
+    .schema('inbound')
     .from('campaign_pause_log')
     .insert({
       agent_id: agentId === 'global' ? null : agentId,
-      organization_id: orgId,
-      user_id: userId,
+      actioned_by: userId,
       action: 'resume',
       reason: reason || 'Manual resume'
     })
@@ -67,8 +67,9 @@ export const resumeCampaign = async (agentId, orgId, userId, reason) => {
 
 export const getPauseHistory = async (agentId) => {
   const { data, error } = await supabaseAdmin
+    .schema('inbound')
     .from('campaign_pause_log')
-    .select('*, profiles(full_name)')
+    .select('*, profiles:actioned_by(full_name)')
     .eq('agent_id', agentId)
     .order('created_at', { ascending: false })
 

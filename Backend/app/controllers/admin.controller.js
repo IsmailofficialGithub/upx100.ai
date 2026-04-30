@@ -36,18 +36,50 @@ export const getPhoneNumbers = async (req, res) => {
   res.status(StatusCodes.OK).json({ data });
 };
 
+export const getAgents = async (req, res) => {
+  const { data, error } = await adminService.getAllAgents();
+  if (error) return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error });
+  res.status(StatusCodes.OK).json({ data });
+};
+
+export const getScriptRequests = async (req, res) => {
+  const { data, error } = await adminService.getAllScriptRequests();
+  if (error) return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error });
+  res.status(StatusCodes.OK).json({ data });
+};
+
+export const getTargetUploads = async (req, res) => {
+  const { data, error } = await adminService.getAllTargetUploads();
+  if (error) return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error });
+  res.status(StatusCodes.OK).json({ data });
+};
+
+export const getVoiceClones = async (req, res) => {
+  const { data, error } = await adminService.getAllVoiceClones();
+  if (error) return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error });
+  res.status(StatusCodes.OK).json({ data });
+};
+
 // --- User CRUD ---
 
 export const createUser = async (req, res) => {
+  console.log('[AdminController] Attempting to create user:', req.body.email);
   const { data, error } = await adminService.createUser(req.body);
-  if (error) return res.status(StatusCodes.BAD_REQUEST).json({ error });
+  if (error) {
+    console.error('[AdminController] User creation failed:', error);
+    return res.status(StatusCodes.BAD_REQUEST).json({ error });
+  }
+  console.log('[AdminController] User created successfully:', data.user.id);
   res.status(StatusCodes.CREATED).json({ data });
 };
 
 export const updateUser = async (req, res) => {
-  const { id } = req.params;
-  const { data, error } = await adminService.updateUser(id, req.body);
-  if (error) return res.status(StatusCodes.BAD_REQUEST).json({ error });
+  console.log('[AdminController] Attempting to update user:', req.params.id);
+  const { data, error } = await adminService.updateUser(req.params.id, req.body);
+  if (error) {
+    console.error('[AdminController] User update failed:', error);
+    return res.status(StatusCodes.BAD_REQUEST).json({ error });
+  }
   res.status(StatusCodes.OK).json({ data });
 };
 

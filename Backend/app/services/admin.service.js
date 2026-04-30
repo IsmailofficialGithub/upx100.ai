@@ -17,9 +17,9 @@ export const getGlobalStats = async () => {
   // Note: if RPC doesn't exist, we'd do a grouped query. 
   // Let's assume we do a raw query for now or just return the counts.
 
-  const { count: pendingScripts } = await supabaseAdmin.from('script_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending');
-  const { count: pendingUploads } = await supabaseAdmin.from('target_uploads').select('*', { count: 'exact', head: true }).eq('status', 'pending');
-  const { count: pendingClones } = await supabaseAdmin.from('voice_clones').select('*', { count: 'exact', head: true }).eq('status', 'pending');
+  const { count: pendingScripts } = await supabaseAdmin.schema('inbound').from('script_change_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending');
+  const { count: pendingUploads } = await supabaseAdmin.schema('inbound').from('target_account_uploads').select('*', { count: 'exact', head: true }).eq('status', 'pending_review');
+  const { count: pendingClones } = await supabaseAdmin.schema('inbound').from('voice_clone_submissions').select('*', { count: 'exact', head: true }).eq('status', 'submitted');
 
   return {
     organizations: totalOrgs || 0,
@@ -52,8 +52,7 @@ export const getAllCallLogs = async () => {
   return await supabaseAdmin
     .schema('inbound')
     .from('call_logs')
-    .select('*, organizations(name), agents(name)')
-
+    .select('*, organizations!call_logs_organization_id_fkey(name), agents(name)')
     .order('created_at', { ascending: false });
 };
 
@@ -61,8 +60,7 @@ export const getAllLeads = async () => {
   return await supabaseAdmin
     .schema('inbound')
     .from('leads')
-    .select('*, organizations(name), agents(name)')
-
+    .select('*, organizations!leads_organization_id_fkey(name), agents(name)')
     .order('created_at', { ascending: false });
 };
 
@@ -70,21 +68,55 @@ export const getAllPhoneNumbers = async () => {
   return await supabaseAdmin
     .schema('inbound')
     .from('phone_numbers')
-    .select('*, organizations(name), agents(name)')
+    .select('*, organizations!phone_numbers_organization_id_fkey(name), agents(name)')
     .order('created_at', { ascending: false });
+};
+
+export const getAllAgents = async () => {
+  return await supabaseAdmin
+    .schema('inbound')
+    .from('agents')
+    .select('*, organizations!agents_organization_id_fkey(name)')
+    .order('created_at', { ascending: false });
+};
+
+export const getAllScriptRequests = async () => {
+  return await supabaseAdmin
+    .schema('inbound')
+    .from('script_change_requests')
+    .select('*, organizations!script_change_requests_organization_id_fkey(name)')
+    .order('submitted_at', { ascending: false });
+};
+
+export const getAllTargetUploads = async () => {
+  return await supabaseAdmin
+    .schema('inbound')
+    .from('target_account_uploads')
+    .select('*, organizations!target_account_uploads_organization_id_fkey(name)')
+    .order('uploaded_at', { ascending: false });
+};
+
+export const getAllVoiceClones = async () => {
+  return await supabaseAdmin
+    .schema('inbound')
+    .from('voice_clone_submissions')
+    .select('*, organizations!voice_clone_submissions_organization_id_fkey(name)')
+    .order('submitted_at', { ascending: false });
 };
 
 // --- CRUD OPERATIONS ---
 
 export const createUser = async (userData) => {
   let { email, password, full_name, role, organization_id } = userData;
+  console.log('[AdminService] Creating user:', email, 'with role:', role);
   
   // Sanitize organization_id (empty string -> null)
-  if (!organization_id || organization_id.trim() === '') {
+  if (!organization_id || (typeof organization_id === 'string' && organization_id.trim() === '')) {
     organization_id = null;
   }
 
   // 1. Create User in Supabase Auth
+  console.log('[AdminService] Step 1: Creating Auth user...');
   const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
     email,
     password,
@@ -92,9 +124,15 @@ export const createUser = async (userData) => {
     user_metadata: { full_name }
   });
 
-  if (authError) return { error: authError };
+  if (authError) {
+    console.error('[AdminService] Auth creation error:', authError);
+    return { error: authError };
+  }
+
+  console.log('[AdminService] Auth user created:', authUser.user.id);
 
   // 2. Create Profile
+  console.log('[AdminService] Step 2: Creating Profile record...');
   const { data: profile, error: profileError } = await supabaseAdmin
     .from('profiles')
     .insert([{
@@ -104,17 +142,18 @@ export const createUser = async (userData) => {
       role,
       organization_id
     }])
-    .select()
+    .select('*, organizations!profiles_organization_id_fkey(name)')
     .single();
 
   if (profileError) {
-    console.error('Profile creation failed:', profileError);
+    console.error('[AdminService] Profile creation failed:', profileError);
     // Cleanup auth user if profile fails
+    console.log('[AdminService] Cleaning up Auth user...');
     await supabaseAdmin.auth.admin.deleteUser(authUser.user.id);
     return { error: profileError };
   }
 
-
+  console.log('[AdminService] Profile created successfully');
   return { data: { user: authUser.user, profile } };
 };
 
@@ -135,12 +174,15 @@ export const updateUser = async (id, updates) => {
   }
 
   // 2. Update Profile
-  return await supabaseAdmin
+  const { data: profile, error: profileError } = await supabaseAdmin
     .from('profiles')
     .update({ role, organization_id, is_active, full_name })
     .eq('id', id)
-    .select()
+    .select('*, organizations!profiles_organization_id_fkey(name)')
     .single();
+
+  if (profileError) return { error: profileError };
+  return { data: profile };
 };
 
 

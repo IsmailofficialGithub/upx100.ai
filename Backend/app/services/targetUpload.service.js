@@ -7,10 +7,11 @@ import { supabaseAdmin } from '../config/supabase.js'
 
 export const submitUpload = async (uploadData) => {
   const { data, error } = await supabaseAdmin
-    .from('target_uploads')
+    .schema('inbound')
+    .from('target_account_uploads')
     .insert([{
       ...uploadData,
-      status: 'pending'
+      status: 'pending_review'
     }])
     .select()
     .single()
@@ -21,10 +22,11 @@ export const submitUpload = async (uploadData) => {
 
 export const listUploadsByOrg = async (orgId) => {
   const { data, error } = await supabaseAdmin
-    .from('target_uploads')
+    .schema('inbound')
+    .from('target_account_uploads')
     .select('*')
     .eq('organization_id', orgId)
-    .order('created_at', { ascending: false })
+    .order('uploaded_at', { ascending: false })
 
   if (error) throw error
   return data
@@ -32,9 +34,10 @@ export const listUploadsByOrg = async (orgId) => {
 
 export const listAllUploads = async () => {
   const { data, error } = await supabaseAdmin
-    .from('target_uploads')
-    .select('*, organizations(name), profiles(full_name)')
-    .order('created_at', { ascending: false })
+    .schema('inbound')
+    .from('target_account_uploads')
+    .select('*, organizations!target_account_uploads_organization_id_fkey(name), profiles:uploaded_by(full_name)')
+    .order('uploaded_at', { ascending: false })
 
   if (error) throw error
   return data
@@ -42,7 +45,8 @@ export const listAllUploads = async () => {
 
 export const updateUploadStatus = async (uploadId, status, reviewerId) => {
   const { data, error } = await supabaseAdmin
-    .from('target_uploads')
+    .schema('inbound')
+    .from('target_account_uploads')
     .update({
       status,
       reviewed_by: reviewerId,

@@ -7,7 +7,8 @@ import { supabaseAdmin } from '../config/supabase.js'
 
 export const submitRequest = async (requestData) => {
   const { data, error } = await supabaseAdmin
-    .from('script_requests')
+    .schema('inbound')
+    .from('script_change_requests')
     .insert([{
       ...requestData,
       status: 'pending'
@@ -21,10 +22,11 @@ export const submitRequest = async (requestData) => {
 
 export const listRequestsByOrg = async (orgId) => {
   const { data, error } = await supabaseAdmin
-    .from('script_requests')
+    .schema('inbound')
+    .from('script_change_requests')
     .select('*')
     .eq('organization_id', orgId)
-    .order('created_at', { ascending: false })
+    .order('submitted_at', { ascending: false })
 
   if (error) throw error
   return data
@@ -32,9 +34,10 @@ export const listRequestsByOrg = async (orgId) => {
 
 export const listAllRequests = async () => {
   const { data, error } = await supabaseAdmin
-    .from('script_requests')
-    .select('*, organizations(name), profiles(full_name)')
-    .order('created_at', { ascending: false })
+    .schema('inbound')
+    .from('script_change_requests')
+    .select('*, organizations!script_change_requests_organization_id_fkey(name), profiles:submitted_by(full_name)')
+    .order('submitted_at', { ascending: false })
 
   if (error) throw error
   return data
@@ -42,10 +45,11 @@ export const listAllRequests = async () => {
 
 export const updateRequestStatus = async (requestId, status, reviewerNotes, reviewerId) => {
   const { data, error } = await supabaseAdmin
-    .from('script_requests')
+    .schema('inbound')
+    .from('script_change_requests')
     .update({
       status,
-      reviewer_notes: reviewerNotes,
+      rejection_note: reviewerNotes,
       reviewed_by: reviewerId,
       reviewed_at: new Date().toISOString()
     })

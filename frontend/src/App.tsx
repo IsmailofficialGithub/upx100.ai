@@ -92,6 +92,34 @@ function App() {
             <Route path="user" element={<AdminUserView />} />
             <Route path="organizations" element={<AdminOrgView />} />
 
+            <Route path="phone-numbers" element={
+              <AdminDataView 
+                title="Global Phone Numbers" 
+                endpoint="phone-numbers"
+                columns={[
+                  { key: 'phone_number', label: 'Number' },
+                  { key: 'status', label: 'Status' },
+                  { key: 'organizations', label: 'Organization', render: (val) => val?.name },
+                  { key: 'label', label: 'Label' },
+                  { key: 'provider', label: 'Provider' }
+                ]}
+              />
+            } />
+
+            <Route path="agents" element={
+              <AdminDataView 
+                title="Global AI Agents" 
+                endpoint="agents"
+                columns={[
+                  { key: 'name', label: 'Agent Name' },
+                  { key: 'status', label: 'Status' },
+                  { key: 'organizations', label: 'Organization', render: (val) => val?.name },
+                  { key: 'vapi_id', label: 'Vapi ID' },
+                  { key: 'created_at', label: 'Created', render: (val) => new Date(val).toLocaleDateString() }
+                ]}
+              />
+            } />
+
             <Route path="call-logs" element={
               <AdminDataView 
                 title="Global Call Logs" 

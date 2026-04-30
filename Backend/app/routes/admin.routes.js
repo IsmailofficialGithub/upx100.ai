@@ -25,6 +25,10 @@ router.delete('/organizations/:id', requireRole(['gcc_admin']), adminController.
 router.get('/call-logs', adminController.getCallLogs);
 router.get('/leads', adminController.getLeads);
 router.get('/phone-numbers', adminController.getPhoneNumbers);
+router.get('/agents', adminController.getAgents);
+router.get('/script-requests', adminController.getScriptRequests);
+router.get('/target-uploads', adminController.getTargetUploads);
+router.get('/voice-clones', adminController.getVoiceClones);
 
 
 export default router;
