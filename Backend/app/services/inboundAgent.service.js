@@ -80,6 +80,8 @@ export const getAgentById = async (agentId) => {
 }
 
 export const listAgentsByOrg = async (orgId) => {
+  if (!orgId) return []
+
   const { data, error } = await supabaseAdmin
     .schema('inbound')
     .from('agents')

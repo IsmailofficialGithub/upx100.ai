@@ -26,7 +26,7 @@ export const listUploadsByOrg = async (orgId) => {
     .from('target_account_uploads')
     .select('*')
     .eq('organization_id', orgId)
-    .order('uploaded_at', { ascending: false })
+    .order('created_at', { ascending: false })
 
   if (error) throw error
   return data
@@ -36,8 +36,8 @@ export const listAllUploads = async () => {
   const { data, error } = await supabaseAdmin
     .schema('inbound')
     .from('target_account_uploads')
-    .select('*, organizations!target_account_uploads_organization_id_fkey(name), profiles:uploaded_by(full_name)')
-    .order('uploaded_at', { ascending: false })
+    .select('*, organizations!target_account_uploads_organization_id_fkey(name), profiles:user_id(full_name)')
+    .order('created_at', { ascending: false })
 
   if (error) throw error
   return data

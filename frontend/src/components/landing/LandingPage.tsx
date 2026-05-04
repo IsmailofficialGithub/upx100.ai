@@ -45,7 +45,7 @@ const LandingPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-[hsl(var(--background))]">
       {/* Navigation */}
-      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'bg-black/80 backdrop-blur-xl border-b border-white/10' : 'bg-transparent'}`}>
+      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'bg-[hsl(var(--card))]/80 backdrop-blur-xl border-b border-[hsl(var(--border-v))]' : 'bg-transparent'}`}>
         <div className="max-w-[1200px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="flex items-center gap-2">
             <span className="font-mono text-lg font-bold text-[hsl(var(--primary))]">UP100X.AI</span>
@@ -79,16 +79,16 @@ const LandingPage: React.FC = () => {
 
       {/* Mobile Menu */}
       {mobileMenuOpen && (
-        <div className="fixed inset-0 z-[60] bg-black flex flex-col">
+        <div className="fixed inset-0 z-[60] bg-[hsl(var(--card))] flex flex-col">
           <div className="flex items-center justify-between p-4 border-b border-white/10">
             <span className="font-mono text-lg font-bold text-[hsl(var(--primary))]">UP100X.AI</span>
-            <button onClick={() => setMobileMenuOpen(false)} className="p-2 text-white">
+            <button onClick={() => setMobileMenuOpen(false)} className="p-2 text-[hsl(var(--foreground))]">
               <X size={24} />
             </button>
           </div>
           <div className="flex-1 flex flex-col items-center justify-center gap-8">
             {navLinks.map(link => (
-              <button key={link.href} onClick={() => scrollTo(link.href)} className="text-2xl font-display text-white/70 hover:text-white transition-colors">
+              <button key={link.href} onClick={() => scrollTo(link.href)} className="text-2xl font-display text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors">
                 {link.label}
               </button>
             ))}
@@ -111,11 +111,11 @@ const LandingPage: React.FC = () => {
         <div className="relative max-w-[1200px] mx-auto px-4 sm:px-6 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           {/* Left Column */}
           <div className="space-y-6">
-            <h1 className="font-display text-4xl sm:text-5xl lg:text-[58px] font-bold leading-[1.06] text-white">
+            <h1 className="font-display text-4xl sm:text-5xl lg:text-[58px] font-bold leading-[1.06] text-[hsl(var(--foreground))]">
               Your AI Sales Team That Books Meetings{' '}
               <span className="text-[hsl(var(--primary))]">While You Sleep</span>
             </h1>
-            <p className="text-base text-white/70 leading-relaxed max-w-lg">
+            <p className="text-base text-[hsl(var(--muted-foreground))] leading-relaxed max-w-lg">
               We run your entire inbound/outbound pipeline — sourcing, compliance, personalization, and live AI voice calls — so your calendar fills with qualified meetings. You never touch the tools. Your cost per lead drops 85%.
             </p>
 
@@ -131,12 +131,12 @@ const LandingPage: React.FC = () => {
               <button onClick={() => navigate('/client/dashboard')} className="px-6 py-3 bg-[hsl(var(--primary))] text-black text-sm font-semibold rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2">
                 Start Your Campaign <ChevronRight size={16} />
               </button>
-              <button onClick={() => scrollTo('#how-it-works')} className="px-6 py-3 border border-white/20 text-white text-sm font-semibold rounded-lg hover:bg-white/5 transition-colors">
+              <button onClick={() => scrollTo('#how-it-works')} className="px-6 py-3 border border-[hsl(var(--border-v))] text-[hsl(var(--foreground))] text-sm font-semibold rounded-lg hover:bg-[hsl(var(--muted))] transition-colors">
                 See How It Works
               </button>
             </div>
 
-            <p className="text-xs font-mono text-white/40">No contracts. No software to learn. Live in 30 days.</p>
+            <p className="text-xs font-mono text-[hsl(var(--muted-foreground))]/60">No contracts. No software to learn. Live in 30 days.</p>
           </div>
 
           {/* Right Column - Animated Illustration */}
@@ -148,8 +148,8 @@ const LandingPage: React.FC = () => {
                   <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
                   <span className="text-[10px] font-mono text-emerald-400">LIVE CALL</span>
                 </div>
-                <p className="text-xs text-white/70">Agent: Eva</p>
-                <p className="text-xs text-white font-medium">James T. · CloudScale Inc</p>
+                <p className="text-xs text-[hsl(var(--muted-foreground))]">Agent: Eva</p>
+                <p className="text-xs text-[hsl(var(--foreground))] font-medium">James T. · CloudScale Inc</p>
               </div>
 
               <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-2xl p-6 shadow-2xl">
@@ -158,8 +158,8 @@ const LandingPage: React.FC = () => {
                     <Phone size={20} className="text-[hsl(var(--primary))]" />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-white">AI Voice Agent</p>
-                    <p className="text-[10px] font-mono text-white/40">Active · 3 calls today</p>
+                    <p className="text-sm font-semibold text-[hsl(var(--foreground))]">AI Voice Agent</p>
+                    <p className="text-[10px] font-mono text-[hsl(var(--muted-foreground))]">Active · 3 calls today</p>
                   </div>
                 </div>
 
@@ -167,7 +167,7 @@ const LandingPage: React.FC = () => {
                   <div className="h-2 bg-white/5 rounded-full overflow-hidden">
                     <div className="h-full w-[65%] bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--accent-blue))] rounded-full" />
                   </div>
-                  <div className="flex justify-between text-[10px] font-mono text-white/40">
+                  <div className="flex justify-between text-[10px] font-mono text-[hsl(var(--muted-foreground))]">
                     <span>Leads: 2,420</span>
                     <span>Meetings: 18</span>
                   </div>
@@ -183,13 +183,13 @@ const LandingPage: React.FC = () => {
 
               {/* CPL comparison */}
               <div className="absolute -bottom-6 -left-6 bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-3 shadow-2xl animate-float" style={{ animationDelay: '-2s' }}>
-                <p className="text-[10px] font-mono text-white/40 mb-1">Cost Per Lead</p>
+                <p className="text-[10px] font-mono text-[hsl(var(--muted-foreground))] mb-1">Cost Per Lead</p>
                 <div className="flex items-center gap-3">
                   <div>
-                    <p className="text-[10px] font-mono text-white/40">Human SDR</p>
+                    <p className="text-[10px] font-mono text-[hsl(var(--muted-foreground))]">Human SDR</p>
                     <p className="text-sm font-bold text-red-400">{currencySymbol}262</p>
                   </div>
-                  <ChevronRight size={14} className="text-white/20" />
+                  <ChevronRight size={14} className="text-[hsl(var(--border-v))]" />
                   <div>
                     <p className="text-[10px] font-mono text-[hsl(var(--primary))]">UP100X</p>
                     <p className="text-sm font-bold text-[hsl(var(--primary))]">{currencySymbol}39</p>
@@ -222,7 +222,7 @@ const LandingPage: React.FC = () => {
       <section id="how-it-works" className="section-padding">
         <div className="max-w-[1200px] mx-auto px-4 sm:px-6">
           <p className="text-[11px] font-mono uppercase text-[hsl(var(--primary))] tracking-[0.2em] mb-3 reveal">HOW IT WORKS</p>
-          <h2 className="text-3xl md:text-[42px] font-display font-bold text-white mb-12 reveal">You Focus on Closing. We Fill Your Calendar.</h2>
+          <h2 className="text-3xl md:text-[42px] font-display font-bold text-[hsl(var(--foreground))] mb-12 reveal">You Focus on Closing. We Fill Your Calendar.</h2>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
@@ -236,8 +236,8 @@ const LandingPage: React.FC = () => {
                   <step.icon size={24} className="text-[hsl(var(--primary))]" />
                 </div>
                 <span className="text-[10px] font-mono text-[hsl(var(--primary))] font-semibold">STEP {step.num}</span>
-                <h3 className="text-lg font-display font-semibold text-white mt-2 mb-3">{step.title}</h3>
-                <p className="text-[13px] text-white/60 leading-relaxed">{step.desc}</p>
+                <h3 className="text-lg font-display font-semibold text-[hsl(var(--foreground))] mt-2 mb-3">{step.title}</h3>
+                <p className="text-[13px] text-[hsl(var(--muted-foreground))] leading-relaxed">{step.desc}</p>
               </div>
             ))}
           </div>
@@ -248,7 +248,7 @@ const LandingPage: React.FC = () => {
       <section id="blueprints" className="section-padding bg-[hsl(var(--card))]">
         <div className="max-w-[1200px] mx-auto px-4 sm:px-6">
           <p className="text-[11px] font-mono uppercase text-[hsl(var(--primary))] tracking-[0.2em] mb-3 reveal">BUILT FOR YOUR INDUSTRY</p>
-          <h2 className="text-3xl md:text-[42px] font-display font-bold text-white mb-12 reveal">We Already Know Your Market.</h2>
+          <h2 className="text-3xl md:text-[42px] font-display font-bold text-[hsl(var(--foreground))] mb-12 reveal">We Already Know Your Market.</h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {[
@@ -267,7 +267,7 @@ const LandingPage: React.FC = () => {
                     </div>
                   </div>
                   <p className="text-2xl font-display font-bold text-white mb-2">{card.metric}</p>
-                  <p className="text-[13px] text-white/60 leading-relaxed">{card.desc}</p>
+                  <p className="text-[13px] text-white/90 leading-relaxed">{card.desc}</p>
                 </div>
               </div>
             ))}
@@ -279,7 +279,7 @@ const LandingPage: React.FC = () => {
       <section id="analytics" className="section-padding">
         <div className="max-w-[1200px] mx-auto px-4 sm:px-6">
           <p className="text-[11px] font-mono uppercase text-[hsl(var(--primary))] tracking-[0.2em] mb-3 reveal">YOUR ANALYTICS PORTAL</p>
-          <h2 className="text-3xl md:text-[42px] font-display font-bold text-white mb-12 reveal">Full Visibility. Zero Busywork.</h2>
+          <h2 className="text-3xl md:text-[42px] font-display font-bold text-[hsl(var(--foreground))] mb-12 reveal">Full Visibility. Zero Busywork.</h2>
 
           <div className="reveal bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl overflow-hidden shadow-2xl">
             {/* Browser chrome */}
@@ -290,18 +290,18 @@ const LandingPage: React.FC = () => {
                 <span className="w-3 h-3 rounded-full bg-green-400/60" />
               </div>
               <div className="flex-1 mx-4">
-                <div className="bg-black/30 rounded-md px-3 py-1 text-[10px] font-mono text-white/40 text-center">client.up100x.ai/analytics</div>
+                <div className="bg-black/30 rounded-md px-3 py-1 text-[10px] font-mono text-[hsl(var(--muted-foreground))] text-center">client.up100x.ai/analytics</div>
               </div>
             </div>
 
             {/* Preview content */}
             <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-4">
-                <p className="text-[10px] font-mono uppercase text-white/40 tracking-wider">PIPELINE FUNNEL</p>
+                <p className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] tracking-wider">PIPELINE FUNNEL</p>
                 <div className="space-y-2">
                   {['Leads', 'Contacts', 'Meetings', 'Closed'].map((s, i) => (
                     <div key={s}>
-                      <div className="flex justify-between text-[10px] text-white/60 mb-1">
+                      <div className="flex justify-between text-[10px] text-[hsl(var(--muted-foreground))] mb-1">
                         <span>{s}</span>
                         <span>{[2420, 892, 18, 12][i]}</span>
                       </div>
@@ -314,7 +314,7 @@ const LandingPage: React.FC = () => {
               </div>
 
               <div className="space-y-4">
-                <p className="text-[10px] font-mono uppercase text-white/40 tracking-wider">ACTIVITY HEATMAP</p>
+                <p className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] tracking-wider">ACTIVITY HEATMAP</p>
                 <div className="grid grid-cols-7 gap-1">
                   {Array.from({ length: 28 }, (_, i) => {
                     const intensity = Math.random();
@@ -330,7 +330,7 @@ const LandingPage: React.FC = () => {
               </div>
 
               <div className="space-y-4">
-                <p className="text-[10px] font-mono uppercase text-white/40 tracking-wider">KEY METRICS</p>
+                <p className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] tracking-wider">KEY METRICS</p>
                 <div className="space-y-3">
                   {[
                     { label: 'Outreach', value: '1,584', change: '+22%' },
@@ -340,8 +340,8 @@ const LandingPage: React.FC = () => {
                   ].map(m => (
                     <div key={m.label} className="flex items-center justify-between p-2 bg-white/5 rounded-lg">
                       <div>
-                        <p className="text-[10px] text-white/40">{m.label}</p>
-                        <p className="text-sm font-bold text-white">{m.value}</p>
+                        <p className="text-[10px] text-[hsl(var(--muted-foreground))]">{m.label}</p>
+                        <p className="text-sm font-bold text-[hsl(var(--foreground))]">{m.value}</p>
                       </div>
                       <span className="text-[10px] font-mono text-emerald-400">{m.change}</span>
                     </div>
@@ -355,7 +355,7 @@ const LandingPage: React.FC = () => {
                 <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
                 <span className="text-[10px] font-mono text-emerald-400">LIVE</span>
               </div>
-              <span className="text-[10px] font-mono text-white/30">Client view only</span>
+              <span className="text-[10px] font-mono text-[hsl(var(--muted-foreground))]/50">Client view only</span>
             </div>
           </div>
         </div>
@@ -365,13 +365,13 @@ const LandingPage: React.FC = () => {
       <section className="section-padding bg-[hsl(var(--card))]">
         <div className="max-w-[1200px] mx-auto px-4 sm:px-6 text-center">
           <p className="text-[11px] font-mono uppercase text-[hsl(var(--primary))] tracking-[0.2em] mb-3 reveal">SEE IT IN ACTION</p>
-          <h2 className="text-3xl md:text-[42px] font-display font-bold text-white mb-8 reveal">Hear the Difference.</h2>
+          <h2 className="text-3xl md:text-[42px] font-display font-bold text-[hsl(var(--foreground))] mb-8 reveal">Hear the Difference.</h2>
 
           <div className="reveal max-w-lg mx-auto">
             <button onClick={() => navigate('/client/dashboard')} className="w-full px-8 py-4 bg-[hsl(var(--primary))] text-black text-base font-semibold rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
               <Play size={20} fill="currentColor" /> Enter Client Portal
             </button>
-            <p className="text-xs text-white/40 mt-4">Experience the full dashboard with live data, analytics, and AI controls.</p>
+            <p className="text-xs text-[hsl(var(--muted-foreground))] mt-4">Experience the full dashboard with live data, analytics, and AI controls.</p>
           </div>
         </div>
       </section>
@@ -380,7 +380,7 @@ const LandingPage: React.FC = () => {
       <section id="pricing" className="section-padding">
         <div className="max-w-[1200px] mx-auto px-4 sm:px-6">
           <p className="text-[11px] font-mono uppercase text-[hsl(var(--primary))] tracking-[0.2em] mb-3 reveal">PRICING</p>
-          <h2 className="text-3xl md:text-[42px] font-display font-bold text-white mb-12 reveal">Simple. Predictable. Scalable.</h2>
+          <h2 className="text-3xl md:text-[42px] font-display font-bold text-[hsl(var(--foreground))] mb-12 reveal">Simple. Predictable. Scalable.</h2>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {pricingPlans.map((plan, i) => (
@@ -398,21 +398,21 @@ const LandingPage: React.FC = () => {
                     MOST POPULAR
                   </span>
                 )}
-                <h3 className="text-lg font-display font-semibold text-white mb-1">{plan.name}</h3>
-                <p className="text-[13px] text-white/50 mb-4">{plan.description}</p>
+                <h3 className="text-lg font-display font-semibold text-[hsl(var(--foreground))] mb-1">{plan.name}</h3>
+                <p className="text-[13px] text-[hsl(var(--muted-foreground))] mb-4">{plan.description}</p>
                 <div className="mb-6">
                   {plan.price > 0 ? (
                     <div className="flex items-baseline gap-1">
-                      <span className="text-3xl font-bold font-display text-white">{currencySymbol}{plan.price.toLocaleString()}</span>
-                      <span className="text-sm text-white/40">/month</span>
+                      <span className="text-3xl font-bold font-display text-[hsl(var(--foreground))]">{currencySymbol}{plan.price.toLocaleString()}</span>
+                      <span className="text-sm text-[hsl(var(--muted-foreground))]">/month</span>
                     </div>
                   ) : (
-                    <span className="text-3xl font-bold font-display text-white">Custom</span>
+                    <span className="text-3xl font-bold font-display text-[hsl(var(--foreground))]">Custom</span>
                   )}
                 </div>
                 <ul className="space-y-2.5 mb-6">
                   {plan.features.map((f, fi) => (
-                    <li key={fi} className="flex items-start gap-2 text-[13px] text-white/70">
+                    <li key={fi} className="flex items-start gap-2 text-[13px] text-[hsl(var(--muted-foreground))]">
                       <Check size={14} className="text-[hsl(var(--primary))] flex-shrink-0 mt-0.5" />
                       {f}
                     </li>
@@ -423,7 +423,7 @@ const LandingPage: React.FC = () => {
                   className={`w-full py-3 rounded-lg text-sm font-semibold transition-opacity ${
                     plan.highlighted
                       ? 'bg-[hsl(var(--primary))] text-black hover:opacity-90'
-                      : 'border border-white/20 text-white hover:bg-white/5'
+                      : 'border border-[hsl(var(--border-v))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]'
                   }`}
                 >
                   {plan.price === 0 ? 'Contact Sales' : 'Get Started'}
@@ -440,35 +440,35 @@ const LandingPage: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
             <div>
               <span className="font-mono text-sm font-bold text-[hsl(var(--primary))]">UP100X.AI</span>
-              <p className="text-xs text-white/40 mt-2">AI-powered sales development. No friction. Full results.</p>
+              <p className="text-xs text-[hsl(var(--muted-foreground))] mt-2">AI-powered sales development. No friction. Full results.</p>
             </div>
             <div>
-              <p className="text-[10px] font-mono uppercase text-white/40 tracking-wider mb-3">Navigate</p>
+              <p className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] tracking-wider mb-3">Navigate</p>
               {navLinks.map(l => (
-                <button key={l.href} onClick={() => scrollTo(l.href)} className="block text-sm text-white/60 hover:text-white transition-colors mb-2">
+                <button key={l.href} onClick={() => scrollTo(l.href)} className="block text-sm text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors mb-2">
                   {l.label}
                 </button>
               ))}
-              <button onClick={() => navigate('/client/dashboard')} className="block text-sm text-white/60 hover:text-white transition-colors">
+              <button onClick={() => navigate('/client/dashboard')} className="block text-sm text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors">
                 Client Portal
               </button>
             </div>
             <div>
-              <p className="text-[10px] font-mono uppercase text-white/40 tracking-wider mb-3">Legal</p>
+              <p className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] tracking-wider mb-3">Legal</p>
               {['Terms of Service', 'Privacy Policy', 'Acceptable Use'].map(l => (
-                <span key={l} className="block text-sm text-white/60 mb-2 cursor-default">{l}</span>
+                <span key={l} className="block text-sm text-[hsl(var(--muted-foreground))] mb-2 cursor-default">{l}</span>
               ))}
             </div>
             <div>
-              <p className="text-[10px] font-mono uppercase text-white/40 tracking-wider mb-3">Compliance</p>
-              <p className="text-xs text-white/40">
+              <p className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] tracking-wider mb-3">Compliance</p>
+              <p className="text-xs text-[hsl(var(--muted-foreground))]">
                 {isUK ? 'GDPR Compliant · ISO 27001 · Cyber Essentials Plus' : 'TCPA Compliant · SOC 2 Type II'}
               </p>
             </div>
           </div>
           <div className="pt-6 border-t border-[hsl(var(--border-v))] flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-[11px] text-white/30">© 2025 UP100X.AI. All rights reserved.</p>
-            <p className="text-[11px] text-white/30">
+            <p className="text-[11px] text-[hsl(var(--muted-foreground))]/50">© 2025 UP100X.AI. All rights reserved.</p>
+            <p className="text-[11px] text-[hsl(var(--muted-foreground))]/50">
               {isUK ? 'PECR/TPS Compliant · GDPR Ready' : 'TCPA Compliant · STIR/SHAKEN'}
             </p>
           </div>

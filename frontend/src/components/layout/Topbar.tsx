@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
-import { Menu, Moon, Sun, Bell, Download, Pause, Play, LogOut } from 'lucide-react';
+import { Menu, Moon, Sun, Download, Pause, Play, LogOut } from 'lucide-react';
 import api from '@/lib/api';
 import { toast } from 'sonner';
 
@@ -68,10 +68,6 @@ const Topbar: React.FC<TopbarProps> = ({ title, onMenuClick }) => {
                 {isLight ? <Moon size={16} /> : <Sun size={16} />}
               </button>
 
-              <button className="relative p-2 rounded-lg hover:bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors">
-                <Bell size={16} />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[hsl(var(--primary))] rounded-full" />
-              </button>
 
               <button className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]/80 transition-colors">
                 <Download size={14} />

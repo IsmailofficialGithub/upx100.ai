@@ -11,6 +11,7 @@ export const listAllUsers = async () => {
 }
 
 export const listUsersByOrg = async (orgId) => {
+  if (!orgId) return []
   return await supabaseAdmin
     .from('profiles')
     .select('*')

@@ -26,7 +26,7 @@ export const listRequestsByOrg = async (orgId) => {
     .from('script_change_requests')
     .select('*')
     .eq('organization_id', orgId)
-    .order('submitted_at', { ascending: false })
+    .order('created_at', { ascending: false })
 
   if (error) throw error
   return data
@@ -36,8 +36,8 @@ export const listAllRequests = async () => {
   const { data, error } = await supabaseAdmin
     .schema('inbound')
     .from('script_change_requests')
-    .select('*, organizations!script_change_requests_organization_id_fkey(name), profiles:submitted_by(full_name)')
-    .order('submitted_at', { ascending: false })
+    .select('*, organizations!script_change_requests_organization_id_fkey(name), profiles:user_id(full_name)')
+    .order('created_at', { ascending: false })
 
   if (error) throw error
   return data

@@ -44,7 +44,7 @@ export const auth = async (req, res, next) => {
     // 4. Attach context to request
     req.user = {
       userId: profile.id,
-      orgId: profile.organization_id,
+      orgId: profile.organization_id || null,
       role: profile.role,
       email: user.email,
       profile: profile

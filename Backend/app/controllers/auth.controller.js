@@ -19,8 +19,19 @@ export const login = async (req, res) => {
 
   // Fetch Profile to get role and organization info
   const { data: profile, error: profileError } = await authService.getUserProfile(data.user.id)
+  
   if (profileError) {
-    console.error('Profile fetch error:', profileError)
+    console.error(`[Login] Profile fetch error for user ${data.user.id}:`, profileError)
+    
+    if (profileError.code === 'PGRST116') {
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        error: { 
+          code: 'PROFILE_NOT_FOUND', 
+          message: 'User account exists but profile was not found. Please contact an administrator.' 
+        }
+      })
+    }
+
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       error: { code: 'PROFILE_FETCH_FAILED', message: 'Could not retrieve user profile' }
     })

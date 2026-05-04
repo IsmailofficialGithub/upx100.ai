@@ -139,7 +139,7 @@ export const createUser = async (userData) => {
       id: authUser.user.id,
       email,
       full_name,
-      role,
+      role: role || 'client_sub',
       organization_id
     }])
     .select('*, organizations!profiles_organization_id_fkey(name)')

@@ -5,7 +5,7 @@ import api from '@/lib/api';
 
 import { useRef, useState, useEffect } from 'react';
 import StatusBadge from '../shared/StatusBadge';
-import { scripts, voiceConfig } from '@/data/mockData';
+import { scripts } from '@/data/mockData';
 
 type ScriptTag = 'DISCLOSURE' | 'PITCH' | 'QUALIFY' | 'VALUE' | 'CLOSE';
 
@@ -29,24 +29,7 @@ const EngineView: React.FC = () => {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { canSubmitScripts, canUploadTargets } = useAuth();
-
   const currentScript = scripts[scriptTab];
-  const [isCloning, setIsCloning] = useState(false);
-
-  const handleVoiceCloneSubmit = async () => {
-    setIsCloning(true);
-    try {
-      await api.post('/voice-clones', {
-        voice_name: 'Custom Voice Clone',
-        sample_url: 'sample_file_reference'
-      });
-      toast.success('Voice clone request submitted!');
-    } catch (err) {
-      toast.error('Failed to submit voice clone request');
-    } finally {
-      setIsCloning(false);
-    }
-  };
 
 
   useEffect(() => {
@@ -298,63 +281,6 @@ const EngineView: React.FC = () => {
         </div>
       </div>
 
-      {/* Voice Configuration */}
-      <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-4">
-        <h3 className="text-sm font-display font-semibold text-[hsl(var(--foreground))] mb-4">Voice Configuration</h3>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="border-b border-[hsl(var(--border-v))]">
-                <th className="text-left py-2 px-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Campaign</th>
-                <th className="text-left py-2 px-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Phone Number</th>
-                <th className="text-left py-2 px-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Voice Persona</th>
-                <th className="text-right py-2 px-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Preview</th>
-              </tr>
-            </thead>
-            <tbody>
-              {voiceConfig.map(vc => (
-                <tr key={vc.id} className="border-b border-[hsl(var(--border))] hover:bg-[hsl(var(--muted))] transition-colors">
-                  <td className="py-3 px-3 text-[hsl(var(--foreground))]">{vc.campaign}</td>
-                  <td className="py-3 px-3 font-mono text-[hsl(var(--foreground))]">{vc.phone}</td>
-                  <td className="py-3 px-3">
-                    <select
-                      defaultValue={vc.voice}
-                      className="bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded px-2 py-1 text-[hsl(var(--foreground))] text-xs focus:outline-none focus:border-[hsl(var(--primary))]/50"
-                    >
-                      <option>Professional Female</option>
-                      <option>Professional Male</option>
-                      <option>Warm Female</option>
-                      <option>Warm Male</option>
-                      <option>Energetic Female</option>
-                      <option>Energetic Male</option>
-                    </select>
-                  </td>
-                  <td className="py-3 px-3 text-right">
-                    <button className="p-1.5 rounded-md hover:bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] transition-colors">
-                      <Play size={14} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Voice Clone Upload */}
-        <div className="mt-4 p-4 border border-dashed border-[hsl(var(--border-v))] rounded-lg text-center">
-          <p className="text-xs text-[hsl(var(--foreground))]">Upload a voice sample to create a custom AI voice clone</p>
-          <p className="text-[11px] text-[hsl(var(--muted-foreground))] mt-1">MP3 or WAV, 30 seconds minimum</p>
-          <button 
-            onClick={handleVoiceCloneSubmit}
-            disabled={isCloning}
-            className="mt-2 px-4 py-1.5 rounded-lg text-xs font-medium bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]/80 transition-colors flex items-center gap-2 mx-auto"
-          >
-            {isCloning ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
-            {isCloning ? 'Submitting...' : 'Upload & Clone Voice'}
-          </button>
-        </div>
-      </div>
     </div>
   );
 };

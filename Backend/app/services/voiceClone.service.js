@@ -26,7 +26,7 @@ export const listClonesByOrg = async (orgId) => {
     .from('voice_clone_submissions')
     .select('*')
     .eq('organization_id', orgId)
-    .order('submitted_at', { ascending: false })
+    .order('created_at', { ascending: false })
 
   if (error) throw error
   return data
@@ -36,8 +36,8 @@ export const listAllClones = async () => {
   const { data, error } = await supabaseAdmin
     .schema('inbound')
     .from('voice_clone_submissions')
-    .select('*, organizations!voice_clone_submissions_organization_id_fkey(name), profiles:submitted_by(full_name)')
-    .order('submitted_at', { ascending: false })
+    .select('*, organizations!voice_clone_submissions_organization_id_fkey(name), profiles:user_id(full_name)')
+    .order('created_at', { ascending: false })
 
   if (error) throw error
   return data
