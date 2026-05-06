@@ -33,19 +33,34 @@ export const getGlobalStats = async () => {
   };
 };
 
-export const getAllUsers = async () => {
-  return await supabaseAdmin
+export const getAllUsers = async (searchTerm = '') => {
+  let query = supabaseAdmin
+    .schema('inbound')
     .from('profiles')
     .select('*, organizations!profiles_organization_id_fkey(name, country_code)')
-
     .order('created_at', { ascending: false });
+
+  if (searchTerm && typeof searchTerm === 'string' && searchTerm.trim() !== '') {
+    const term = searchTerm.trim();
+    query = query.or(`full_name.ilike.%${term}%,email.ilike.%${term}%`);
+  }
+
+  return await query;
 };
 
-export const getAllOrganizations = async () => {
-  return await supabaseAdmin
+export const getAllOrganizations = async (searchTerm = '') => {
+  let query = supabaseAdmin
+    .schema('inbound')
     .from('organizations')
     .select('*')
     .order('created_at', { ascending: false });
+
+  if (searchTerm && typeof searchTerm === 'string' && searchTerm.trim() !== '') {
+    const term = searchTerm.trim();
+    query = query.ilike('name', `%${term}%`);
+  }
+
+  return await query;
 };
 
 export const getAllCallLogs = async () => {

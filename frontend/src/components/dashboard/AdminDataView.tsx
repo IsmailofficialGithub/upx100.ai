@@ -12,9 +12,10 @@ interface AdminDataViewProps {
   onAdd?: () => void;
   onEdit?: (row: any) => void;
   onDelete?: (id: string) => void;
+  renderActions?: (row: any) => React.ReactNode;
 }
 
-const AdminDataView: React.FC<AdminDataViewProps> = ({ endpoint, title, columns, onAdd, onEdit, onDelete }) => {
+const AdminDataView: React.FC<AdminDataViewProps> = ({ endpoint, title, columns, onAdd, onEdit, onDelete, renderActions }) => {
 
 
 
@@ -82,7 +83,7 @@ const AdminDataView: React.FC<AdminDataViewProps> = ({ endpoint, title, columns,
                   {col.label}
                 </th>
               ))}
-              {(onEdit || onDelete) && <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Actions</th>}
+              {(onEdit || onDelete || renderActions) && <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Actions</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-[hsl(var(--border-v))]">
@@ -93,9 +94,10 @@ const AdminDataView: React.FC<AdminDataViewProps> = ({ endpoint, title, columns,
                     {col.render ? col.render(row[col.key], row) : (row[col.key] || 'N/A')}
                   </td>
                 ))}
-                {(onEdit || onDelete) && (
+                {(onEdit || onDelete || renderActions) && (
                   <td className="px-4 py-4">
                     <div className="flex items-center gap-1">
+                      {renderActions && renderActions(row)}
                       {onEdit && (
                         <button 
                           onClick={() => onEdit(row)}

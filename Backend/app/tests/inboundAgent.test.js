@@ -18,7 +18,9 @@ jest.mock('../config/supabase.js', () => ({
 describe('InboundAgent Service', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    process.env.INBOUND_BOT_CREATION_WEBHOOK_URL = 'http://test-webhook'
+    process.env.REACT_APP_WEBHOOK_BASE_URL = 'http://test-base'
+    process.env.REACT_APP_WEBHOOK_CREATE_AGENT = '/create'
+    process.env.REACT_APP_WEBHOOK_DELETE_AGENT = '/delete'
   })
 
   it('createAgent should call the creation webhook and insert into DB', async () => {
@@ -27,7 +29,7 @@ describe('InboundAgent Service', () => {
 
     const result = await agentService.createAgent(mockAgentData)
 
-    expect(axios.post).toHaveBeenCalledWith('http://test-webhook', mockAgentData)
+    expect(axios.post).toHaveBeenCalledWith('http://test-base/create', mockAgentData)
     expect(supabaseAdmin.from).toHaveBeenCalledWith('agents')
     expect(result.db.id).toBe('mock-uuid')
   })
@@ -39,7 +41,7 @@ describe('InboundAgent Service', () => {
     await agentService.deleteAgent(agentId)
 
     expect(axios.delete).toHaveBeenCalledWith(
-      process.env.INBOUND_DELETE_AGENT_WEBHOOK_URL, 
+      'http://test-base/delete', 
       { data: { agentId } }
     )
     expect(supabaseAdmin.update).toHaveBeenCalledWith(expect.objectContaining({ status: 'deleted' }))

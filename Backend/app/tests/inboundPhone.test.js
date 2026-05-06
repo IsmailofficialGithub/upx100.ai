@@ -18,8 +18,9 @@ jest.mock('../config/supabase.js', () => ({
 describe('InboundPhone Service', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    process.env.INBOUND_PHONE_NUMBER_WEBHOOK_URL = 'http://test-phone-webhook'
-    process.env.INBOUND_BIND_WEBHOOK_URL = 'http://test-bind-webhook'
+    process.env.REACT_APP_WEBHOOK_BASE_URL = 'http://test-base'
+    process.env.REACT_APP_WEBHOOK_IMPORT_NUMBER = '/import'
+    process.env.REACT_APP_WEBHOOK_UNBIND = '/unbind'
   })
 
   it('provisionNumber should call provisioning webhook', async () => {
@@ -28,7 +29,7 @@ describe('InboundPhone Service', () => {
 
     await phoneService.provisionNumber(mockData)
 
-    expect(axios.post).toHaveBeenCalledWith('http://test-phone-webhook', mockData)
+    expect(axios.post).toHaveBeenCalledWith('http://test-base/import', mockData)
     expect(supabaseAdmin.insert).toHaveBeenCalled()
   })
 
@@ -37,7 +38,7 @@ describe('InboundPhone Service', () => {
 
     await phoneService.bindNumberToAgent('phone1', 'agent1')
 
-    expect(axios.post).toHaveBeenCalledWith('http://test-bind-webhook', { 
+    expect(axios.post).toHaveBeenCalledWith('http://test-base/unbind', { 
       numberId: 'phone1', 
       agentId: 'agent1' 
     })

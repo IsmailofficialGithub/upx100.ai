@@ -7,54 +7,113 @@ import { supabaseAdmin } from '../config/supabase.js'
  */
 
 export const createAgent = async (agentData) => {
-  const webhookUrl = process.env.INBOUND_BOT_CREATION_WEBHOOK_URL
+  const webhookUrl = `${process.env.REACT_APP_WEBHOOK_BASE_URL}${process.env.REACT_APP_WEBHOOK_CREATE_AGENT}`
 
-  // 1. Trigger external automation (n8n/vapi etc)
-  const webhookResponse = await axios.post(webhookUrl, agentData)
+  // 1. Synchronize with local database first to get unique ID
+  const insertData = {
+    organization_id: agentData.organization_id,
+    name: agentData.name,
+    vapi_id: agentData.vapi_id || null,
+    voice_persona: agentData.voice_persona || null,
+    script: agentData.script || null,
+    company_name: agentData.company_name || null,
+    website_url: agentData.website_url || null,
+    goal: agentData.goal || null,
+    background: agentData.background || null,
+    welcome_message: agentData.welcome_message || null,
+    instruction_voice: agentData.instruction_voice || null,
+    language: agentData.language || null,
+    agent_type: agentData.agent_type || null,
+    tone: agentData.tone || null,
+    model: agentData.model || null,
+    status: 'activating',
+    metadata: {
+      ...agentData.metadata,
+      voice_name: agentData.voice_name || null,
+      voice_provider: agentData.voice_provider ? agentData.voice_provider.toLowerCase() : null
+    }
+  }
 
-  // 2. Synchronize with local database
   const { data, error } = await supabaseAdmin
     .schema('inbound')
     .from('agents')
-    .insert({
-      ...agentData,
-      vapi_id: webhookResponse.data.id || agentData.vapi_id, // assuming webhook returns the external ID
-      status: 'activating'
-    })
+    .insert(insertData)
     .select()
     .single()
 
   if (error) throw error
+
+  // 2. Trigger external automation (n8n/vapi etc) WITH the DB ID
+  const finalPayload = {
+    ...agentData,
+    id: data.id,
+    voice_name: agentData.voice_name,
+    voice_provider: agentData.voice_provider ? agentData.voice_provider.toLowerCase() : null
+  }
+
+  const webhookResponse = await axios.post(webhookUrl, finalPayload)
+
+  // Update vapi_id if webhook returned one
+  if (webhookResponse.data.id) {
+    await supabaseAdmin
+      .schema('inbound')
+      .from('agents')
+      .update({ vapi_id: webhookResponse.data.id })
+      .eq('id', data.id)
+  }
+
   return { db: data, webhook: webhookResponse.data }
 }
 
 export const updateAgent = async (agentId, updateData) => {
-  const webhookUrl = process.env.INBOUND_EDIT_AGENT_WEBHOOK_URL
+  const webhookUrl = `${process.env.REACT_APP_WEBHOOK_BASE_URL}${process.env.REACT_APP_WEBHOOK_EDIT_AGENT}`
 
   // 1. Trigger external automation
   const webhookResponse = await axios.patch(webhookUrl, { agentId, ...updateData })
 
   // 2. Update local database
+  const updatePayload = {
+    name: updateData.name,
+    organization_id: updateData.organization_id,
+    vapi_id: updateData.vapi_id,
+    voice_persona: updateData.voice_persona,
+    script: updateData.script,
+    company_name: updateData.company_name,
+    website_url: updateData.website_url,
+    goal: updateData.goal,
+    background: updateData.background,
+    welcome_message: updateData.welcome_message,
+    instruction_voice: updateData.instruction_voice,
+    language: updateData.language,
+    agent_type: updateData.agent_type,
+    tone: updateData.tone,
+    model: updateData.model,
+    metadata: {
+      ...(data?.metadata || {}),
+      voice_name: updateData.voice_name || null,
+      voice_provider: updateData.voice_provider ? updateData.voice_provider.toLowerCase() : null
+    },
+    updated_at: new Date().toISOString()
+  }
+
   const { data, error } = await supabaseAdmin
     .schema('inbound')
     .from('agents')
-    .update({
-      ...updateData,
-      updated_at: new Date().toISOString()
-    })
+    .update(updatePayload)
     .eq('id', agentId)
     .select()
     .single()
+
 
   if (error) throw error
   return { db: data, webhook: webhookResponse.data }
 }
 
 export const deleteAgent = async (agentId) => {
-  const webhookUrl = process.env.INBOUND_DELETE_AGENT_WEBHOOK_URL
+  const webhookUrl = `${process.env.REACT_APP_WEBHOOK_BASE_URL}${process.env.REACT_APP_WEBHOOK_DELETE_AGENT}`
 
   // 1. Trigger external automation
-  const webhookResponse = await axios.delete(webhookUrl, { data: { agentId } })
+  const webhookResponse = await axios.post(webhookUrl, { agentId })
 
   // 2. Soft delete in local database
   const { error } = await supabaseAdmin
@@ -64,6 +123,14 @@ export const deleteAgent = async (agentId) => {
     .eq('id', agentId)
 
   if (error) throw error
+
+  // 3. Unbind any phone number linked to this agent
+  await supabaseAdmin
+    .schema('inbound')
+    .from('phone_numbers')
+    .update({ agent_id: null })
+    .eq('agent_id', agentId)
+
   return { success: true, webhook: webhookResponse.data }
 }
 
@@ -71,12 +138,15 @@ export const getAgentById = async (agentId) => {
   const { data, error } = await supabaseAdmin
     .schema('inbound')
     .from('agents')
-    .select('*')
+    .select('*, organizations:public_organizations(name), phone_numbers(id)')
     .eq('id', agentId)
     .single()
 
   if (error) throw error
-  return data
+  return {
+    ...data,
+    phone_number_id: data.phone_numbers?.[0]?.id || null
+  }
 }
 
 export const listAgentsByOrg = async (orgId) => {
@@ -85,21 +155,27 @@ export const listAgentsByOrg = async (orgId) => {
   const { data, error } = await supabaseAdmin
     .schema('inbound')
     .from('agents')
-    .select('*')
+    .select('*, organizations:public_organizations(name), phone_numbers(id)')
     .eq('organization_id', orgId)
     .is('deleted_at', null)
 
   if (error) throw error
-  return data
+  return data.map(agent => ({
+    ...agent,
+    phone_number_id: agent.phone_numbers?.[0]?.id || null
+  }))
 }
 
 export const listAllAgents = async () => {
   const { data, error } = await supabaseAdmin
     .schema('inbound')
     .from('agents')
-    .select('*')
+    .select('*, organizations:public_organizations(name), phone_numbers(id)')
     .is('deleted_at', null)
 
   if (error) throw error
-  return data
+  return data.map(agent => ({
+    ...agent,
+    phone_number_id: agent.phone_numbers?.[0]?.id || null
+  }))
 }

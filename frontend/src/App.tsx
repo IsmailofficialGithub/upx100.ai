@@ -15,6 +15,8 @@ import AdminDashboardView from '@/components/dashboard/AdminDashboardView';
 import AdminUserView from '@/components/dashboard/AdminUserView';
 import AdminOrgView from '@/components/dashboard/AdminOrgView';
 import AdminDataView from '@/components/dashboard/AdminDataView';
+import AdminPhoneNumbersView from '@/components/dashboard/AdminPhoneNumbersView';
+import AdminAgentsView from '@/components/dashboard/AdminAgentsView';
 import TeamView from '@/components/dashboard/TeamView';
 
 
@@ -92,33 +94,9 @@ function App() {
             <Route path="user" element={<AdminUserView />} />
             <Route path="organizations" element={<AdminOrgView />} />
 
-            <Route path="phone-numbers" element={
-              <AdminDataView 
-                title="Global Phone Numbers" 
-                endpoint="phone-numbers"
-                columns={[
-                  { key: 'phone_number', label: 'Number' },
-                  { key: 'status', label: 'Status' },
-                  { key: 'organizations', label: 'Organization', render: (val) => val?.name },
-                  { key: 'label', label: 'Label' },
-                  { key: 'provider', label: 'Provider' }
-                ]}
-              />
-            } />
+            <Route path="phone-numbers" element={<AdminPhoneNumbersView />} />
 
-            <Route path="agents" element={
-              <AdminDataView 
-                title="Global AI Agents" 
-                endpoint="agents"
-                columns={[
-                  { key: 'name', label: 'Agent Name' },
-                  { key: 'status', label: 'Status' },
-                  { key: 'organizations', label: 'Organization', render: (val) => val?.name },
-                  { key: 'vapi_id', label: 'Vapi ID' },
-                  { key: 'created_at', label: 'Created', render: (val) => new Date(val).toLocaleDateString() }
-                ]}
-              />
-            } />
+            <Route path="agents" element={<AdminAgentsView />} />
 
             <Route path="call-logs" element={
               <AdminDataView 

@@ -7,13 +7,13 @@ export const getStats = async (req, res) => {
 };
 
 export const getUsers = async (req, res) => {
-  const { data, error } = await adminService.getAllUsers();
+  const { data, error } = await adminService.getAllUsers(req.query.search);
   if (error) return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error });
   res.status(StatusCodes.OK).json({ data });
 };
 
 export const getOrganizations = async (req, res) => {
-  const { data, error } = await adminService.getAllOrganizations();
+  const { data, error } = await adminService.getAllOrganizations(req.query.search);
   if (error) return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error });
   res.status(StatusCodes.OK).json({ data });
 };

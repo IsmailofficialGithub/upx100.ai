@@ -7,13 +7,15 @@ CREATE TABLE IF NOT EXISTS inbound.call_logs (
   phone_number_id uuid REFERENCES inbound.phone_numbers(id),
   vapi_call_id    text,
   caller_number   text,
+  called_number   text,
   status          inbound.call_status NOT NULL DEFAULT 'in_progress',
-  duration_sec    integer NOT NULL DEFAULT 0,
+  duration_sec    float NOT NULL DEFAULT 0,
   cost            numeric NOT NULL DEFAULT 0,
   recording_url   text,
   transcript      text,
   summary         text,
   is_lead         boolean NOT NULL DEFAULT false,
+  ended_at        timestamptz,
   started_at      timestamptz,
   created_at      timestamptz NOT NULL DEFAULT now()
 );

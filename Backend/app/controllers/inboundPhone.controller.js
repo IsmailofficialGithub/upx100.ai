@@ -33,6 +33,26 @@ export const provisionNumber = async (req, res) => {
   })
 }
 
+export const updateNumber = async (req, res) => {
+  const { numberId } = req.params
+  const result = await phoneService.updateNumber(numberId, req.body)
+
+  return res.json({
+    message: 'Number updated successfully',
+    data: result
+  })
+}
+
+export const checkStatus = async (req, res) => {
+  const { numberId } = req.params
+  const result = await phoneService.checkNumberStatus(numberId)
+
+  return res.json({
+    message: 'Status check completed',
+    status: result.status
+  })
+}
+
 export const bindNumber = async (req, res) => {
   const { numberId } = req.params
   const { agentId } = req.body
