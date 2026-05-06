@@ -65,8 +65,9 @@ export const provisionNumber = async (numberData) => {
   if (error) throw error
 
   // 2. Trigger external automation (n8n/telephony provider) WITH the DB ID
+  const { organization_id, ...payloadWithoutOrg } = numberData
   const finalPayload = {
-    ...numberData,
+    ...payloadWithoutOrg,
     id: data.id,
     call_forwarding_enabled: data.call_forwarding_enabled,
     call_forwarding_number: data.call_forwarding_number,
@@ -203,8 +204,9 @@ export const updateNumber = async (numberId, updateData) => {
   // Trigger webhook to update external system
   const webhookUrl = `${process.env.REACT_APP_WEBHOOK_BASE_URL}${process.env.REACT_APP_WEBHOOK_IMPORT_NUMBER}`
   try {
+    const { organization_id, ...updatePayloadWithoutOrg } = updateData
     await axios.post(webhookUrl, {
-      ...updateData,
+      ...updatePayloadWithoutOrg,
       id: data.id,
       call_forwarding_enabled: data.call_forwarding_enabled,
       call_forwarding_number: data.call_forwarding_number,
@@ -236,12 +238,18 @@ export const requestPort = async (numberId, portData) => {
   return data
 }
 
-export const listNumbersByOrg = async (orgId) => {
-  const { data, error } = await supabaseAdmin
+export const listNumbersByOrg = async (orgId, userId = null) => {
+  let query = supabaseAdmin
     .schema('inbound')
     .from('phone_numbers')
-    .select('*, organizations:organization_id(id, name), profiles:user_id(id, full_name, email)')
+    .select('*, organizations:organizations(id, name), profiles:profiles(id, full_name, email)')
     .eq('organization_id', orgId)
+
+  if (userId) {
+    query = query.eq('user_id', userId)
+  }
+
+  const { data, error } = await query
 
   if (error) throw error
   return data
@@ -251,7 +259,7 @@ export const listAllNumbers = async () => {
   const { data, error } = await supabaseAdmin
     .schema('inbound')
     .from('phone_numbers')
-    .select('*, organizations:organization_id(id, name), profiles:user_id(id, full_name, email)')
+    .select('*, organizations:organizations(id, name), profiles:profiles(id, full_name, email)')
 
   if (error) throw error
   return data

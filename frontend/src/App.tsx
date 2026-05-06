@@ -61,30 +61,8 @@ function App() {
                 ]}
               />
             } />
-            <Route path="phone-numbers" element={
-              <AdminDataView 
-                title="Phone Numbers" 
-                endpoint="/phone-numbers"
-                columns={[
-                  { key: 'phone_number', label: 'Number' },
-                  { key: 'status', label: 'Status' },
-                  { key: 'label', label: 'Label' },
-                  { key: 'provider', label: 'Provider' }
-                ]}
-              />
-            } />
-            <Route path="agents" element={
-              <AdminDataView 
-                title="AI Agents" 
-                endpoint="/agents"
-                columns={[
-                  { key: 'name', label: 'Agent Name' },
-                  { key: 'status', label: 'Status' },
-                  { key: 'vapi_id', label: 'Vapi ID' },
-                  { key: 'created_at', label: 'Created', render: (val) => new Date(val).toLocaleDateString() }
-                ]}
-              />
-            } />
+            <Route path="phone-numbers" element={<AdminPhoneNumbersView />} />
+            <Route path="agents" element={<AdminAgentsView />} />
             <Route path="team" element={<TeamView />} />
           </Route>
 

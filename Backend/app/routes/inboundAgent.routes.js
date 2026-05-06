@@ -17,8 +17,8 @@ router.use(auth)
 router.get('/', agentController.getAgents)
 router.get('/:agentId', agentController.getAgent)
 
-router.post('/', requireRole(['gcc_admin']), agentController.createAgent)
-router.patch('/:agentId', requireRole(['gcc_admin']), agentController.updateAgent)
-router.delete('/:agentId', requireRole(['gcc_admin']), agentController.deleteAgent)
+router.post('/', requireRole(['gcc_admin', 'client_admin', 'client_sub', 'sp_primary', 'sp_sub']), agentController.createAgent)
+router.patch('/:agentId', requireRole(['gcc_admin', 'client_admin', 'client_sub', 'sp_primary', 'sp_sub']), agentController.updateAgent)
+router.delete('/:agentId', requireRole(['gcc_admin', 'client_admin', 'client_sub', 'sp_primary', 'sp_sub']), agentController.deleteAgent)
 
 export default router

@@ -26,6 +26,7 @@ export const createAgent = async (agentData) => {
     agent_type: agentData.agent_type || null,
     tone: agentData.tone || null,
     model: agentData.model || null,
+    user_id: agentData.user_id || null,
     status: 'activating',
     metadata: {
       ...agentData.metadata,
@@ -138,7 +139,7 @@ export const getAgentById = async (agentId) => {
   const { data, error } = await supabaseAdmin
     .schema('inbound')
     .from('agents')
-    .select('*, organizations:public_organizations(name), phone_numbers(id)')
+    .select('*, organizations:organizations!agents_organization_id_fkey(name), phone_numbers(id)')
     .eq('id', agentId)
     .single()
 
@@ -149,15 +150,21 @@ export const getAgentById = async (agentId) => {
   }
 }
 
-export const listAgentsByOrg = async (orgId) => {
+export const listAgentsByOrg = async (orgId, userId = null) => {
   if (!orgId) return []
-
-  const { data, error } = await supabaseAdmin
+  
+  let query = supabaseAdmin
     .schema('inbound')
     .from('agents')
-    .select('*, organizations:public_organizations(name), phone_numbers(id)')
+    .select('*, organizations:organizations!agents_organization_id_fkey(name), phone_numbers(id)')
     .eq('organization_id', orgId)
     .is('deleted_at', null)
+
+  if (userId) {
+    query = query.eq('user_id', userId)
+  }
+
+  const { data, error } = await query
 
   if (error) throw error
   return data.map(agent => ({
@@ -170,7 +177,7 @@ export const listAllAgents = async () => {
   const { data, error } = await supabaseAdmin
     .schema('inbound')
     .from('agents')
-    .select('*, organizations:public_organizations(name), phone_numbers(id)')
+    .select('*, organizations:organizations!agents_organization_id_fkey(name), phone_numbers(id)')
     .is('deleted_at', null)
 
   if (error) throw error

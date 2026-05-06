@@ -7,6 +7,7 @@ import { supabaseAdmin } from '../config/supabase.js'
  */
 export const getUsers = async (req, res) => {
   const { role, orgId, userId } = req.user
+  console.log(`[UserCtrl] getUsers for role: ${role}, orgId: ${orgId}`)
   let users
 
   if (role === 'gcc_admin') {
@@ -14,8 +15,9 @@ export const getUsers = async (req, res) => {
     if (error) throw error
     users = data
   } 
-  else if (role === 'sp_primary') {
-    const { data: assignments, error: assignError } = await userService.getSPClientAssignments(userId)
+  else if (role === 'sp_primary' || role === 'sp_sub') {
+    const searchId = role === 'sp_primary' ? userId : req.user.profile.created_by // Simplified for sp_sub
+    const { data: assignments, error: assignError } = await userService.getSPClientAssignments(role === 'sp_primary' ? userId : req.user.profile.created_by)
     if (assignError) throw assignError
     
     const clientOrgIds = assignments.map(a => a.client_org_id)
@@ -23,7 +25,7 @@ export const getUsers = async (req, res) => {
     if (error) throw error
     users = data
   }
-  else if (role === 'client_admin') {
+  else if (role === 'client_admin' || role === 'client_sub') {
     const { data, error } = await userService.listUsersByOrg(orgId)
     if (error) throw error
     users = data

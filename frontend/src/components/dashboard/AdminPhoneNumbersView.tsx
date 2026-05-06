@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '@/lib/api';
 import { Loader2, Plus, Building2, User, Hash, Tag, Globe, RefreshCw, Search, ChevronDown, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuth } from '@/context/AuthContext';
 import AdminDataView from './AdminDataView';
 
 const countries = [
@@ -32,6 +33,8 @@ const AdminPhoneNumbersView: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [countrySearch, setCountrySearch] = useState('');
+  const { user, isGCCAdmin } = useAuth();
+
   const [selectedCountry, setSelectedCountry] = useState(countries[0]);
   const [isCountryDropdownOpen, setIsCountryDropdownOpen] = useState(false);
   const [localPhone, setLocalPhone] = useState('');
@@ -70,20 +73,34 @@ const AdminPhoneNumbersView: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [oRes, uRes] = await Promise.all([
-          api.get('/admin/organizations'),
-          api.get('/admin/users')
-        ]);
-        setOrgs(oRes.data.data);
+        const userEndpoint = isGCCAdmin ? '/admin/users' : '/users';
+        
+        // Parallel fetch for entities and users
+        const promises: Promise<any>[] = [api.get(userEndpoint)];
+        
+        if (isGCCAdmin) {
+          promises.push(api.get('/admin/organizations'));
+        }
+
+        const [uRes, oRes] = await Promise.all(promises);
+        
         setUsers(uRes.data.data);
+        
+        if (isGCCAdmin && oRes) {
+          setOrgs(oRes.data.data);
+        } else {
+          // If not GCC, we don't need the orgs list for dropdowns as much, 
+          // but we can set the user's current org as the only option
+          setOrgs([{ id: user?.orgId || '', name: user?.organizationName || 'My Organization' }]);
+        }
       } catch (error) {
-        toast.error('Failed to fetch organizations/users');
+        toast.error('Failed to fetch required data');
       } finally {
         setIsLoading(false);
       }
     };
     fetchData();
-  }, []);
+  }, [isGCCAdmin, user]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -106,6 +123,7 @@ const AdminPhoneNumbersView: React.FC = () => {
 
   useEffect(() => {
     const delayDebounceFn = setTimeout(async () => {
+      if (!isGCCAdmin) return;
       // Don't search if the search text exactly matches the current selection's name
       const currentOrg = orgs.find(o => o.id === formData.organization_id);
       if (orgSearch && currentOrg?.name === orgSearch) return;
@@ -121,7 +139,7 @@ const AdminPhoneNumbersView: React.FC = () => {
     }, 300);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [orgSearch]);
+  }, [orgSearch, isGCCAdmin]);
 
   useEffect(() => {
     const delayDebounceFn = setTimeout(async () => {
@@ -130,7 +148,8 @@ const AdminPhoneNumbersView: React.FC = () => {
       if (userSearch && (currentUser?.full_name === userSearch || currentUser?.email === userSearch)) return;
 
       try {
-        const response = await api.get('/admin/users', {
+        const endpoint = isGCCAdmin ? '/admin/users' : '/users';
+        const response = await api.get(endpoint, {
           params: { search: userSearch || undefined }
         });
         setUsers(response.data.data);
@@ -140,7 +159,7 @@ const AdminPhoneNumbersView: React.FC = () => {
     }, 300);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [userSearch]);
+  }, [userSearch, isGCCAdmin]);
 
   useEffect(() => {
     if (selectedCountry.code === 'US' && localPhone.length > 10) {
@@ -184,13 +203,20 @@ const AdminPhoneNumbersView: React.FC = () => {
     } else if (formData.provider === 'telnyx') {
       submissionData.telnyx_api_key = formData.telnyx_api_key;
     }
+    if (editingId) submissionData.id = editingId;
+    if (isGCCAdmin) {
+      if (formData.organization_id) submissionData.organization_id = formData.organization_id;
+    } else {
+      submissionData.organization_id = user?.orgId;
+    }
 
     try {
+      const endpoint = '/phone-numbers';
       if (editingId) {
-        await api.patch(`/phone-numbers/${editingId}`, submissionData);
+        await api.patch(`${endpoint}/${editingId}`, submissionData);
         toast.success('Number updated successfully');
       } else {
-        await api.post('/phone-numbers', submissionData);
+        await api.post(endpoint, submissionData);
         toast.success('Number imported successfully');
       }
       setIsModalOpen(false);
@@ -214,6 +240,7 @@ const AdminPhoneNumbersView: React.FC = () => {
       twilio_account_sid: '',
       twilio_auth_token: '',
       vonage_api_key: '',
+      vonage_api_secret: '',
       telnyx_api_key: '',
       sms_enabled: false,
       call_forwarding_enabled: false,
@@ -296,7 +323,8 @@ const AdminPhoneNumbersView: React.FC = () => {
   const handleDelete = async (id: string) => {
     if (!window.confirm('Are you sure you want to delete this phone number?')) return;
     try {
-      await api.delete(`/phone-numbers/${id}`);
+      const endpoint = '/phone-numbers';
+      await api.delete(`${endpoint}/${id}`);
       toast.success('Number deleted successfully');
       setRefreshKey(prev => prev + 1);
     } catch (error: any) {
@@ -307,7 +335,8 @@ const AdminPhoneNumbersView: React.FC = () => {
   const handleCheckStatus = async (id: string) => {
     const toastId = toast.loading('Checking number status...');
     try {
-      const response = await api.get(`/phone-numbers/${id}/status`);
+      const endpoint = isGCCAdmin ? '/admin/phone-numbers' : '/phone-numbers';
+      const response = await api.get(`${endpoint}/${id}/status`);
       toast.success(`Status updated: ${response.data.status || 'Active'}`, { id: toastId });
       setRefreshKey(prev => prev + 1);
     } catch (error) {
@@ -319,8 +348,8 @@ const AdminPhoneNumbersView: React.FC = () => {
     <div className="space-y-6">
       <AdminDataView 
         key={refreshKey}
-        title="Global Phone Numbers" 
-        endpoint="phone-numbers"
+        title={isGCCAdmin ? "Global Phone Numbers" : "My Phone Numbers"} 
+        endpoint="/phone-numbers"
         columns={[
           { key: 'phone_number', label: 'Number' },
           { 
@@ -338,12 +367,12 @@ const AdminPhoneNumbersView: React.FC = () => {
           { 
             key: 'organizations', 
             label: 'Organization', 
-            render: (val) => (
+            render: (val) => isGCCAdmin ? (
               <div className="flex items-center gap-2">
                 <Building2 size={12} className="text-[hsl(var(--muted-foreground))]" />
                 <span>{val?.name || 'N/A'}</span>
               </div>
-            )
+            ) : null
           },
           { 
             key: 'profiles', 
@@ -483,49 +512,51 @@ const AdminPhoneNumbersView: React.FC = () => {
               </div>
               
               <div className="grid grid-cols-2 gap-4">
-                {/* Organization Search */}
-                <div className="space-y-2 relative">
-                  <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
-                    <Building2 size={12} /> Organization
-                  </label>
-                  <div className="relative">
-                    <input 
-                      type="text" required
-                      placeholder="Search Org..."
-                      value={orgSearch}
-                      onFocus={() => setIsOrgSearchOpen(true)}
-                      onChange={e => {
-                        setOrgSearch(e.target.value);
-                        setIsOrgSearchOpen(true);
-                      }}
-                      className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))] transition-all"
-                    />
-                    {isOrgSearchOpen && (
-                      <div className="absolute top-full left-0 mt-1 w-full bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-lg shadow-xl z-[120] max-h-40 overflow-y-auto py-1 animate-in fade-in zoom-in-95 duration-100">
-                        {orgs.filter(o => o.name.toLowerCase().includes(orgSearch.toLowerCase())).map(org => (
-                          <button
-                            key={org.id}
-                            type="button"
-                            onClick={() => {
-                              setFormData({...formData, organization_id: org.id});
-                              setOrgSearch(org.name);
-                              setIsOrgSearchOpen(false);
-                            }}
-                            className="w-full text-left px-3 py-1.5 text-xs hover:bg-[hsl(var(--primary))]/10 transition-colors"
-                          >
-                            {org.name}
-                          </button>
-                        ))}
-                        {orgs.filter(o => o.name.toLowerCase().includes(orgSearch.toLowerCase())).length === 0 && (
-                          <div className="px-3 py-2 text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono">No results</div>
-                        )}
-                      </div>
-                    )}
+                {/* Organization Search (GCC Admin Only) */}
+                {isGCCAdmin && (
+                  <div className="space-y-2 relative">
+                    <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
+                      <Building2 size={12} /> Organization
+                    </label>
+                    <div className="relative">
+                      <input 
+                        type="text" required
+                        placeholder="Search Org..."
+                        value={orgSearch}
+                        onFocus={() => setIsOrgSearchOpen(true)}
+                        onChange={e => {
+                          setOrgSearch(e.target.value);
+                          setIsOrgSearchOpen(true);
+                        }}
+                        className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))] transition-all"
+                      />
+                      {isOrgSearchOpen && (
+                        <div className="absolute top-full left-0 mt-1 w-full bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-lg shadow-xl z-[120] max-h-40 overflow-y-auto py-1 animate-in fade-in zoom-in-95 duration-100">
+                          {orgs.filter(o => o.name.toLowerCase().includes(orgSearch.toLowerCase())).map(org => (
+                            <button
+                              key={org.id}
+                              type="button"
+                              onClick={() => {
+                                setFormData({...formData, organization_id: org.id});
+                                setOrgSearch(org.name);
+                                setIsOrgSearchOpen(false);
+                              }}
+                              className="w-full text-left px-3 py-1.5 text-xs hover:bg-[hsl(var(--primary))]/10 transition-colors"
+                            >
+                              {org.name}
+                            </button>
+                          ))}
+                          {orgs.filter(o => o.name.toLowerCase().includes(orgSearch.toLowerCase())).length === 0 && (
+                            <div className="px-3 py-2 text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono">No results</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* User Search */}
-                <div className="space-y-2 relative">
+                <div className={`space-y-2 relative ${isGCCAdmin ? '' : 'col-span-2'}`}>
                   <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
                     <User size={12} /> User (Optional)
                   </label>

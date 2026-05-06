@@ -15,15 +15,15 @@ router.use(auth)
 router.get('/', phoneController.getNumbers)
 router.get('/:numberId/status', requireRole(['gcc_admin']), phoneController.checkStatus)
 
-router.post('/', requireRole(['gcc_admin']), phoneController.provisionNumber)
+router.post('/', requireRole(['gcc_admin', 'client_admin', 'client_sub', 'sp_primary', 'sp_sub']), phoneController.provisionNumber)
 
-router.patch('/:numberId', requireRole(['gcc_admin']), phoneController.updateNumber)
+router.patch('/:numberId', requireRole(['gcc_admin', 'client_admin', 'client_sub', 'sp_primary', 'sp_sub']), phoneController.updateNumber)
 
 router.post('/:numberId/bind', requireRole(['gcc_admin', 'client_admin']), phoneController.bindNumber)
 router.patch('/:numberId/assign', requireRole(['gcc_admin', 'client_admin']), phoneController.bindNumber)
 
 router.post('/:numberId/port-request', requireRole(['client_admin']), phoneController.requestPort)
 
-router.delete('/:numberId', requireRole(['gcc_admin']), phoneController.deleteNumber)
+router.delete('/:numberId', requireRole(['gcc_admin', 'client_admin', 'client_sub', 'sp_primary', 'sp_sub']), phoneController.deleteNumber)
 
 export default router

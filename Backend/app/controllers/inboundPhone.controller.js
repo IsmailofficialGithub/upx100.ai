@@ -6,13 +6,19 @@ import { StatusCodes } from 'http-status-codes'
  */
 
 export const getNumbers = async (req, res) => {
-  const { role, orgId } = req.user
+  const { role, orgId, userId } = req.user
   let numbers
 
   if (role === 'gcc_admin') {
     numbers = await phoneService.listAllNumbers()
   } else {
-    numbers = await phoneService.listNumbersByOrg(orgId)
+    if (!orgId || orgId === 'null') {
+      return res.json({ data: [] })
+    }
+    
+    // Org Admin sees everything in org, Sub-user only sees own
+    const filterUserId = ['client_admin', 'sp_primary'].includes(role) ? null : userId
+    numbers = await phoneService.listNumbersByOrg(orgId, filterUserId)
   }
 
   return res.json({ data: numbers })
@@ -35,6 +41,19 @@ export const provisionNumber = async (req, res) => {
 
 export const updateNumber = async (req, res) => {
   const { numberId } = req.params
+  const { role, orgId } = req.user
+
+  if (role !== 'gcc_admin') {
+    const existing = await phoneService.getNumberById(numberId)
+    if (!existing || existing.organization_id !== orgId) {
+      return res.status(StatusCodes.FORBIDDEN).json({
+        error: { code: 'FORBIDDEN', message: 'You do not have permission to manage this number' }
+      })
+    }
+    // Organization cannot be changed by non-GCC
+    delete req.body.organization_id
+  }
+
   const result = await phoneService.updateNumber(numberId, req.body)
 
   return res.json({
@@ -45,6 +64,17 @@ export const updateNumber = async (req, res) => {
 
 export const checkStatus = async (req, res) => {
   const { numberId } = req.params
+  const { role, orgId } = req.user
+
+  if (role !== 'gcc_admin') {
+    const existing = await phoneService.getNumberById(numberId)
+    if (!existing || existing.organization_id !== orgId) {
+      return res.status(StatusCodes.FORBIDDEN).json({
+        error: { code: 'FORBIDDEN', message: 'You do not have permission to view this number' }
+      })
+    }
+  }
+
   const result = await phoneService.checkNumberStatus(numberId)
 
   return res.json({
@@ -56,6 +86,16 @@ export const checkStatus = async (req, res) => {
 export const bindNumber = async (req, res) => {
   const { numberId } = req.params
   const { agentId } = req.body
+  const { role, orgId } = req.user
+
+  if (role !== 'gcc_admin') {
+    const existing = await phoneService.getNumberById(numberId)
+    if (!existing || existing.organization_id !== orgId) {
+      return res.status(StatusCodes.FORBIDDEN).json({
+        error: { code: 'FORBIDDEN', message: 'You do not have permission to manage this number' }
+      })
+    }
+  }
 
   const result = await phoneService.bindNumberToAgent(numberId, agentId)
 
@@ -80,6 +120,16 @@ export const requestPort = async (req, res) => {
 
 export const deleteNumber = async (req, res) => {
   const { numberId } = req.params
+  const { role, orgId } = req.user
+
+  if (role !== 'gcc_admin') {
+    const existing = await phoneService.getNumberById(numberId)
+    if (!existing || existing.organization_id !== orgId) {
+      return res.status(StatusCodes.FORBIDDEN).json({
+        error: { code: 'FORBIDDEN', message: 'You do not have permission to delete this number' }
+      })
+    }
+  }
 
   const result = await phoneService.deleteNumber(numberId)
 

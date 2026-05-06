@@ -22,6 +22,7 @@ export const createCallLog = async (logData) => {
       .from('leads')
       .insert({
       organization_id: logData.organization_id,
+      user_id: logData.user_id,
       call_log_id: data.id,
       agent_id: logData.agent_id,
       phone: logData.caller_number,
@@ -32,12 +33,18 @@ export const createCallLog = async (logData) => {
   return data
 }
 
-export const listLogsByOrg = async (orgId) => {
-  const { data, error } = await supabaseAdmin
+export const listLogsByOrg = async (orgId, userId = null) => {
+  let query = supabaseAdmin
     .from('view_call_logs')
     .select('*')
     .eq('organization_id', orgId)
     .order('created_at', { ascending: false })
+
+  if (userId) {
+    query = query.eq('user_id', userId)
+  }
+
+  const { data, error } = await query
 
   if (error) throw error
   return data

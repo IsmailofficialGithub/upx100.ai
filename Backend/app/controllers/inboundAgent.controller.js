@@ -6,13 +6,19 @@ import { StatusCodes } from 'http-status-codes'
  */
 
 export const getAgents = async (req, res) => {
-  const { role, orgId } = req.user
+  const { role, orgId, userId } = req.user
   let agents
 
   if (role === 'gcc_admin') {
     agents = await agentService.listAllAgents()
   } else {
-    agents = await agentService.listAgentsByOrg(orgId)
+    if (!orgId || orgId === 'null') {
+      return res.json({ data: [] })
+    }
+    
+    // Org Admin sees everything in org, Sub-user only sees own
+    const filterUserId = ['client_admin', 'sp_primary'].includes(role) ? null : userId
+    agents = await agentService.listAgentsByOrg(orgId, filterUserId)
   }
 
   return res.json({ data: agents })
@@ -41,7 +47,10 @@ export const getAgent = async (req, res) => {
 export const createAgent = async (req, res) => {
   const agentData = {
     ...req.body,
-    organization_id: req.user.role === 'gcc_admin' ? req.body.organization_id : req.user.orgId
+    organization_id: req.user.role === 'gcc_admin' ? req.body.organization_id : req.user.orgId,
+    user_id: ['gcc_admin', 'client_admin', 'sp_primary'].includes(req.user.role) 
+      ? (req.body.user_id || req.user.userId) 
+      : req.user.userId
   }
 
   const result = await agentService.createAgent(agentData)
@@ -55,9 +64,20 @@ export const createAgent = async (req, res) => {
 
 export const updateAgent = async (req, res) => {
   const { agentId } = req.params
-  const updateData = req.body
+  const { role, orgId } = req.user
 
-  const result = await agentService.updateAgent(agentId, updateData)
+  if (role !== 'gcc_admin') {
+    const existing = await agentService.getAgentById(agentId)
+    if (!existing || existing.organization_id !== orgId) {
+      return res.status(StatusCodes.FORBIDDEN).json({
+        error: { code: 'FORBIDDEN', message: 'You do not have permission to manage this agent' }
+      })
+    }
+    // Organization cannot be changed by non-GCC
+    delete req.body.organization_id
+  }
+
+  const result = await agentService.updateAgent(agentId, req.body)
 
   return res.json({
     message: 'Agent updated',
@@ -68,6 +88,16 @@ export const updateAgent = async (req, res) => {
 
 export const deleteAgent = async (req, res) => {
   const { agentId } = req.params
+  const { role, orgId } = req.user
+
+  if (role !== 'gcc_admin') {
+    const existing = await agentService.getAgentById(agentId)
+    if (!existing || existing.organization_id !== orgId) {
+      return res.status(StatusCodes.FORBIDDEN).json({
+        error: { code: 'FORBIDDEN', message: 'You do not have permission to delete this agent' }
+      })
+    }
+  }
   
   const result = await agentService.deleteAgent(agentId)
 

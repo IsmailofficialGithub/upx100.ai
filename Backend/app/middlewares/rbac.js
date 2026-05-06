@@ -6,7 +6,9 @@ import { StatusCodes } from 'http-status-codes'
  */
 export const requireRole = (allowedRoles) => {
   return (req, res, next) => {
+    console.log(`[RBAC] Checking role: ${req.user?.role} against ${allowedRoles.join(', ')} for ${req.method} ${req.originalUrl}`)
     if (!req.user || !allowedRoles.includes(req.user.role)) {
+      console.warn(`[RBAC] Denied: ${req.user?.role} not in ${allowedRoles.join(', ')}`)
       return res.status(StatusCodes.FORBIDDEN).json({
         error: { 
           code: 'FORBIDDEN', 

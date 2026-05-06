@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import agentVoices from '@/lib/agentvoices.json';
+import { useAuth } from '@/context/AuthContext';
 
 interface Organization {
   id: string;
@@ -18,14 +19,14 @@ interface Organization {
 
 interface Agent {
   id: string;
-  organization_id: string;
   name: string;
-  vapi_id?: string;
+  organization_id: string;
+  user_id: string;
+  vapi_id: string;
+  status: string;
+  created_at: string;
   voice_persona?: string;
   script?: string;
-  status: string;
-  is_paused: boolean;
-  created_at: string;
   phone_number_id?: string;
   company_name?: string;
   website_url?: string;
@@ -37,10 +38,11 @@ interface Agent {
   agent_type?: string;
   tone?: string;
   model?: string;
-  organizations?: { name: string };
+  organizations?: Organization;
 }
 
 const AdminAgentsView: React.FC = () => {
+  const { user, isGCCAdmin } = useAuth();
   const navigate = useNavigate();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -50,9 +52,14 @@ const AdminAgentsView: React.FC = () => {
   // Search states
   const [searchTerm, setSearchTerm] = useState('');
   const [orgSearch, setOrgSearch] = useState('');
+  const [userSearch, setUserSearch] = useState('');
   const [orgs, setOrgs] = useState<Organization[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [isOrgSearchOpen, setIsOrgSearchOpen] = useState(false);
+  const [isUserSearchOpen, setIsUserSearchOpen] = useState(false);
   const [isSearchingOrgs, setIsSearchingOrgs] = useState(false);
+  const [isSearchingUsers, setIsSearchingUsers] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
   
   // Phone numbers for selection
   const [availableNumbers, setAvailableNumbers] = useState<any[]>([]);
@@ -62,6 +69,7 @@ const AdminAgentsView: React.FC = () => {
   const [formData, setFormData] = useState({
     name: '',
     organization_id: '',
+    user_id: '',
     vapi_id: '',
     voice_persona: '',
     script: '',
@@ -93,13 +101,17 @@ const AdminAgentsView: React.FC = () => {
 
   useEffect(() => {
     fetchAgents();
-    fetchInitialOrgs();
-  }, []);
+    fetchInitialUsers();
+    if (isGCCAdmin) {
+      fetchInitialOrgs();
+    }
+  }, [isGCCAdmin, refreshKey]);
 
   const fetchAgents = async () => {
     setIsLoading(true);
     try {
-      const response = await api.get('/admin/agents');
+      const endpoint = '/agents';
+      const response = await api.get(endpoint);
       setAgents(response.data.data);
     } catch (error) {
       toast.error('Failed to fetch agents');
@@ -114,6 +126,16 @@ const AdminAgentsView: React.FC = () => {
       setOrgs(response.data.data);
     } catch (error) {
       console.error('Failed to fetch orgs', error);
+    }
+  };
+
+  const fetchInitialUsers = async () => {
+    try {
+      const endpoint = isGCCAdmin ? '/admin/users' : '/users';
+      const response = await api.get(endpoint);
+      setUsers(response.data.data);
+    } catch (error) {
+      console.error('Failed to fetch users', error);
     }
   };
 
@@ -141,19 +163,39 @@ const AdminAgentsView: React.FC = () => {
     return () => clearTimeout(delayDebounceFn);
   }, [orgSearch, isOrgSearchOpen]);
 
+  // Debounced User Search
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(async () => {
+      if (!isUserSearchOpen) return;
+      
+      const currentUser = users.find(u => u.id === formData.user_id);
+      if (userSearch && (currentUser?.full_name === userSearch || currentUser?.email === userSearch)) return;
+
+      try {
+        setIsSearchingUsers(true);
+        const response = await api.get('/admin/users', {
+          params: { search: userSearch || undefined }
+        });
+        setUsers(response.data.data);
+      } catch (error) {
+        console.error('Failed to search users', error);
+      } finally {
+        setIsSearchingUsers(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [userSearch, isUserSearchOpen]);
+
   // Fetch phone numbers when organization changes
   useEffect(() => {
     const fetchNumbers = async () => {
-      // Clear current phone selection when org changes
       setFormData(prev => ({ ...prev, phone_number_id: '' }));
-      
-      if (!formData.organization_id) {
-        setAvailableNumbers([]);
-        return;
-      }
+      if (!formData.organization_id) return;
       setIsLoadingNumbers(true);
       try {
-        const response = await api.get(`/admin/phone-numbers?organization_id=${formData.organization_id}`);
+        const endpoint = '/phone-numbers';
+        const response = await api.get(`${endpoint}?organization_id=${formData.organization_id}`);
         // Filter for active numbers only
         const activeNums = response.data.data.filter((n: any) => n.status === 'active');
         setAvailableNumbers(activeNums);
@@ -172,10 +214,13 @@ const AdminAgentsView: React.FC = () => {
       if (isOrgSearchOpen && !(event.target as Element).closest('.relative.org-search-container')) {
         setIsOrgSearchOpen(false);
       }
+      if (isUserSearchOpen && !(event.target as Element).closest('.relative.user-search-container')) {
+        setIsUserSearchOpen(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isOrgSearchOpen]);
+  }, [isOrgSearchOpen, isUserSearchOpen]);
 
   const selectedNumberDetails = availableNumbers.find(n => n.id === formData.phone_number_id);
   const isNumberAlreadyAssigned = selectedNumberDetails && selectedNumberDetails.agent_id;
@@ -221,28 +266,31 @@ const AdminAgentsView: React.FC = () => {
       const enrichedPayload = {
         ...agentPayload,
         voice_name: selectedVoice ? selectedVoice.name : formData.voice_persona,
-        voice_provider: selectedVoice ? selectedVoice.provider : 'Custom'
+        voice_provider: selectedVoice ? selectedVoice.provider : 'Custom',
+        organization_id: isGCCAdmin ? formData.organization_id : (user?.orgId || formData.organization_id)
       };
 
+      const endpoint = '/agents';
       let agentId = editingAgent?.id;
 
       if (editingAgent) {
-        await api.patch(`/agents/${editingAgent.id}`, enrichedPayload);
-        toast.success('Agent updated successfully', { id: loadingToast });
+        await api.patch(`${endpoint}/${editingAgent.id}`, enrichedPayload);
+        toast.success(`Agent ${editingAgent ? 'updated' : 'created'} successfully`);
+        setIsModalOpen(false);
+        setRefreshKey(prev => prev + 1);
       } else {
-        const response = await api.post('/agents', enrichedPayload);
+        const response = await api.post(endpoint, enrichedPayload);
         agentId = response.data.data.id;
         toast.success('Agent created and activating', { id: loadingToast });
+        setRefreshKey(prev => prev + 1);
       }
 
       // Handle phone number assignment if selected
       if (formData.phone_number_id && agentId) {
-        try {
-          await api.patch(`/phone-numbers/${formData.phone_number_id}/assign`, { agentId });
-        } catch (assignError) {
-          console.error('Failed to assign number', assignError);
-          toast.error('Agent created but number assignment failed');
-        }
+        const phoneEndpoint = '/phone-numbers';
+        await api.patch(`${phoneEndpoint}/${formData.phone_number_id}`, {
+          agent_id: agentId
+        });
       }
 
       setIsModalOpen(false);
@@ -254,7 +302,7 @@ const AdminAgentsView: React.FC = () => {
 
   const refreshAgentStatus = async (agentId: string) => {
     try {
-      const response = await api.get(`/admin/agents/${agentId}`);
+      const response = await api.get(`/agents/${agentId}`);
       const updatedAgent = response.data.data;
       setAgents(prev => prev.map(a => a.id === agentId ? { ...a, ...updatedAgent } : a));
     } catch (error) {
@@ -263,13 +311,14 @@ const AdminAgentsView: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this agent?')) return;
+    if (!window.confirm('Are you sure you want to delete this agent?')) return;
     
     const loadingToast = toast.loading('Deleting agent...');
     try {
-      await api.delete(`/agents/${id}`);
+      const endpoint = '/agents';
+      await api.delete(`${endpoint}/${id}`);
       toast.success('Agent deleted', { id: loadingToast });
-      fetchAgents();
+      setRefreshKey(prev => prev + 1);
     } catch (error) {
       toast.error('Failed to delete agent', { id: loadingToast });
     }
@@ -281,6 +330,7 @@ const AdminAgentsView: React.FC = () => {
       setFormData({
         name: agent.name,
         organization_id: agent.organization_id,
+        user_id: agent.user_id,
         vapi_id: agent.vapi_id || '',
         voice_persona: agent.voice_persona || '',
         script: agent.script || '',
@@ -297,6 +347,8 @@ const AdminAgentsView: React.FC = () => {
         model: agent.model || 'gpt-4o'
       });
       setOrgSearch(agent.organizations?.name || '');
+      const currentUser = users.find(u => u.id === agent.user_id);
+      setUserSearch(currentUser?.full_name || currentUser?.email || '');
       
       // Check if current voice is in defaults
       const isDefault = defaultVoices.some(v => v.id === agent.voice_persona);
@@ -305,7 +357,8 @@ const AdminAgentsView: React.FC = () => {
       setEditingAgent(null);
       setFormData({
         name: '',
-        organization_id: '',
+        organization_id: isGCCAdmin ? '' : (user?.orgId || ''),
+        user_id: '',
         vapi_id: '',
         voice_persona: '',
         script: '',
@@ -321,7 +374,8 @@ const AdminAgentsView: React.FC = () => {
         tone: 'professional',
         model: 'gpt-4o'
       });
-      setOrgSearch('');
+      setOrgSearch(isGCCAdmin ? '' : (user?.entityName || ''));
+      setUserSearch('');
       setIsCustomVoice(false);
       setCurrentStep(1);
     }
@@ -345,7 +399,7 @@ const AdminAgentsView: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-display font-semibold text-[hsl(var(--foreground))]">Global AI Agents</h2>
+        <h2 className="text-lg font-display font-semibold text-[hsl(var(--foreground))]">{isGCCAdmin ? "Global AI Agents" : "My AI Agents"}</h2>
         <div className="flex items-center gap-3">
           <button 
             onClick={fetchAgents}
@@ -379,7 +433,7 @@ const AdminAgentsView: React.FC = () => {
           <thead className="bg-[hsl(var(--muted))] border-b border-[hsl(var(--border-v))]">
             <tr>
               <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Agent</th>
-              <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Organization</th>
+              {isGCCAdmin && <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Organization</th>}
               <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Vapi ID</th>
               <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Status</th>
               <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Created</th>
@@ -400,12 +454,14 @@ const AdminAgentsView: React.FC = () => {
                     </div>
                   </div>
                 </td>
-                <td className="px-4 py-4">
-                  <div className="flex items-center gap-2 text-[hsl(var(--foreground))]">
-                    <Building2 size={12} className="text-[hsl(var(--muted-foreground))]" />
-                    {agent.organizations?.name || 'N/A'}
-                  </div>
-                </td>
+                {isGCCAdmin && (
+                    <td className="px-4 py-4">
+                        <div className="flex items-center gap-2 text-[hsl(var(--foreground))]">
+                            <Building2 size={12} className="text-[hsl(var(--muted-foreground))]" />
+                            {agent.organizations?.name || 'N/A'}
+                        </div>
+                    </td>
+                )}
                 <td className="px-4 py-4 font-mono text-[10px] text-[hsl(var(--muted-foreground))]">
                   {agent.vapi_id || 'Pending...'}
                 </td>
@@ -510,49 +566,64 @@ const AdminAgentsView: React.FC = () => {
                         <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
                           <Building2 size={12} /> Organization
                         </label>
-                        <input 
-                          type="text"
-                          placeholder="Search organization..."
-                          value={orgSearch}
-                          onChange={(e) => {
-                            setOrgSearch(e.target.value);
-                            setIsOrgSearchOpen(true);
-                          }}
-                          onFocus={() => setIsOrgSearchOpen(true)}
-                          className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))] transition-all"
-                        />
                         
-                        {isOrgSearchOpen && (
-                          <div className="absolute z-50 w-full mt-1 bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-lg shadow-xl max-h-48 overflow-y-auto overflow-x-hidden backdrop-blur-md">
-                            {isSearchingOrgs ? (
-                              <div className="p-4 text-center">
-                                <Loader2 size={16} className="animate-spin mx-auto text-[hsl(var(--primary))]" />
+                        {isGCCAdmin ? (
+                          <>
+                            <input 
+                              type="text"
+                              placeholder="Search organization..."
+                              value={orgSearch}
+                              onChange={(e) => {
+                                setOrgSearch(e.target.value);
+                                setIsOrgSearchOpen(true);
+                              }}
+                              onFocus={() => setIsOrgSearchOpen(true)}
+                              className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))] transition-all"
+                            />
+                            
+                            {isOrgSearchOpen && (
+                              <div className="absolute z-50 w-full mt-1 bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-lg shadow-xl max-h-48 overflow-y-auto overflow-x-hidden backdrop-blur-md">
+                                {isSearchingOrgs ? (
+                                  <div className="p-4 text-center">
+                                    <Loader2 size={16} className="animate-spin mx-auto text-[hsl(var(--primary))]" />
+                                  </div>
+                                ) : orgs.length > 0 ? (
+                                  orgs.map(org => (
+                                    <button
+                                      key={org.id}
+                                      type="button"
+                                      onClick={() => {
+                                        setFormData({ ...formData, organization_id: org.id });
+                                        setOrgSearch(org.name);
+                                        setIsOrgSearchOpen(false);
+                                      }}
+                                      className="w-full px-3 py-2 text-left text-xs hover:bg-[hsl(var(--primary)/0.1)] transition-colors border-b border-[hsl(var(--border-v)/0.5)] last:border-0 truncate"
+                                    >
+                                      {org.name}
+                                    </button>
+                                  ))
+                                ) : (
+                                  <div className="p-3 text-center text-[10px] text-[hsl(var(--muted-foreground))]">No organizations found</div>
+                                )}
                               </div>
-                            ) : orgs.length > 0 ? (
-                              orgs.map(org => (
-                                <button
-                                  key={org.id}
-                                  type="button"
-                                  onClick={() => {
-                                    setFormData({ ...formData, organization_id: org.id });
-                                    setOrgSearch(org.name);
-                                    setIsOrgSearchOpen(false);
-                                  }}
-                                  className="w-full px-3 py-2 text-left text-xs hover:bg-[hsl(var(--primary)/0.1)] transition-colors border-b border-[hsl(var(--border-v)/0.5)] last:border-0 truncate"
-                                >
-                                  {org.name}
-                                </button>
-                              ))
-                            ) : (
-                              <div className="p-3 text-center text-[10px] text-[hsl(var(--muted-foreground))]">No organizations found</div>
                             )}
+                          </>
+                        ) : (
+                          <div className="flex items-center gap-2 px-3 py-2 bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg">
+                            <div className="w-5 h-5 rounded bg-[hsl(var(--primary)/10)] flex items-center justify-center text-[hsl(var(--primary))]">
+                              <Building2 size={10} />
+                            </div>
+                            <span className="text-xs font-medium text-[hsl(var(--foreground))]">{user?.entityName || 'My Organization'}</span>
+                            <div className="ml-auto flex items-center gap-1 text-[8px] font-mono text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded uppercase tracking-tighter">
+                              <Check size={8} /> Locked
+                            </div>
                           </div>
                         )}
                       </div>
 
                       <div className="space-y-2">
                         <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
-                          <User size={12} /> Agent Name
+                          <Bot size={12} /> Agent Name
                         </label>
                         <input 
                           type="text"
@@ -566,6 +637,77 @@ const AdminAgentsView: React.FC = () => {
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
+                      {/* User Search Field */}
+                      <div className="space-y-2 relative user-search-container">
+                        <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
+                          <User size={12} /> Assign to User (Optional)
+                        </label>
+                        
+                        {isGCCAdmin || user?.role === 'client_admin' ? (
+                          <>
+                            <input 
+                              type="text"
+                              placeholder="Search user..."
+                              value={userSearch}
+                              onChange={(e) => {
+                                setUserSearch(e.target.value);
+                                setIsUserSearchOpen(true);
+                              }}
+                              onFocus={() => setIsUserSearchOpen(true)}
+                              className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))] transition-all"
+                            />
+                            
+                            {isUserSearchOpen && (
+                              <div className="absolute z-50 w-full mt-1 bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-lg shadow-xl max-h-48 overflow-y-auto overflow-x-hidden backdrop-blur-md">
+                                {isSearchingUsers ? (
+                                  <div className="p-4 text-center">
+                                    <Loader2 size={16} className="animate-spin mx-auto text-[hsl(var(--primary))]" />
+                                  </div>
+                                ) : users.length > 0 ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setFormData({ ...formData, user_id: '' });
+                                        setUserSearch('');
+                                        setIsUserSearchOpen(false);
+                                      }}
+                                      className="w-full px-3 py-2 text-left text-xs hover:bg-red-500/10 text-red-400 transition-colors border-b border-[hsl(var(--border-v))] italic"
+                                    >
+                                      Unassigned / Global
+                                    </button>
+                                    {users.map(u => (
+                                      <button
+                                        key={u.id}
+                                        type="button"
+                                        onClick={() => {
+                                          setFormData({ ...formData, user_id: u.id });
+                                          setUserSearch(u.full_name || u.email);
+                                          setIsUserSearchOpen(false);
+                                        }}
+                                        className="w-full px-3 py-2 text-left text-xs hover:bg-[hsl(var(--primary)/0.1)] transition-colors border-b border-[hsl(var(--border-v)/0.5)] last:border-0 truncate"
+                                      >
+                                        <div className="flex flex-col">
+                                          <span className="font-medium">{u.full_name || 'No Name'}</span>
+                                          <span className="text-[10px] text-[hsl(var(--muted-foreground))]">{u.email}</span>
+                                        </div>
+                                      </button>
+                                    ))}
+                                  </>
+                                ) : (
+                                  <div className="p-3 text-center text-[10px] text-[hsl(var(--muted-foreground))]">No users found</div>
+                                )}
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <div className="flex items-center gap-2 px-3 py-2 bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg opacity-60">
+                            <User size={12} className="text-[hsl(var(--muted-foreground))]" />
+                            <span className="text-xs">{user?.email || 'Current User'}</span>
+                          </div>
+                        )}
+                      </div>
+
                       <div className="space-y-2">
                         <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
                           <Building2 size={12} /> Company Name
@@ -578,18 +720,19 @@ const AdminAgentsView: React.FC = () => {
                           className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))] transition-all"
                         />
                       </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
-                          <Globe size={12} /> Website URL
-                        </label>
-                        <input 
-                          type="url"
-                          placeholder="https://example.com"
-                          value={formData.website_url}
-                          onChange={e => setFormData({ ...formData, website_url: e.target.value })}
-                          className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))] transition-all"
-                        />
-                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
+                        <Globe size={12} /> Website URL
+                      </label>
+                      <input 
+                        type="url"
+                        placeholder="https://example.com"
+                        value={formData.website_url}
+                        onChange={e => setFormData({ ...formData, website_url: e.target.value })}
+                        className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))] transition-all"
+                      />
                     </div>
                   </div>
                 )}

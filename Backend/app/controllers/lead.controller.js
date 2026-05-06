@@ -6,13 +6,19 @@ import { StatusCodes } from 'http-status-codes'
  */
 
 export const getLeads = async (req, res) => {
-  const { role, orgId } = req.user
+  const { role, orgId, userId } = req.user
   let leads
 
   if (['gcc_admin', 'gcc_reviewer'].includes(role)) {
     leads = await leadService.listAllLeads()
   } else {
-    leads = await leadService.listLeadsByOrg(orgId)
+    if (!orgId || orgId === 'null') {
+      return res.json({ data: [] })
+    }
+    
+    // Org Admin sees everything in org, Sub-user only sees own
+    const filterUserId = ['client_admin', 'sp_primary'].includes(role) ? null : userId
+    leads = await leadService.listLeadsByOrg(orgId, filterUserId)
   }
 
   return res.json({ data: leads })

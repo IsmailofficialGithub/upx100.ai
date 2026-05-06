@@ -46,13 +46,19 @@ export const handleVapiWebhook = async (req, res) => {
 }
 
 export const getLogs = async (req, res) => {
-  const { role, orgId } = req.user
+  const { role, orgId, userId } = req.user
   let logs
 
   if (['gcc_admin', 'gcc_reviewer'].includes(role)) {
     logs = await callLogService.listAllLogs()
   } else {
-    logs = await callLogService.listLogsByOrg(orgId)
+    if (!orgId || orgId === 'null') {
+      return res.json({ data: [] })
+    }
+    
+    // Org Admin sees everything in org, Sub-user only sees own
+    const filterUserId = ['client_admin', 'sp_primary'].includes(role) ? null : userId
+    logs = await callLogService.listLogsByOrg(orgId, filterUserId)
   }
 
   return res.json({ data: logs })

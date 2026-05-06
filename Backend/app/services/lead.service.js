@@ -5,12 +5,18 @@ import { supabaseAdmin } from '../config/supabase.js'
  * Manages qualified leads, status updates, and CRM synchronization.
  */
 
-export const listLeadsByOrg = async (orgId) => {
-  const { data, error } = await supabaseAdmin
+export const listLeadsByOrg = async (orgId, userId = null) => {
+  let query = supabaseAdmin
     .from('view_leads')
     .select('*')
     .eq('organization_id', orgId)
     .order('created_at', { ascending: false })
+
+  if (userId) {
+    query = query.eq('user_id', userId)
+  }
+
+  const { data, error } = await query
 
   if (error) throw error
   return data

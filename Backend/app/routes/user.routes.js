@@ -9,15 +9,15 @@ const router = express.Router()
 router.use(auth)
 
 // GCC Admin can see everyone, others are scoped in controller
-router.get('/', requireRole(['gcc_admin', 'sp_primary', 'client_admin']), userController.getUsers)
+router.get('/', requireRole(['gcc_admin', 'sp_primary', 'sp_sub', 'client_admin', 'client_sub']), userController.getUsers)
 
 router.get('/:userId', userController.getUser)
 
 // Creation gates
-router.post('/', requireRole(['gcc_admin', 'sp_primary', 'client_admin']), userController.createUser)
+router.post('/', requireRole(['gcc_admin', 'sp_primary', 'sp_sub', 'client_admin', 'client_sub']), userController.createUser)
 
-router.patch('/:userId', requireRole(['gcc_admin', 'sp_primary', 'client_admin']), userController.updateUser)
+router.patch('/:userId', requireRole(['gcc_admin', 'sp_primary', 'sp_sub', 'client_admin', 'client_sub']), userController.updateUser)
 
-router.delete('/:userId', requireRole(['gcc_admin', 'sp_primary', 'client_admin']), userController.deleteUser)
+router.delete('/:userId', requireRole(['gcc_admin', 'sp_primary', 'sp_sub', 'client_admin', 'client_sub']), userController.deleteUser)
 
 export default router
