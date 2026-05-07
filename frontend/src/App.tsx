@@ -17,6 +17,8 @@ import AdminOrgView from '@/components/dashboard/AdminOrgView';
 import AdminDataView from '@/components/dashboard/AdminDataView';
 import AdminPhoneNumbersView from '@/components/dashboard/AdminPhoneNumbersView';
 import AdminAgentsView from '@/components/dashboard/AdminAgentsView';
+import LeadsView from '@/components/dashboard/LeadsView';
+import CallLogsView from '@/components/dashboard/CallLogsView';
 import TeamView from '@/components/dashboard/TeamView';
 
 
@@ -37,30 +39,8 @@ function App() {
             <Route path="analytics" element={<AnalyticsView />} />
             <Route path="engine" element={<EngineView />} />
             <Route path="playbook" element={<PlaybookView />} />
-            <Route path="call-logs" element={
-              <AdminDataView 
-                title="Call Logs" 
-                endpoint="/call-logs"
-                columns={[
-                  { key: 'started_at', label: 'Date', render: (val) => new Date(val).toLocaleString() },
-                  { key: 'status', label: 'Status' },
-                  { key: 'duration_sec', label: 'Duration (s)' },
-                  { key: 'cost', label: 'Cost ($)' }
-                ]}
-              />
-            } />
-            <Route path="leads" element={
-              <AdminDataView 
-                title="Captured Leads" 
-                endpoint="/leads"
-                columns={[
-                  { key: 'name', label: 'Name' },
-                  { key: 'email', label: 'Email' },
-                  { key: 'status', label: 'Status' },
-                  { key: 'created_at', label: 'Captured', render: (val) => new Date(val).toLocaleDateString() }
-                ]}
-              />
-            } />
+            <Route path="call-logs" element={<CallLogsView />} />
+            <Route path="leads" element={<LeadsView />} />
             <Route path="phone-numbers" element={<AdminPhoneNumbersView />} />
             <Route path="agents" element={<AdminAgentsView />} />
             <Route path="team" element={<TeamView />} />
@@ -76,32 +56,8 @@ function App() {
 
             <Route path="agents" element={<AdminAgentsView />} />
 
-            <Route path="call-logs" element={
-              <AdminDataView 
-                title="Global Call Logs" 
-                endpoint="call-logs"
-                columns={[
-                  { key: 'started_at', label: 'Date', render: (val) => new Date(val).toLocaleString() },
-                  { key: 'organizations', label: 'Organization', render: (val) => val?.name },
-                  { key: 'status', label: 'Status' },
-                  { key: 'duration_sec', label: 'Duration (s)' },
-                  { key: 'cost', label: 'Cost ($)' }
-                ]}
-              />
-            } />
-            <Route path="leads" element={
-              <AdminDataView 
-                title="Global Leads" 
-                endpoint="leads"
-                columns={[
-                  { key: 'name', label: 'Name' },
-                  { key: 'email', label: 'Email' },
-                  { key: 'organizations', label: 'Organization', render: (val) => val?.name },
-                  { key: 'status', label: 'Status' },
-                  { key: 'created_at', label: 'Captured', render: (val) => new Date(val).toLocaleDateString() }
-                ]}
-              />
-            } />
+            <Route path="call-logs" element={<CallLogsView />} />
+            <Route path="leads" element={<LeadsView />} />
             <Route path="calendar" element={<CalendarView />} />
             <Route path="engine" element={<EngineView />} />
             <Route path="playbook" element={<PlaybookView />} />
@@ -169,31 +125,8 @@ function App() {
                 ]}
               />
             } />
-            <Route path="call-logs" element={
-              <AdminDataView 
-                title="Client Call Logs" 
-                endpoint="/call-logs"
-                columns={[
-                  { key: 'started_at', label: 'Date', render: (val) => new Date(val).toLocaleString() },
-                  { key: 'organizations', label: 'Client', render: (val) => val?.name },
-                  { key: 'status', label: 'Status' },
-                  { key: 'duration_sec', label: 'Duration (s)' }
-                ]}
-              />
-            } />
-            <Route path="leads" element={
-              <AdminDataView 
-                title="Client Leads" 
-                endpoint="/leads"
-                columns={[
-                  { key: 'name', label: 'Name' },
-                  { key: 'email', label: 'Email' },
-                  { key: 'organizations', label: 'Client', render: (val) => val?.name },
-                  { key: 'status', label: 'Status' },
-                  { key: 'created_at', label: 'Captured', render: (val) => new Date(val).toLocaleDateString() }
-                ]}
-              />
-            } />
+            <Route path="call-logs" element={<CallLogsView />} />
+            <Route path="leads" element={<LeadsView />} />
             <Route path="phone-numbers" element={
               <AdminDataView 
                 title="Client Phone Numbers" 

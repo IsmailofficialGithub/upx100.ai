@@ -29,7 +29,7 @@ CREATE INDEX IF NOT EXISTS ON inbound.agents (organization_id) WHERE deleted_at 
 
 CREATE OR REPLACE TABLE inbound.phone_numbers (
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  organization_id uuid NOT NULL REFERENCES public.organizations(id),
+  organization_id uuid NULL REFERENCES public.organizations(id),
   phone_number    text NOT NULL UNIQUE,
   provider        inbound.phone_provider NOT NULL,
   country_code    char(2),

@@ -6,7 +6,8 @@ import {
   Building2, Bot, MessageSquare, Mic2, Phone,
   X, Check, AlertCircle, Info, Target, Heart,
   BookOpen, Zap, Cpu, Globe, Users, Terminal, User,
-  RotateCw
+  RotateCw,
+  Link2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import agentVoices from '@/lib/agentvoices.json';
@@ -39,10 +40,14 @@ interface Agent {
   tone?: string;
   model?: string;
   organizations?: Organization;
+  fallback_number?: string;
+  fallback_enabled?: boolean;
+  metadata?: any;
+  conversation_agent_link?: string;
 }
 
 const AdminAgentsView: React.FC = () => {
-  const { user, isGCCAdmin } = useAuth();
+  const { user, isGCCAdmin, isClient } = useAuth();
   const navigate = useNavigate();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -83,7 +88,10 @@ const AdminAgentsView: React.FC = () => {
     language: 'english',
     agent_type: 'sales',
     tone: 'professional',
-    model: 'gpt-4o'
+    model: 'gpt-4o',
+    fallback_number: '',
+    fallback_enabled: false,
+    conversation_agent_link: ''
   });
 
   const [currentStep, setCurrentStep] = useState(1);
@@ -227,7 +235,9 @@ const AdminAgentsView: React.FC = () => {
 
   const isStepValid = () => {
     if (currentStep === 1) {
-      return !!formData.organization_id && !!formData.name;
+      // For solo clients (not in an org), organization_id will be empty, which is fine
+      const isSoloClient = !isGCCAdmin && (!user?.orgId || user?.orgId === '00000000-0000-4000-a000-000000000003');
+      return (isSoloClient || !!formData.organization_id) && !!formData.name;
     }
     if (currentStep === 2) {
       return !!formData.voice_persona;
@@ -259,15 +269,15 @@ const AdminAgentsView: React.FC = () => {
     const loadingToast = toast.loading(editingAgent ? 'Updating agent...' : 'Creating agent...');
 
     try {
-      const { phone_number_id, ...agentPayload } = formData;
-      
       // Enrich payload with voice details
       const selectedVoice = defaultVoices.find(v => v.id === formData.voice_persona);
       const enrichedPayload = {
-        ...agentPayload,
+        ...formData,
         voice_name: selectedVoice ? selectedVoice.name : formData.voice_persona,
         voice_provider: selectedVoice ? selectedVoice.provider : 'Custom',
-        organization_id: isGCCAdmin ? formData.organization_id : (user?.orgId || formData.organization_id)
+        organization_id: isGCCAdmin 
+          ? (formData.organization_id && formData.organization_id !== 'null' ? formData.organization_id : null)
+          : (user?.orgId && user.orgId !== 'null' && user.orgId !== '00000000-0000-4000-a000-000000000003' ? user.orgId : null)
       };
 
       const endpoint = '/agents';
@@ -283,14 +293,6 @@ const AdminAgentsView: React.FC = () => {
         agentId = response.data.data.id;
         toast.success('Agent created and activating', { id: loadingToast });
         setRefreshKey(prev => prev + 1);
-      }
-
-      // Handle phone number assignment if selected
-      if (formData.phone_number_id && agentId) {
-        const phoneEndpoint = '/phone-numbers';
-        await api.patch(`${phoneEndpoint}/${formData.phone_number_id}`, {
-          agent_id: agentId
-        });
       }
 
       setIsModalOpen(false);
@@ -344,7 +346,10 @@ const AdminAgentsView: React.FC = () => {
         language: agent.language || 'english',
         agent_type: agent.agent_type || 'sales',
         tone: agent.tone || 'professional',
-        model: agent.model || 'gpt-4o'
+        model: agent.model || 'gpt-4o',
+        fallback_number: agent.fallback_number || agent.metadata?.fallback_config?.number || '',
+        fallback_enabled: agent.fallback_enabled ?? agent.metadata?.fallback_config?.enabled ?? false,
+        conversation_agent_link: agent.conversation_agent_link || ''
       });
       setOrgSearch(agent.organizations?.name || '');
       const currentUser = users.find(u => u.id === agent.user_id);
@@ -357,7 +362,7 @@ const AdminAgentsView: React.FC = () => {
       setEditingAgent(null);
       setFormData({
         name: '',
-        organization_id: isGCCAdmin ? '' : (user?.orgId || ''),
+        organization_id: isGCCAdmin ? '' : (user?.orgId && user.orgId !== 'null' && user.orgId !== '00000000-0000-4000-a000-000000000003' ? user.orgId : ''),
         user_id: '',
         vapi_id: '',
         voice_persona: '',
@@ -372,7 +377,10 @@ const AdminAgentsView: React.FC = () => {
         language: 'english',
         agent_type: 'sales',
         tone: 'professional',
-        model: 'gpt-4o'
+        model: 'gpt-4o',
+        fallback_number: '',
+        fallback_enabled: false,
+        conversation_agent_link: ''
       });
       setOrgSearch(isGCCAdmin ? '' : (user?.entityName || ''));
       setUserSearch('');
@@ -561,7 +569,7 @@ const AdminAgentsView: React.FC = () => {
               <form onSubmit={handleSubmit} className="space-y-6">
                 {currentStep === 1 && (
                   <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className={`grid ${isClient ? 'grid-cols-1' : 'grid-cols-2'} gap-4`}>
                       <div className="space-y-2 relative org-search-container">
                         <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
                           <Building2 size={12} /> Organization
@@ -608,7 +616,7 @@ const AdminAgentsView: React.FC = () => {
                               </div>
                             )}
                           </>
-                        ) : (
+                        ) : !isClient ? (
                           <div className="flex items-center gap-2 px-3 py-2 bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg">
                             <div className="w-5 h-5 rounded bg-[hsl(var(--primary)/10)] flex items-center justify-center text-[hsl(var(--primary))]">
                               <Building2 size={10} />
@@ -618,7 +626,7 @@ const AdminAgentsView: React.FC = () => {
                               <Check size={8} /> Locked
                             </div>
                           </div>
-                        )}
+                        ) : null}
                       </div>
 
                       <div className="space-y-2">
@@ -636,14 +644,14 @@ const AdminAgentsView: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className={`grid ${isClient ? 'grid-cols-1' : 'grid-cols-2'} gap-4`}>
                       {/* User Search Field */}
                       <div className="space-y-2 relative user-search-container">
                         <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
                           <User size={12} /> Assign to User (Optional)
                         </label>
                         
-                        {isGCCAdmin || user?.role === 'client_admin' ? (
+                        {isGCCAdmin || (user?.role === 'client_admin' && !isClient) ? ( // This condition is a bit redundant now but keeping it safe
                           <>
                             <input 
                               type="text"
@@ -700,12 +708,12 @@ const AdminAgentsView: React.FC = () => {
                               </div>
                             )}
                           </>
-                        ) : (
+                        ) : !isClient ? (
                           <div className="flex items-center gap-2 px-3 py-2 bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg opacity-60">
                             <User size={12} className="text-[hsl(var(--muted-foreground))]" />
                             <span className="text-xs">{user?.email || 'Current User'}</span>
                           </div>
-                        )}
+                        ) : null}
                       </div>
 
                       <div className="space-y-2">
@@ -952,6 +960,56 @@ const AdminAgentsView: React.FC = () => {
                           <p className="text-[10px] text-blue-500 italic">This number is bound to another agent and will be reassigned.</p>
                         </div>
                       )}
+                    </div>
+
+                    <div className="pt-4 border-t border-[hsl(var(--border-v))] space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
+                            <RotateCw size={12} /> Call Fallback
+                          </label>
+                          <p className="text-[10px] text-[hsl(var(--muted-foreground))]">Enable backup number for transfer</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, fallback_enabled: !formData.fallback_enabled })}
+                          className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors focus:outline-none ${formData.fallback_enabled ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))]'}`}
+                        >
+                          <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${formData.fallback_enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                        </button>
+                      </div>
+
+                      {formData.fallback_enabled && (
+                        <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                          <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
+                            <Phone size={12} /> Fallback Number
+                          </label>
+                          <input 
+                            type="tel"
+                            placeholder="+1234567890"
+                            value={formData.fallback_number}
+                            onChange={e => setFormData({ ...formData, fallback_number: e.target.value })}
+                            className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))] transition-all"
+                          />
+                          <p className="text-[9px] text-[hsl(var(--muted-foreground))] italic">Must include country code (e.g. +1...)</p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="pt-4 border-t border-[hsl(var(--border-v))] space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
+                          <Link2 size={12} /> Conversation Link
+                        </label>
+                        <input 
+                          type="url"
+                          placeholder="https://..."
+                          value={formData.conversation_agent_link}
+                          onChange={e => setFormData({ ...formData, conversation_agent_link: e.target.value })}
+                          className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))] transition-all"
+                        />
+                        <p className="text-[9px] text-[hsl(var(--muted-foreground))] italic">Link to the conversational AI instance</p>
+                      </div>
                     </div>
                   </div>
                 )}

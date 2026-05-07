@@ -52,13 +52,10 @@ export const getLogs = async (req, res) => {
   if (['gcc_admin', 'gcc_reviewer'].includes(role)) {
     logs = await callLogService.listAllLogs()
   } else {
-    if (!orgId || orgId === 'null') {
-      return res.json({ data: [] })
-    }
-    
     // Org Admin sees everything in org, Sub-user only sees own
+    const effectiveOrgId = (orgId && orgId !== '00000000-0000-4000-a000-000000000003') ? orgId : null
     const filterUserId = ['client_admin', 'sp_primary'].includes(role) ? null : userId
-    logs = await callLogService.listLogsByOrg(orgId, filterUserId)
+    logs = await callLogService.listLogsByOrg(effectiveOrgId, filterUserId)
   }
 
   return res.json({ data: logs })
@@ -75,10 +72,13 @@ export const getLog = async (req, res) => {
   }
 
   // Scoping
-  if (!['gcc_admin', 'gcc_reviewer'].includes(req.user.role) && log.organization_id !== req.user.orgId) {
-    return res.status(StatusCodes.FORBIDDEN).json({
-      error: { code: 'FORBIDDEN', message: 'Access denied' }
-    })
+  if (!['gcc_admin', 'gcc_reviewer'].includes(req.user.role)) {
+    const effectiveOrgId = (req.user.orgId && req.user.orgId !== '00000000-0000-4000-a000-000000000003') ? req.user.orgId : null
+    if (log.organization_id !== effectiveOrgId) {
+      return res.status(StatusCodes.FORBIDDEN).json({
+        error: { code: 'FORBIDDEN', message: 'Access denied' }
+      })
+    }
   }
 
   return res.json({ data: log })

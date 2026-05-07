@@ -9,31 +9,34 @@ import { supabaseAdmin } from '../config/supabase.js'
 export const createAgent = async (agentData) => {
   const webhookUrl = `${process.env.REACT_APP_WEBHOOK_BASE_URL}${process.env.REACT_APP_WEBHOOK_CREATE_AGENT}`
 
-  // 1. Synchronize with local database first to get unique ID
-  const insertData = {
-    organization_id: agentData.organization_id,
-    name: agentData.name,
-    vapi_id: agentData.vapi_id || null,
-    voice_persona: agentData.voice_persona || null,
-    script: agentData.script || null,
-    company_name: agentData.company_name || null,
-    website_url: agentData.website_url || null,
-    goal: agentData.goal || null,
-    background: agentData.background || null,
-    welcome_message: agentData.welcome_message || null,
-    instruction_voice: agentData.instruction_voice || null,
-    language: agentData.language || null,
-    agent_type: agentData.agent_type || null,
-    tone: agentData.tone || null,
-    model: agentData.model || null,
-    user_id: agentData.user_id || null,
-    status: 'activating',
-    metadata: {
-      ...agentData.metadata,
-      voice_name: agentData.voice_name || null,
-      voice_provider: agentData.voice_provider ? agentData.voice_provider.toLowerCase() : null
+  const metadata = {
+    ...(agentData.metadata || {}),
+    voice_name: agentData.voice_name || null,
+    voice_provider: agentData.voice_provider ? agentData.voice_provider.toLowerCase() : null,
+    fallback_config: {
+      number: agentData.fallback_number || null,
+      enabled: agentData.fallback_enabled || false
     }
   }
+
+  // 1. Synchronize with local database first to get unique ID
+  const validColumns = [
+    'organization_id', 'name', 'vapi_id', 'voice_persona', 'script', 
+    'status', 'is_paused', 'company_name', 'website_url', 'goal', 
+    'background', 'welcome_message', 'instruction_voice', 'language', 
+    'agent_type', 'tone', 'model', 'conversation_agent_link', 'user_id'
+  ]
+
+  const insertData = {
+    status: 'activating',
+    metadata
+  }
+
+  validColumns.forEach(col => {
+    if (agentData[col] !== undefined) {
+      insertData[col] = agentData[col]
+    }
+  })
 
   const { data, error } = await supabaseAdmin
     .schema('inbound')
@@ -47,9 +50,11 @@ export const createAgent = async (agentData) => {
   // 2. Trigger external automation (n8n/vapi etc) WITH the DB ID
   const finalPayload = {
     ...agentData,
+    organization_id: agentData.organization_id || null,
     id: data.id,
-    voice_name: agentData.voice_name,
-    voice_provider: agentData.voice_provider ? agentData.voice_provider.toLowerCase() : null
+    fallback_number: metadata.fallback_config.number,
+    fallback_enabled: metadata.fallback_config.enabled,
+    metadata
   }
 
   const webhookResponse = await axios.post(webhookUrl, finalPayload)
@@ -67,35 +72,58 @@ export const createAgent = async (agentData) => {
 }
 
 export const updateAgent = async (agentId, updateData) => {
+  // 1. Fetch existing to merge metadata and avoid overwriting with nulls
+  const { data: existing, error: fetchError } = await supabaseAdmin
+    .schema('inbound')
+    .from('agents')
+    .select('*')
+    .eq('id', agentId)
+    .single()
+
+  if (fetchError || !existing) throw fetchError || new Error('Agent not found')
+
   const webhookUrl = `${process.env.REACT_APP_WEBHOOK_BASE_URL}${process.env.REACT_APP_WEBHOOK_EDIT_AGENT}`
 
-  // 1. Trigger external automation
-  const webhookResponse = await axios.patch(webhookUrl, { agentId, ...updateData })
+  // Construct metadata with fallback_config
+  const newMetadata = {
+    ...(existing.metadata || {}),
+    ...(updateData.metadata || {}),
+    voice_name: updateData.voice_name !== undefined ? updateData.voice_name : (existing.metadata?.voice_name || null),
+    voice_provider: updateData.voice_provider ? updateData.voice_provider.toLowerCase() : (existing.metadata?.voice_provider || null),
+    fallback_config: {
+      number: updateData.fallback_number !== undefined ? updateData.fallback_number : (existing.metadata?.fallback_config?.number || null),
+      enabled: updateData.fallback_enabled !== undefined ? updateData.fallback_enabled : (existing.metadata?.fallback_config?.enabled || false)
+    }
+  }
 
-  // 2. Update local database
+  // 2. Trigger external automation
+  const webhookResponse = await axios.post(webhookUrl, {
+    agentId,
+    ...updateData,
+    organization_id: updateData.organization_id || existing.organization_id || null,
+    fallback_number: newMetadata.fallback_config.number,
+    fallback_enabled: newMetadata.fallback_config.enabled,
+    metadata: newMetadata
+  })
+
+  // 3. Update local database
+  const validColumns = [
+    'organization_id', 'name', 'vapi_id', 'voice_persona', 'script', 
+    'status', 'is_paused', 'company_name', 'website_url', 'goal', 
+    'background', 'welcome_message', 'instruction_voice', 'language', 
+    'agent_type', 'tone', 'model', 'conversation_agent_link', 'user_id'
+  ]
+
   const updatePayload = {
-    name: updateData.name,
-    organization_id: updateData.organization_id,
-    vapi_id: updateData.vapi_id,
-    voice_persona: updateData.voice_persona,
-    script: updateData.script,
-    company_name: updateData.company_name,
-    website_url: updateData.website_url,
-    goal: updateData.goal,
-    background: updateData.background,
-    welcome_message: updateData.welcome_message,
-    instruction_voice: updateData.instruction_voice,
-    language: updateData.language,
-    agent_type: updateData.agent_type,
-    tone: updateData.tone,
-    model: updateData.model,
-    metadata: {
-      ...(data?.metadata || {}),
-      voice_name: updateData.voice_name || null,
-      voice_provider: updateData.voice_provider ? updateData.voice_provider.toLowerCase() : null
-    },
+    metadata: newMetadata,
     updated_at: new Date().toISOString()
   }
+
+  validColumns.forEach(col => {
+    if (updateData[col] !== undefined) {
+      updatePayload[col] = updateData[col]
+    }
+  })
 
   const { data, error } = await supabaseAdmin
     .schema('inbound')
@@ -105,7 +133,6 @@ export const updateAgent = async (agentId, updateData) => {
     .select()
     .single()
 
-
   if (error) throw error
   return { db: data, webhook: webhookResponse.data }
 }
@@ -113,8 +140,15 @@ export const updateAgent = async (agentId, updateData) => {
 export const deleteAgent = async (agentId) => {
   const webhookUrl = `${process.env.REACT_APP_WEBHOOK_BASE_URL}${process.env.REACT_APP_WEBHOOK_DELETE_AGENT}`
 
+  const existing = await getAgentById(agentId)
+  if (!existing) throw new Error('Agent not found')
+
   // 1. Trigger external automation
-  const webhookResponse = await axios.post(webhookUrl, { agentId })
+  const webhookResponse = await axios.post(webhookUrl, {
+    agentId,
+    vapi_id: existing.vapi_id,
+    organization_id: existing.organization_id
+  })
 
   // 2. Soft delete in local database
   const { error } = await supabaseAdmin
@@ -151,14 +185,17 @@ export const getAgentById = async (agentId) => {
 }
 
 export const listAgentsByOrg = async (orgId, userId = null) => {
-  if (!orgId) return []
-  
   let query = supabaseAdmin
     .schema('inbound')
     .from('agents')
     .select('*, organizations:organizations!agents_organization_id_fkey(name), phone_numbers(id)')
-    .eq('organization_id', orgId)
     .is('deleted_at', null)
+
+  if (orgId && orgId !== 'null' && orgId !== '00000000-0000-4000-a000-000000000003') {
+    query = query.eq('organization_id', orgId)
+  } else {
+    query = query.is('organization_id', null)
+  }
 
   if (userId) {
     query = query.eq('user_id', userId)

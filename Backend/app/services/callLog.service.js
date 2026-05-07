@@ -37,8 +37,12 @@ export const listLogsByOrg = async (orgId, userId = null) => {
   let query = supabaseAdmin
     .from('view_call_logs')
     .select('*')
-    .eq('organization_id', orgId)
-    .order('created_at', { ascending: false })
+  if (orgId && orgId !== 'null' && orgId !== '00000000-0000-4000-a000-000000000003') {
+    query = query.eq('organization_id', orgId)
+  } else {
+    query = query.is('organization_id', null)
+  }
+  query = query.order('created_at', { ascending: false })
 
   if (userId) {
     query = query.eq('user_id', userId)

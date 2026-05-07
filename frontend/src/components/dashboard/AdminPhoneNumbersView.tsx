@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '@/lib/api';
-import { Loader2, Plus, Building2, User, Hash, Tag, Globe, RefreshCw, Search, ChevronDown, X } from 'lucide-react';
+import { Loader2, Building2, User, Hash, Tag, Globe, RefreshCw, Search, ChevronDown, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
 import AdminDataView from './AdminDataView';
@@ -33,7 +33,7 @@ const AdminPhoneNumbersView: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [countrySearch, setCountrySearch] = useState('');
-  const { user, isGCCAdmin } = useAuth();
+  const { user, isGCCAdmin, isClient } = useAuth();
 
   const [selectedCountry, setSelectedCountry] = useState(countries[0]);
   const [isCountryDropdownOpen, setIsCountryDropdownOpen] = useState(false);
@@ -91,7 +91,12 @@ const AdminPhoneNumbersView: React.FC = () => {
         } else {
           // If not GCC, we don't need the orgs list for dropdowns as much, 
           // but we can set the user's current org as the only option
-          setOrgs([{ id: user?.orgId || '', name: user?.organizationName || 'My Organization' }]);
+          const effectiveOrgId = (user?.orgId && user.orgId !== 'null' && user.orgId !== '00000000-0000-4000-a000-000000000003') ? user.orgId : null;
+          if (effectiveOrgId) {
+            setOrgs([{ id: effectiveOrgId, name: user?.organizationName || 'My Organization' }]);
+          } else {
+            setOrgs([]);
+          }
         }
       } catch (error) {
         toast.error('Failed to fetch required data');
@@ -183,7 +188,7 @@ const AdminPhoneNumbersView: React.FC = () => {
       phone_number: finalPhoneNumber,
       country_code: selectedCountry.dial_code,
       label: formData.label,
-      user_id: formData.user_id,
+      user_id: isGCCAdmin ? formData.user_id : (formData.user_id || user?.id),
       sms_enabled: formData.sms_enabled || false,
       call_forwarding_enabled: formData.call_forwarding_enabled,
       call_forwarding_number: formData.call_forwarding_enabled ? `${forwardingSelectedCountry.dial_code}${forwardingLocalPhone.replace(/\D/g, '')}` : '',
@@ -205,9 +210,13 @@ const AdminPhoneNumbersView: React.FC = () => {
     }
     if (editingId) submissionData.id = editingId;
     if (isGCCAdmin) {
-      if (formData.organization_id) submissionData.organization_id = formData.organization_id;
+      if (formData.organization_id && formData.organization_id !== 'null') {
+        submissionData.organization_id = formData.organization_id;
+      } else {
+        submissionData.organization_id = null;
+      }
     } else {
-      submissionData.organization_id = user?.orgId;
+      submissionData.organization_id = (user?.orgId && user.orgId !== 'null' && user.orgId !== '00000000-0000-4000-a000-000000000003') ? user.orgId : null;
     }
 
     try {
@@ -355,7 +364,7 @@ const AdminPhoneNumbersView: React.FC = () => {
           { 
             key: 'status', 
             label: 'Status',
-            render: (val) => (
+            render: (val:string) => (
               <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
                 val === 'active' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 
                 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
@@ -367,7 +376,7 @@ const AdminPhoneNumbersView: React.FC = () => {
           { 
             key: 'organizations', 
             label: 'Organization', 
-            render: (val) => isGCCAdmin ? (
+            render: (val:any) => isGCCAdmin ? (
               <div className="flex items-center gap-2">
                 <Building2 size={12} className="text-[hsl(var(--muted-foreground))]" />
                 <span>{val?.name || 'N/A'}</span>
@@ -377,7 +386,7 @@ const AdminPhoneNumbersView: React.FC = () => {
           { 
             key: 'profiles', 
             label: 'Assigned User', 
-            render: (val) => (
+            render: (val:any) => (
               <div className="flex items-center gap-2">
                 <User size={12} className="text-[hsl(var(--muted-foreground))]" />
                 <span>{val?.full_name || 'N/A'}</span>
@@ -386,7 +395,11 @@ const AdminPhoneNumbersView: React.FC = () => {
           },
           { key: 'label', label: 'Label' },
           { key: 'provider', label: 'Provider' }
-        ]}
+        ].filter(col => {
+          if (col.key === 'profiles' && isClient) return false;
+          if (col.key === 'organizations' && !isGCCAdmin) return false;
+          return true;
+        })}
         onAdd={() => { setEditingId(null); resetForm(); setIsModalOpen(true); }}
         onEdit={startEdit}
         onDelete={handleDelete}
@@ -555,63 +568,65 @@ const AdminPhoneNumbersView: React.FC = () => {
                   </div>
                 )}
 
-                {/* User Search */}
-                <div className={`space-y-2 relative ${isGCCAdmin ? '' : 'col-span-2'}`}>
-                  <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
-                    <User size={12} /> User (Optional)
-                  </label>
-                  <div className="relative">
-                    <input 
-                      type="text"
-                      placeholder="Search User..."
-                      value={userSearch}
-                      onFocus={() => setIsUserSearchOpen(true)}
-                      onChange={e => {
-                        setUserSearch(e.target.value);
-                        setIsUserSearchOpen(true);
-                      }}
-                      className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))] transition-all"
-                    />
-                    {isUserSearchOpen && (
-                      <div className="absolute top-full left-0 mt-1 w-full bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-lg shadow-xl z-[120] max-h-40 overflow-y-auto py-1 animate-in fade-in zoom-in-95 duration-100">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setFormData({...formData, user_id: ''});
-                            setUserSearch('');
-                            setIsUserSearchOpen(false);
-                          }}
-                          className="w-full text-left px-3 py-1.5 text-xs hover:bg-red-500/10 text-red-400 transition-colors border-b border-[hsl(var(--border-v))]"
-                        >
-                          Unassign
-                        </button>
-                        {users.filter(u => 
-                          (u.full_name || '').toLowerCase().includes(userSearch.toLowerCase()) || 
-                          (u.email || '').toLowerCase().includes(userSearch.toLowerCase())
-                        ).map(user => (
+                {/* User Search (GCC Admin Only) */}
+                {isGCCAdmin && (
+                  <div className={`space-y-2 relative ${isGCCAdmin ? '' : 'col-span-2'}`}>
+                    <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
+                      <User size={12} /> User (Optional)
+                    </label>
+                    <div className="relative">
+                      <input 
+                        type="text"
+                        placeholder="Search User..."
+                        value={userSearch}
+                        onFocus={() => setIsUserSearchOpen(true)}
+                        onChange={e => {
+                          setUserSearch(e.target.value);
+                          setIsUserSearchOpen(true);
+                        }}
+                        className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))] transition-all"
+                      />
+                      {isUserSearchOpen && (
+                        <div className="absolute top-full left-0 mt-1 w-full bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-lg shadow-xl z-[120] max-h-40 overflow-y-auto py-1 animate-in fade-in zoom-in-95 duration-100">
                           <button
-                            key={user.id}
                             type="button"
                             onClick={() => {
-                              setFormData({...formData, user_id: user.id});
-                              setUserSearch(user.full_name || user.email);
+                              setFormData({...formData, user_id: ''});
+                              setUserSearch('');
                               setIsUserSearchOpen(false);
                             }}
-                            className="w-full text-left px-3 py-1.5 text-xs hover:bg-[hsl(var(--primary))]/10 transition-colors"
+                            className="w-full text-left px-3 py-1.5 text-xs hover:bg-red-500/10 text-red-400 transition-colors border-b border-[hsl(var(--border-v))]"
                           >
-                            {user.full_name || user.email}
+                            Unassign
                           </button>
-                        ))}
-                        {users.filter(u => 
-                          (u.full_name || '').toLowerCase().includes(userSearch.toLowerCase()) || 
-                          (u.email || '').toLowerCase().includes(userSearch.toLowerCase())
-                        ).length === 0 && (
-                          <div className="px-3 py-2 text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono">No results</div>
-                        )}
-                      </div>
-                    )}
+                          {users.filter(u => 
+                            (u.full_name || '').toLowerCase().includes(userSearch.toLowerCase()) || 
+                            (u.email || '').toLowerCase().includes(userSearch.toLowerCase())
+                          ).map(user => (
+                            <button
+                              key={user.id}
+                              type="button"
+                              onClick={() => {
+                                setFormData({...formData, user_id: user.id});
+                                setUserSearch(user.full_name || user.email);
+                                setIsUserSearchOpen(false);
+                              }}
+                              className="w-full text-left px-3 py-1.5 text-xs hover:bg-[hsl(var(--primary))]/10 transition-colors"
+                            >
+                              {user.full_name || user.email}
+                            </button>
+                          ))}
+                          {users.filter(u => 
+                            (u.full_name || '').toLowerCase().includes(userSearch.toLowerCase()) || 
+                            (u.email || '').toLowerCase().includes(userSearch.toLowerCase())
+                          ).length === 0 && (
+                            <div className="px-3 py-2 text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono">No results</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">

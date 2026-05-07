@@ -68,12 +68,13 @@ export const provisionNumber = async (numberData) => {
   const { organization_id, ...payloadWithoutOrg } = numberData
   const finalPayload = {
     ...payloadWithoutOrg,
+    organization_id: organization_id || null,
     id: data.id,
     call_forwarding_enabled: data.call_forwarding_enabled,
     call_forwarding_number: data.call_forwarding_number,
     call_forwarding_reason: data.call_forwarding_reason
   }
-  
+
   const webhookResponse = await axios.post(webhookUrl, finalPayload)
   console.log("webhookResponse", webhookResponse.data)
 
@@ -83,8 +84,15 @@ export const provisionNumber = async (numberData) => {
 export const bindNumberToAgent = async (numberId, agentId) => {
   const webhookUrl = `${process.env.REACT_APP_WEBHOOK_BASE_URL}${process.env.REACT_APP_WEBHOOK_UNBIND}`
 
+  const existing = await getNumberById(numberId)
+  if (!existing) throw new Error('Number not found')
+
   // 1. Trigger external automation
-  const webhookResponse = await axios.post(webhookUrl, { numberId, agentId })
+  const webhookResponse = await axios.post(webhookUrl, {
+    numberId,
+    agentId,
+    organization_id: existing.organization_id
+  })
 
   // 2. Update local database
   const { data, error } = await supabaseAdmin
@@ -102,8 +110,16 @@ export const bindNumberToAgent = async (numberId, agentId) => {
 export const deleteNumber = async (numberId) => {
   const webhookUrl = `${process.env.REACT_APP_WEBHOOK_BASE_URL}${process.env.REACT_APP_WEBHOOK_DELETE_NUMBER}`
 
+  const existing = await getNumberById(numberId)
+  if (!existing) throw new Error('Number not found')
+
   // 1. Trigger external automation
-  const webhookResponse = await axios.post(webhookUrl, { numberId })
+  const webhookResponse = await axios.post(webhookUrl, {
+    numberId,
+    phone_number_id: existing.phone_number_id,
+    phone_number: existing.phone_number,
+    organization_id: existing.organization_id
+  })
 
   // 2. Remove from local database (or soft delete if required, but schema doesn't have deleted_at for numbers)
   const { error } = await supabaseAdmin
@@ -119,8 +135,14 @@ export const deleteNumber = async (numberId) => {
 export const checkNumberStatus = async (numberId) => {
   const webhookUrl = `${process.env.REACT_APP_WEBHOOK_BASE_URL}${process.env.REACT_APP_WEBHOOK_CHECK_NUMBER_STATUS}`
 
+  const existing = await getNumberById(numberId)
+  if (!existing) throw new Error('Number not found')
+
   // 1. Trigger external automation
-  const webhookResponse = await axios.post(webhookUrl, { numberId })
+  const webhookResponse = await axios.post(webhookUrl, {
+    numberId,
+    organization_id: existing.organization_id
+  })
 
   // 2. Update local database if needed (assuming webhook returns current status)
   if (webhookResponse.data.status) {
@@ -135,31 +157,42 @@ export const checkNumberStatus = async (numberId) => {
 }
 
 export const updateNumber = async (numberId, updateData) => {
-  // Logic to update local database
+  // 1. Fetch existing to merge metadata and avoid overwriting with nulls
+  const { data: existing, error: fetchError } = await supabaseAdmin
+    .schema('inbound')
+    .from('phone_numbers')
+    .select('*')
+    .eq('id', numberId)
+    .single()
+
+  if (fetchError || !existing) throw fetchError || new Error('Number not found')
+
   const updatePayload = {
-    phone_number: updateData.phone_number,
-    organization_id: updateData.organization_id || null,
-    user_id: updateData.user_id || null,
-    label: updateData.label || null,
-    provider: updateData.provider || 'twilio',
-    tool_id: updateData.tool_id || null,
-    phone_number_id: updateData.phone_number_id || null,
-    call_forwarding_enabled: updateData.call_forwarding_enabled || false,
-    call_forwarding_number: updateData.call_forwarding_number || null,
-    call_forwarding_reason: updateData.call_forwarding_reason || null,
+    phone_number: updateData.phone_number !== undefined ? updateData.phone_number : existing.phone_number,
+    organization_id: updateData.organization_id !== undefined ? updateData.organization_id : existing.organization_id,
+    user_id: updateData.user_id !== undefined ? updateData.user_id : existing.user_id,
+    label: updateData.label !== undefined ? updateData.label : existing.label,
+    provider: updateData.provider !== undefined ? updateData.provider : existing.provider,
+    tool_id: updateData.tool_id !== undefined ? updateData.tool_id : existing.tool_id,
+    phone_number_id: updateData.phone_number_id !== undefined ? updateData.phone_number_id : existing.phone_number_id,
+    call_forwarding_enabled: updateData.call_forwarding_enabled !== undefined ? updateData.call_forwarding_enabled : existing.call_forwarding_enabled,
+    call_forwarding_number: updateData.call_forwarding_number !== undefined ? updateData.call_forwarding_number : existing.call_forwarding_number,
+    call_forwarding_reason: updateData.call_forwarding_reason !== undefined ? updateData.call_forwarding_reason : existing.call_forwarding_reason,
+    agent_id: updateData.agent_id !== undefined ? updateData.agent_id : existing.agent_id,
     metadata: {
-      provider: updateData.provider || 'twilio',
-      user_id: updateData.user_id || null,
-      twilio_account_sid: updateData.twilio_account_sid || null,
-      twilio_auth_token: updateData.twilio_auth_token || null,
-      vonage_api_key: updateData.vonage_api_key || null,
-      vonage_api_secret: updateData.vonage_api_secret || null,
-      telnyx_api_key: updateData.telnyx_api_key || null,
-      tool_id: updateData.tool_id || null,
-      phone_number_id: updateData.phone_number_id || null,
-      call_forwarding_enabled: updateData.call_forwarding_enabled || false,
-      call_forwarding_number: updateData.call_forwarding_number || null,
-      call_forwarding_reason: updateData.call_forwarding_reason || null
+      ...(existing.metadata || {}),
+      provider: updateData.provider || existing.provider,
+      user_id: updateData.user_id !== undefined ? updateData.user_id : existing.user_id,
+      twilio_account_sid: updateData.twilio_account_sid !== undefined ? updateData.twilio_account_sid : (existing.metadata?.twilio_account_sid || null),
+      twilio_auth_token: updateData.twilio_auth_token !== undefined ? updateData.twilio_auth_token : (existing.metadata?.twilio_auth_token || null),
+      vonage_api_key: updateData.vonage_api_key !== undefined ? updateData.vonage_api_key : (existing.metadata?.vonage_api_key || null),
+      vonage_api_secret: updateData.vonage_api_secret !== undefined ? updateData.vonage_api_secret : (existing.metadata?.vonage_api_secret || null),
+      telnyx_api_key: updateData.telnyx_api_key !== undefined ? updateData.telnyx_api_key : (existing.metadata?.telnyx_api_key || null),
+      tool_id: updateData.tool_id !== undefined ? updateData.tool_id : (existing.metadata?.tool_id || null),
+      phone_number_id: updateData.phone_number_id !== undefined ? updateData.phone_number_id : (existing.metadata?.phone_number_id || null),
+      call_forwarding_enabled: updateData.call_forwarding_enabled !== undefined ? updateData.call_forwarding_enabled : (existing.metadata?.call_forwarding_enabled || false),
+      call_forwarding_number: updateData.call_forwarding_number !== undefined ? updateData.call_forwarding_number : (existing.metadata?.call_forwarding_number || null),
+      call_forwarding_reason: updateData.call_forwarding_reason !== undefined ? updateData.call_forwarding_reason : (existing.metadata?.call_forwarding_reason || null)
     }
   }
 
@@ -207,6 +240,7 @@ export const updateNumber = async (numberId, updateData) => {
     const { organization_id, ...updatePayloadWithoutOrg } = updateData
     await axios.post(webhookUrl, {
       ...updatePayloadWithoutOrg,
+      organization_id: organization_id || existing.organization_id || null,
       id: data.id,
       call_forwarding_enabled: data.call_forwarding_enabled,
       call_forwarding_number: data.call_forwarding_number,
@@ -242,8 +276,13 @@ export const listNumbersByOrg = async (orgId, userId = null) => {
   let query = supabaseAdmin
     .schema('inbound')
     .from('phone_numbers')
-    .select('*, organizations:organizations(id, name), profiles:profiles(id, full_name, email)')
-    .eq('organization_id', orgId)
+    .select('*, organizations:organizations!phone_numbers_organization_id_fkey(id, name), profiles:profiles!phone_numbers_profiles_fkey(id, full_name, email)')
+
+  if (orgId && orgId !== 'null' && orgId !== '00000000-0000-4000-a000-000000000003') {
+    query = query.eq('organization_id', orgId)
+  } else {
+    query = query.is('organization_id', null)
+  }
 
   if (userId) {
     query = query.eq('user_id', userId)
@@ -255,11 +294,23 @@ export const listNumbersByOrg = async (orgId, userId = null) => {
   return data
 }
 
+export const getNumberById = async (numberId) => {
+  const { data, error } = await supabaseAdmin
+    .schema('inbound')
+    .from('phone_numbers')
+    .select('*, organizations:organizations!phone_numbers_organization_id_fkey(id, name), profiles:profiles!phone_numbers_profiles_fkey(id, full_name, email)')
+    .eq('id', numberId)
+    .single()
+
+  if (error) throw error
+  return data
+}
+
 export const listAllNumbers = async () => {
   const { data, error } = await supabaseAdmin
     .schema('inbound')
     .from('phone_numbers')
-    .select('*, organizations:organizations(id, name), profiles:profiles(id, full_name, email)')
+    .select('*, organizations:organizations!phone_numbers_organization_id_fkey(id, name), profiles:profiles!phone_numbers_profiles_fkey(id, full_name, email)')
 
   if (error) throw error
   return data

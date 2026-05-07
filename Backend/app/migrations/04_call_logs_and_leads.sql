@@ -36,6 +36,9 @@ CREATE TABLE IF NOT EXISTS inbound.leads (
   crm_sync        inbound.crm_sync NOT NULL DEFAULT 'pending',
   notes           text,
   meeting_time    timestamptz,
+  meeting_timezone text,
+  meeting_date    text,
+  meeting_link    text,
   created_at      timestamptz NOT NULL DEFAULT now()
 );
 
