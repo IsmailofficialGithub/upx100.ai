@@ -100,7 +100,7 @@ export const getAllScriptRequests = async () => {
     .schema('inbound')
     .from('script_change_requests')
     .select('*, organizations!script_change_requests_organization_id_fkey(name)')
-    .order('submitted_at', { ascending: false });
+    .order('created_at', { ascending: false });
 };
 
 export const getAllTargetUploads = async () => {
@@ -108,7 +108,7 @@ export const getAllTargetUploads = async () => {
     .schema('inbound')
     .from('target_account_uploads')
     .select('*, organizations!target_account_uploads_organization_id_fkey(name)')
-    .order('uploaded_at', { ascending: false });
+    .order('created_at', { ascending: false });
 };
 
 export const getAllVoiceClones = async () => {
@@ -116,7 +116,7 @@ export const getAllVoiceClones = async () => {
     .schema('inbound')
     .from('voice_clone_submissions')
     .select('*, organizations!voice_clone_submissions_organization_id_fkey(name)')
-    .order('submitted_at', { ascending: false });
+    .order('created_at', { ascending: false });
 };
 
 // --- CRUD OPERATIONS ---
