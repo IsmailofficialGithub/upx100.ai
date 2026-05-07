@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import api from '@/lib/api';
 import { winLossData as mockWinLoss, objectionInsights as mockObjections, roiDefaults as mockRoi, revenueProjection as mockProjection } from '@/data/mockData';
 import { useTheme } from '@/context/ThemeContext';
+import { useAuth } from '@/context/AuthContext';
 import {
   XAxis, YAxis, Tooltip, ResponsiveContainer, Area, AreaChart,
 } from 'recharts';
@@ -10,9 +11,11 @@ import { toast } from 'sonner';
 
 const AnalyticsView: React.FC = () => {
   const { currencySymbol } = useTheme();
+  const { canViewFinances } = useAuth();
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // ... (rest of state)
   const [acv, setAcv] = useState(mockRoi.acv);
   const [closeRate, setCloseRate] = useState(mockRoi.closeRate);
   const [runway, setRunway] = useState(mockRoi.runway);
@@ -20,6 +23,7 @@ const AnalyticsView: React.FC = () => {
   const [expandedLoss, setExpandedLoss] = useState<number | null>(null);
 
   useEffect(() => {
+    // ... (fetch logic remains same)
     const fetchAnalytics = async () => {
       try {
         const response = await api.get('/analytics/stats');
@@ -83,7 +87,7 @@ const AnalyticsView: React.FC = () => {
               </div>
               <p className="text-2xl font-bold font-display text-emerald-400">{winLossData.won.count}</p>
               <p className="text-[10px] font-mono text-[hsl(var(--muted-foreground))] mt-1">{winLossData.won.percentage}% of deals</p>
-              <p className="text-[10px] font-mono text-emerald-400 mt-1">Avg {currencySymbol}{(winLossData.won.avgDeal / 1000).toFixed(0)}k</p>
+              {canViewFinances && <p className="text-[10px] font-mono text-emerald-400 mt-1">Avg {currencySymbol}{(winLossData.won.avgDeal / 1000).toFixed(0)}k</p>}
             </div>
             <div className="p-4 bg-red-500/5 border border-red-500/20 rounded-lg text-center">
               <div className="flex items-center justify-center gap-1.5 mb-2">
@@ -92,7 +96,7 @@ const AnalyticsView: React.FC = () => {
               </div>
               <p className="text-2xl font-bold font-display text-red-400">{winLossData.lost.count}</p>
               <p className="text-[10px] font-mono text-[hsl(var(--muted-foreground))] mt-1">{winLossData.lost.percentage}% of deals</p>
-              <p className="text-[10px] font-mono text-red-400 mt-1">Avg {currencySymbol}{(winLossData.lost.avgDeal / 1000).toFixed(0)}k</p>
+              {canViewFinances && <p className="text-[10px] font-mono text-red-400 mt-1">Avg {currencySymbol}{(winLossData.lost.avgDeal / 1000).toFixed(0)}k</p>}
             </div>
           </div>
 
@@ -177,128 +181,132 @@ const AnalyticsView: React.FC = () => {
       </div>
 
       {/* ROI Calculator */}
-      <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-4">
-        <h3 className="text-sm font-display font-semibold text-[hsl(var(--foreground))] mb-4">ROI Calculator</h3>
+      {canViewFinances && (
+        <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-4">
+          <h3 className="text-sm font-display font-semibold text-[hsl(var(--foreground))] mb-4">ROI Calculator</h3>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          <div>
-            <label className="flex justify-between text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] mb-2 tracking-wider">
-              <span>Average ACV</span>
-              <span className="text-[hsl(var(--primary))]">{currencySymbol}{acv.toLocaleString()}</span>
-            </label>
-            <input
-              type="range"
-              min={10000}
-              max={500000}
-              step={5000}
-              value={acv}
-              onChange={e => setAcv(Number(e.target.value))}
-              className="w-full h-1.5 bg-[hsl(var(--muted))] rounded-full appearance-none cursor-pointer accent-[hsl(var(--primary))]"
-            />
-            <div className="flex justify-between mt-1">
-              <span className="text-[9px] font-mono text-[hsl(var(--muted-foreground))]">{currencySymbol}10k</span>
-              <span className="text-[9px] font-mono text-[hsl(var(--muted-foreground))]">{currencySymbol}500k</span>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            <div>
+              <label className="flex justify-between text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] mb-2 tracking-wider">
+                <span>Average ACV</span>
+                <span className="text-[hsl(var(--primary))]">{currencySymbol}{acv.toLocaleString()}</span>
+              </label>
+              <input
+                type="range"
+                min={10000}
+                max={500000}
+                step={5000}
+                value={acv}
+                onChange={e => setAcv(Number(e.target.value))}
+                className="w-full h-1.5 bg-[hsl(var(--muted))] rounded-full appearance-none cursor-pointer accent-[hsl(var(--primary))]"
+              />
+              <div className="flex justify-between mt-1">
+                <span className="text-[9px] font-mono text-[hsl(var(--muted-foreground))]">{currencySymbol}10k</span>
+                <span className="text-[9px] font-mono text-[hsl(var(--muted-foreground))]">{currencySymbol}500k</span>
+              </div>
+            </div>
+
+            <div>
+              <label className="flex justify-between text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] mb-2 tracking-wider">
+                <span>Close Rate %</span>
+                <span className="text-[hsl(var(--primary))]">{closeRate}%</span>
+              </label>
+              <input
+                type="range"
+                min={5}
+                max={50}
+                step={1}
+                value={closeRate}
+                onChange={e => setCloseRate(Number(e.target.value))}
+                className="w-full h-1.5 bg-[hsl(var(--muted))] rounded-full appearance-none cursor-pointer accent-[hsl(var(--primary))]"
+              />
+              <div className="flex justify-between mt-1">
+                <span className="text-[9px] font-mono text-[hsl(var(--muted-foreground))]">5%</span>
+                <span className="text-[9px] font-mono text-[hsl(var(--muted-foreground))]">50%</span>
+              </div>
+            </div>
+
+            <div>
+              <label className="flex justify-between text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] mb-2 tracking-wider">
+                <span>Runway (months)</span>
+                <span className="text-[hsl(var(--primary))]">{runway}mo</span>
+              </label>
+              <input
+                type="range"
+                min={3}
+                max={12}
+                step={1}
+                value={runway}
+                onChange={e => setRunway(Number(e.target.value))}
+                className="w-full h-1.5 bg-[hsl(var(--muted))] rounded-full appearance-none cursor-pointer accent-[hsl(var(--primary))]"
+              />
+              <div className="flex justify-between mt-1">
+                <span className="text-[9px] font-mono text-[hsl(var(--muted-foreground))]">3mo</span>
+                <span className="text-[9px] font-mono text-[hsl(var(--muted-foreground))]">12mo</span>
+              </div>
             </div>
           </div>
 
-          <div>
-            <label className="flex justify-between text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] mb-2 tracking-wider">
-              <span>Close Rate %</span>
-              <span className="text-[hsl(var(--primary))]">{closeRate}%</span>
-            </label>
-            <input
-              type="range"
-              min={5}
-              max={50}
-              step={1}
-              value={closeRate}
-              onChange={e => setCloseRate(Number(e.target.value))}
-              className="w-full h-1.5 bg-[hsl(var(--muted))] rounded-full appearance-none cursor-pointer accent-[hsl(var(--primary))]"
-            />
-            <div className="flex justify-between mt-1">
-              <span className="text-[9px] font-mono text-[hsl(var(--muted-foreground))]">5%</span>
-              <span className="text-[9px] font-mono text-[hsl(var(--muted-foreground))]">50%</span>
+          {/* ROI Results */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="p-3 bg-[hsl(var(--muted))] rounded-lg text-center">
+              <p className="text-[9px] font-mono uppercase text-[hsl(var(--muted-foreground))] tracking-wider">Projected Meetings</p>
+              <p className="text-lg font-bold font-display text-[hsl(var(--foreground))] mt-1">{roiCalc.projectedMeetings}</p>
             </div>
-          </div>
-
-          <div>
-            <label className="flex justify-between text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] mb-2 tracking-wider">
-              <span>Runway (months)</span>
-              <span className="text-[hsl(var(--primary))]">{runway}mo</span>
-            </label>
-            <input
-              type="range"
-              min={3}
-              max={12}
-              step={1}
-              value={runway}
-              onChange={e => setRunway(Number(e.target.value))}
-              className="w-full h-1.5 bg-[hsl(var(--muted))] rounded-full appearance-none cursor-pointer accent-[hsl(var(--primary))]"
-            />
-            <div className="flex justify-between mt-1">
-              <span className="text-[9px] font-mono text-[hsl(var(--muted-foreground))]">3mo</span>
-              <span className="text-[9px] font-mono text-[hsl(var(--muted-foreground))]">12mo</span>
+            <div className="p-3 bg-[hsl(var(--muted))] rounded-lg text-center">
+              <p className="text-[9px] font-mono uppercase text-[hsl(var(--muted-foreground))] tracking-wider">Pipeline Value</p>
+              <p className="text-lg font-bold font-display text-[hsl(var(--primary))] mt-1">{currencySymbol}{(roiCalc.pipelineValue / 1000000).toFixed(2)}M</p>
+            </div>
+            <div className="p-3 bg-[hsl(var(--muted))] rounded-lg text-center">
+              <p className="text-[9px] font-mono uppercase text-[hsl(var(--muted-foreground))] tracking-wider">Expected Revenue</p>
+              <p className="text-lg font-bold font-display text-emerald-400 mt-1">{currencySymbol}{(roiCalc.expectedRevenue / 1000000).toFixed(2)}M</p>
+            </div>
+            <div className="p-3 bg-[hsl(var(--muted))] rounded-lg text-center">
+              <p className="text-[9px] font-mono uppercase text-[hsl(var(--muted-foreground))] tracking-wider">ROI</p>
+              <p className={`text-lg font-bold font-display mt-1 ${roiCalc.roi >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                {(roiCalc.roi * 100).toFixed(0)}x
+              </p>
             </div>
           </div>
         </div>
-
-        {/* ROI Results */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="p-3 bg-[hsl(var(--muted))] rounded-lg text-center">
-            <p className="text-[9px] font-mono uppercase text-[hsl(var(--muted-foreground))] tracking-wider">Projected Meetings</p>
-            <p className="text-lg font-bold font-display text-[hsl(var(--foreground))] mt-1">{roiCalc.projectedMeetings}</p>
-          </div>
-          <div className="p-3 bg-[hsl(var(--muted))] rounded-lg text-center">
-            <p className="text-[9px] font-mono uppercase text-[hsl(var(--muted-foreground))] tracking-wider">Pipeline Value</p>
-            <p className="text-lg font-bold font-display text-[hsl(var(--primary))] mt-1">{currencySymbol}{(roiCalc.pipelineValue / 1000000).toFixed(2)}M</p>
-          </div>
-          <div className="p-3 bg-[hsl(var(--muted))] rounded-lg text-center">
-            <p className="text-[9px] font-mono uppercase text-[hsl(var(--muted-foreground))] tracking-wider">Expected Revenue</p>
-            <p className="text-lg font-bold font-display text-emerald-400 mt-1">{currencySymbol}{(roiCalc.expectedRevenue / 1000000).toFixed(2)}M</p>
-          </div>
-          <div className="p-3 bg-[hsl(var(--muted))] rounded-lg text-center">
-            <p className="text-[9px] font-mono uppercase text-[hsl(var(--muted-foreground))] tracking-wider">ROI</p>
-            <p className={`text-lg font-bold font-display mt-1 ${roiCalc.roi >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-              {(roiCalc.roi * 100).toFixed(0)}x
-            </p>
-          </div>
-        </div>
-      </div>
+      )}
 
       {/* Revenue Projection Chart */}
-      <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-4">
-        <h3 className="text-sm font-display font-semibold text-[hsl(var(--foreground))] mb-4">Revenue Projection</h3>
-        <div className="h-72">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={projectionData}>
-              <defs>
-                <linearGradient id="revGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                  <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#888' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 10, fill: '#888' }} axisLine={false} tickLine={false} tickFormatter={v => `${currencySymbol}${(v / 1000).toFixed(0)}k`} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: 'hsl(var(--card))',
-                  border: '1px solid hsl(var(--border-v))',
-                  borderRadius: '8px',
-                  fontSize: '12px',
-                }}
-                formatter={(value: number) => [`${currencySymbol}${value.toLocaleString()}`, 'Expected Revenue']}
-              />
-              <Area
-                type="monotone"
-                dataKey="revenue"
-                stroke="hsl(var(--primary))"
-                fill="url(#revGradient)"
-                strokeWidth={2}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+      {canViewFinances && (
+        <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-4">
+          <h3 className="text-sm font-display font-semibold text-[hsl(var(--foreground))] mb-4">Revenue Projection</h3>
+          <div className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={projectionData}>
+                <defs>
+                  <linearGradient id="revGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                    <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#888' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 10, fill: '#888' }} axisLine={false} tickLine={false} tickFormatter={v => `${currencySymbol}${(v / 1000).toFixed(0)}k`} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'hsl(var(--card))',
+                    border: '1px solid hsl(var(--border-v))',
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                  }}
+                  formatter={(value: number) => [`${currencySymbol}${value.toLocaleString()}`, 'Expected Revenue']}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="revenue"
+                  stroke="hsl(var(--primary))"
+                  fill="url(#revGradient)"
+                  strokeWidth={2}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

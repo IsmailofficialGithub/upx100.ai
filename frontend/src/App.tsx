@@ -91,18 +91,6 @@ function App() {
               />
             } />
 
-            <Route path="clones" element={
-              <AdminDataView 
-                title="Voice Clone Requests" 
-                endpoint="voice-clones"
-                columns={[
-                  { key: 'organizations', label: 'Org', render: (val) => val?.name },
-                  { key: 'voice_name', label: 'Name' },
-                  { key: 'status', label: 'Status' },
-                  { key: 'created_at', label: 'Date', render: (val) => new Date(val).toLocaleDateString() }
-                ]}
-              />
-            } />
           </Route>
 
 
@@ -147,7 +135,7 @@ function App() {
                   { key: 'name', label: 'Agent Name' },
                   { key: 'status', label: 'Status' },
                   { key: 'vapi_id', label: 'Vapi ID' },
-                  { key: 'created_at', label: 'Created', render: (val) => new Date(val).toLocaleDateString() }
+                  { key: 'created_at', label: 'Date', render: (val) => new Date(val).toLocaleDateString() }
                 ]}
               />
             } />

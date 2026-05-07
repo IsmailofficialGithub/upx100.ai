@@ -33,7 +33,8 @@ const AdminPhoneNumbersView: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [countrySearch, setCountrySearch] = useState('');
-  const { user, isGCCAdmin, isClient } = useAuth();
+  const { user, isGCC, isSP, isClient, isGCCAdmin, isClientAdmin } = useAuth();
+  const isAdminView = isGCC || isSP;
 
   const [selectedCountry, setSelectedCountry] = useState(countries[0]);
   const [isCountryDropdownOpen, setIsCountryDropdownOpen] = useState(false);
@@ -73,12 +74,12 @@ const AdminPhoneNumbersView: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const userEndpoint = isGCCAdmin ? '/admin/users' : '/users';
+        const userEndpoint = isAdminView ? '/admin/users' : '/users';
         
         // Parallel fetch for entities and users
         const promises: Promise<any>[] = [api.get(userEndpoint)];
         
-        if (isGCCAdmin) {
+        if (isAdminView) {
           promises.push(api.get('/admin/organizations'));
         }
 
@@ -86,7 +87,7 @@ const AdminPhoneNumbersView: React.FC = () => {
         
         setUsers(uRes.data.data);
         
-        if (isGCCAdmin && oRes) {
+        if (isAdminView && oRes) {
           setOrgs(oRes.data.data);
         } else {
           // If not GCC, we don't need the orgs list for dropdowns as much, 
@@ -105,7 +106,7 @@ const AdminPhoneNumbersView: React.FC = () => {
       }
     };
     fetchData();
-  }, [isGCCAdmin, user]);
+  }, [isAdminView, user]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -128,7 +129,7 @@ const AdminPhoneNumbersView: React.FC = () => {
 
   useEffect(() => {
     const delayDebounceFn = setTimeout(async () => {
-      if (!isGCCAdmin) return;
+      if (!isAdminView) return;
       // Don't search if the search text exactly matches the current selection's name
       const currentOrg = orgs.find(o => o.id === formData.organization_id);
       if (orgSearch && currentOrg?.name === orgSearch) return;
@@ -144,7 +145,7 @@ const AdminPhoneNumbersView: React.FC = () => {
     }, 300);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [orgSearch, isGCCAdmin]);
+  }, [orgSearch, isAdminView]);
 
   useEffect(() => {
     const delayDebounceFn = setTimeout(async () => {
@@ -153,7 +154,7 @@ const AdminPhoneNumbersView: React.FC = () => {
       if (userSearch && (currentUser?.full_name === userSearch || currentUser?.email === userSearch)) return;
 
       try {
-        const endpoint = isGCCAdmin ? '/admin/users' : '/users';
+        const endpoint = isAdminView ? '/admin/users' : '/users';
         const response = await api.get(endpoint, {
           params: { search: userSearch || undefined }
         });
@@ -164,7 +165,7 @@ const AdminPhoneNumbersView: React.FC = () => {
     }, 300);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [userSearch, isGCCAdmin]);
+  }, [userSearch, isAdminView]);
 
   useEffect(() => {
     if (selectedCountry.code === 'US' && localPhone.length > 10) {
@@ -188,7 +189,7 @@ const AdminPhoneNumbersView: React.FC = () => {
       phone_number: finalPhoneNumber,
       country_code: selectedCountry.dial_code,
       label: formData.label,
-      user_id: isGCCAdmin ? formData.user_id : (formData.user_id || user?.id),
+      user_id: isAdminView ? formData.user_id : (formData.user_id || user?.id),
       sms_enabled: formData.sms_enabled || false,
       call_forwarding_enabled: formData.call_forwarding_enabled,
       call_forwarding_number: formData.call_forwarding_enabled ? `${forwardingSelectedCountry.dial_code}${forwardingLocalPhone.replace(/\D/g, '')}` : '',
@@ -209,7 +210,7 @@ const AdminPhoneNumbersView: React.FC = () => {
       submissionData.telnyx_api_key = formData.telnyx_api_key;
     }
     if (editingId) submissionData.id = editingId;
-    if (isGCCAdmin) {
+    if (isAdminView) {
       if (formData.organization_id && formData.organization_id !== 'null') {
         submissionData.organization_id = formData.organization_id;
       } else {
@@ -344,7 +345,7 @@ const AdminPhoneNumbersView: React.FC = () => {
   const handleCheckStatus = async (id: string) => {
     const toastId = toast.loading('Checking number status...');
     try {
-      const endpoint = isGCCAdmin ? '/admin/phone-numbers' : '/phone-numbers';
+      const endpoint = isAdminView ? '/admin/phone-numbers' : '/phone-numbers';
       const response = await api.get(`${endpoint}/${id}/status`);
       toast.success(`Status updated: ${response.data.status || 'Active'}`, { id: toastId });
       setRefreshKey(prev => prev + 1);
@@ -357,7 +358,7 @@ const AdminPhoneNumbersView: React.FC = () => {
     <div className="space-y-6">
       <AdminDataView 
         key={refreshKey}
-        title={isGCCAdmin ? "Global Phone Numbers" : "My Phone Numbers"} 
+        title={isAdminView ? "Global Phone Numbers" : "My Phone Numbers"} 
         endpoint="/phone-numbers"
         columns={[
           { key: 'phone_number', label: 'Number' },
@@ -376,7 +377,7 @@ const AdminPhoneNumbersView: React.FC = () => {
           { 
             key: 'organizations', 
             label: 'Organization', 
-            render: (val:any) => isGCCAdmin ? (
+            render: (val:any) => isAdminView ? (
               <div className="flex items-center gap-2">
                 <Building2 size={12} className="text-[hsl(var(--muted-foreground))]" />
                 <span>{val?.name || 'N/A'}</span>
@@ -397,20 +398,22 @@ const AdminPhoneNumbersView: React.FC = () => {
           { key: 'provider', label: 'Provider' }
         ].filter(col => {
           if (col.key === 'profiles' && isClient) return false;
-          if (col.key === 'organizations' && !isGCCAdmin) return false;
+          if (col.key === 'organizations' && !isAdminView) return false;
           return true;
         })}
-        onAdd={() => { setEditingId(null); resetForm(); setIsModalOpen(true); }}
-        onEdit={startEdit}
-        onDelete={handleDelete}
+        onAdd={(isGCCAdmin || isClientAdmin) ? () => { setEditingId(null); resetForm(); setIsModalOpen(true); } : undefined}
+        onEdit={isGCCAdmin ? startEdit : undefined}
+        onDelete={isGCCAdmin ? handleDelete : undefined}
         renderActions={(row) => (
-          <button 
-            onClick={() => handleCheckStatus(row.id)}
-            className="p-1.5 text-[hsl(var(--muted-foreground))] hover:text-emerald-500 transition-colors"
-            title="Check Status"
-          >
-            <RefreshCw size={14} />
-          </button>
+          (isGCCAdmin || isClientAdmin) && (
+            <button 
+              onClick={() => handleCheckStatus(row.id)}
+              className="p-1.5 text-[hsl(var(--muted-foreground))] hover:text-emerald-500 transition-colors"
+              title="Check Status"
+            >
+              <RefreshCw size={14} />
+            </button>
+          )
         )}
       />
 
@@ -526,7 +529,7 @@ const AdminPhoneNumbersView: React.FC = () => {
               
               <div className="grid grid-cols-2 gap-4">
                 {/* Organization Search (GCC Admin Only) */}
-                {isGCCAdmin && (
+                {isAdminView && (
                   <div className="space-y-2 relative">
                     <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
                       <Building2 size={12} /> Organization
@@ -569,8 +572,8 @@ const AdminPhoneNumbersView: React.FC = () => {
                 )}
 
                 {/* User Search (GCC Admin Only) */}
-                {isGCCAdmin && (
-                  <div className={`space-y-2 relative ${isGCCAdmin ? '' : 'col-span-2'}`}>
+                {isAdminView && (
+                  <div className={`space-y-2 relative ${isAdminView ? '' : 'col-span-2'}`}>
                     <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
                       <User size={12} /> User (Optional)
                     </label>

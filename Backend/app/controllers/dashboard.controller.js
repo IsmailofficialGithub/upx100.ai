@@ -1,37 +1,51 @@
 import { supabaseAdmin } from '../config/supabase.js'
 import { StatusCodes } from 'http-status-codes'
+import * as userService from '../services/user.service.js'
 
 /**
  * Get unified dashboard stats for a client or SP
  */
 export const getStats = async (req, res) => {
   try {
-    const { orgId } = req.user
+    const { role, orgId, userId } = req.user
+    let targetOrgIds = [orgId]
+
+    // GCC Admin/Reviewer can see all (or we could limit them, but for now they see all)
+    // SP can see assigned orgs
+    if (['gcc_admin', 'gcc_reviewer'].includes(role)) {
+      // For now, GCC see everything. In a real large system, we'd paginate or filter.
+      // But let's assume they want a global view if no org context is provided.
+      // If orgId is 000...003 (system org), they see all.
+      if (orgId === '00000000-0000-4000-a000-000000000003') {
+        targetOrgIds = [] // Signal to fetch all
+      }
+    } else if (['sp_primary', 'sp_sub'].includes(role)) {
+      const { data: assignments } = await userService.getSPClientAssignments(userId)
+      targetOrgIds = assignments?.map(a => a.client_org_id) || []
+    }
+
+    const buildQuery = (schema, table) => {
+      let query = supabaseAdmin.schema(schema).from(table).select('*')
+      if (targetOrgIds.length > 0) {
+        query = query.in('organization_id', targetOrgIds)
+      }
+      return query
+    }
 
     // 1. Get Call Logs
-    const { data: callLogs } = await supabaseAdmin.schema('inbound')
-      .from('call_logs')
-      .select('*')
-      .eq('organization_id', orgId)
+    const { data: callLogs } = await buildQuery('inbound', 'call_logs')
 
     // 2. Get Leads
-    const { data: leads } = await supabaseAdmin.schema('inbound')
-      .from('leads')
-      .select('*')
-      .eq('organization_id', orgId)
+    const { data: leads } = await buildQuery('inbound', 'leads')
 
     // 3. Get Phone Numbers count
-    const { count: totalNumbers } = await supabaseAdmin.schema('inbound')
-      .from('phone_numbers')
+    const { count: totalNumbers } = await buildQuery('inbound', 'phone_numbers')
       .select('*', { count: 'exact', head: true })
-      .eq('organization_id', orgId)
       .is('deleted_at', null)
 
     // 4. Get Agents count
-    const { count: totalAgents } = await supabaseAdmin.schema('inbound')
-      .from('agents')
+    const { count: totalAgents } = await buildQuery('inbound', 'agents')
       .select('*', { count: 'exact', head: true })
-      .eq('organization_id', orgId)
       .is('deleted_at', null)
 
     // Calculate aggregated metrics
@@ -41,19 +55,16 @@ export const getStats = async (req, res) => {
     const totalMins = Math.floor((totalDurationSec % 3600) / 60);
 
     const totalMeetings = leads?.filter(l => l.status === 'success').length || 0;
-    const pipelineValue = totalMeetings * 5000; 
-    const hoursSaved = Math.round((totalOutreach * 5) / 60);
+    // const pipelineValue = totalMeetings * 5000; 
+    // const hoursSaved = Math.round((totalOutreach * 5) / 60);
 
     // 5. Get Recent/Live Calls
-    const { data: recentCalls } = await supabaseAdmin.schema('inbound')
-      .from('call_logs')
+    const { data: recentCalls } = await buildQuery('inbound', 'call_logs')
       .select('*, agents(name)')
-      .eq('organization_id', orgId)
       .order('created_at', { ascending: false })
-      .limit(3)
+      .limit(5) // Increased for multi-org view
 
     const formattedLiveCalls = (recentCalls || []).map(call => {
-      // Basic transcript parsing: assuming format "Speaker: Text" per line
       const transcriptLines = (call.transcript || '')
         .split('\n')
         .filter(line => line.includes(':'))
@@ -76,7 +87,7 @@ export const getStats = async (req, res) => {
       };
     });
 
-    // 6. Calculate outreachActivity (Last 7 days for daily)
+    // 6. Calculate outreachActivity
     const last7Days = [...Array(7)].map((_, i) => {
       const d = new Date();
       d.setDate(d.getDate() - (6 - i));
@@ -88,7 +99,7 @@ export const getStats = async (req, res) => {
       return { label: new Date(date).toLocaleDateString('en-US', { weekday: 'short' }), count };
     });
 
-    const stats = {
+    const statsResult = {
       metrics: {
         outreach: { label: 'Call Logs', value: totalOutreach, change: '' },
         agents: { label: 'Agents Assigned', value: totalAgents || 0, change: '' },
@@ -107,7 +118,7 @@ export const getStats = async (req, res) => {
         weekly: { labels: ['W1', 'W2', 'W3', 'W4'], data: [0, 0, 0, totalOutreach] },
         monthly: { labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'], data: [0, 0, 0, 0, 0, totalOutreach] }
       },
-      regionalData: [], // Would need lead address data
+      regionalData: [], 
       emailStats: { sent: 0, openRate: 0, replyRate: 0 },
       benchmarks: {
         meetings: { yours: totalOutreach > 0 ? (totalMeetings / 4).toFixed(1) : 0, network: 2.1, top25: 4.2, unit: '/week' },
@@ -135,7 +146,7 @@ export const getStats = async (req, res) => {
       }))
     }
 
-    return res.status(StatusCodes.OK).json({ data: stats })
+    return res.status(StatusCodes.OK).json({ data: statsResult })
   } catch (error) {
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       error: { message: error.message }

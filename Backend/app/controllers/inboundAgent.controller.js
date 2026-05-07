@@ -51,11 +51,15 @@ export const getAgent = async (req, res) => {
 }
 
 export const createAgent = async (req, res) => {
+  if (req.user.role !== 'gcc_admin') {
+    return res.status(StatusCodes.FORBIDDEN).json({
+      error: { message: 'Only GCC Admin can create agents. This is a managed service.' }
+    })
+  }
+
   const agentData = {
     ...req.body,
-    organization_id: req.user.role === 'gcc_admin'
-      ? req.body.organization_id
-      : (req.user.orgId && req.user.orgId !== '00000000-0000-4000-a000-000000000003' ? req.user.orgId : null),
+    organization_id: req.body.organization_id,
     user_id: ['gcc_admin', 'client_admin', 'sp_primary'].includes(req.user.role)
       ? (req.body.user_id || req.user.userId)
       : req.user.userId
@@ -82,24 +86,12 @@ export const createAgent = async (req, res) => {
 
 export const updateAgent = async (req, res) => {
   const { agentId } = req.params
-  const { role, orgId } = req.user
+  const { role } = req.user
 
   if (role !== 'gcc_admin') {
-    const existing = await agentService.getAgentById(agentId)
-    const effectiveOrgId = (orgId && orgId !== '00000000-0000-4000-a000-000000000003') ? orgId : null
-    if (!existing || existing.organization_id !== effectiveOrgId) {
-      return res.status(StatusCodes.FORBIDDEN).json({
-        error: { code: 'FORBIDDEN', message: 'You do not have permission to manage this agent' }
-      })
-    }
-    // Sub-users can only manage their own agents
-    if (!['client_admin', 'sp_primary'].includes(role) && existing.user_id !== req.user.userId) {
-      return res.status(StatusCodes.FORBIDDEN).json({
-        error: { code: 'FORBIDDEN', message: 'You do not have permission to manage this agent' }
-      })
-    }
-    // Organization cannot be changed by non-GCC
-    delete req.body.organization_id
+    return res.status(StatusCodes.FORBIDDEN).json({
+      error: { message: 'Only GCC Admin can update agents.' }
+    })
   }
 
   const result = await agentService.updateAgent(agentId, {
@@ -125,22 +117,12 @@ export const updateAgent = async (req, res) => {
 
 export const deleteAgent = async (req, res) => {
   const { agentId } = req.params
-  const { role, orgId } = req.user
+  const { role } = req.user
 
   if (role !== 'gcc_admin') {
-    const existing = await agentService.getAgentById(agentId)
-    const effectiveOrgId = (orgId && orgId !== '00000000-0000-4000-a000-000000000003') ? orgId : null
-    if (!existing || existing.organization_id !== effectiveOrgId) {
-      return res.status(StatusCodes.FORBIDDEN).json({
-        error: { code: 'FORBIDDEN', message: 'You do not have permission to delete this agent' }
-      })
-    }
-    // Sub-users can only delete their own agents
-    if (!['client_admin', 'sp_primary'].includes(role) && existing.user_id !== req.user.userId) {
-      return res.status(StatusCodes.FORBIDDEN).json({
-        error: { code: 'FORBIDDEN', message: 'You do not have permission to delete this agent' }
-      })
-    }
+    return res.status(StatusCodes.FORBIDDEN).json({
+      error: { message: 'Only GCC Admin can delete agents.' }
+    })
   }
 
   const result = await agentService.deleteAgent(agentId)

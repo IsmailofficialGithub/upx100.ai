@@ -1,4 +1,5 @@
 import * as callLogService from '../services/callLog.service.js'
+import * as userService from '../services/user.service.js'
 import { StatusCodes } from 'http-status-codes'
 
 /**
@@ -51,10 +52,26 @@ export const getLogs = async (req, res) => {
 
   if (['gcc_admin', 'gcc_reviewer'].includes(role)) {
     logs = await callLogService.listAllLogs()
+    
+    // Mask cost for reviewer
+    if (role === 'gcc_reviewer') {
+      logs = logs.map(log => ({ ...log, cost: '***' }))
+    }
+  } else if (['sp_primary', 'sp_sub'].includes(role)) {
+    // Fetch assignments for the Sales Partner
+    const { data: assignments } = await userService.getSPClientAssignments(userId)
+    const orgIds = assignments?.map(a => a.client_org_id) || []
+    
+    if (orgIds.length > 0) {
+      // SP Sub-user might be further restricted to their own leads, but for now we follow 'assigned clients'
+      logs = await callLogService.listLogsByOrgs(orgIds)
+    } else {
+      logs = []
+    }
   } else {
     // Org Admin sees everything in org, Sub-user only sees own
     const effectiveOrgId = (orgId && orgId !== '00000000-0000-4000-a000-000000000003') ? orgId : null
-    const filterUserId = ['client_admin', 'sp_primary'].includes(role) ? null : userId
+    const filterUserId = (role === 'client_admin') ? null : userId
     logs = await callLogService.listLogsByOrg(effectiveOrgId, filterUserId)
   }
 
@@ -72,12 +89,34 @@ export const getLog = async (req, res) => {
   }
 
   // Scoping
-  if (!['gcc_admin', 'gcc_reviewer'].includes(req.user.role)) {
-    const effectiveOrgId = (req.user.orgId && req.user.orgId !== '00000000-0000-4000-a000-000000000003') ? req.user.orgId : null
-    if (log.organization_id !== effectiveOrgId) {
-      return res.status(StatusCodes.FORBIDDEN).json({
-        error: { code: 'FORBIDDEN', message: 'Access denied' }
-      })
+  const { role, orgId, userId } = req.user
+
+  if (role === 'gcc_reviewer') {
+    log.cost = '***'
+  }
+
+  if (!['gcc_admin', 'gcc_reviewer'].includes(role)) {
+    if (['sp_primary', 'sp_sub'].includes(role)) {
+      // Check if log belongs to an assigned org
+      const { data: assignments } = await userService.getSPClientAssignments(userId)
+      const assignedOrgIds = assignments?.map(a => a.client_org_id) || []
+      
+      if (!assignedOrgIds.includes(log.organization_id)) {
+        return res.status(StatusCodes.FORBIDDEN).json({
+          error: { code: 'FORBIDDEN', message: 'Access denied - Client not assigned' }
+        })
+      }
+    } else {
+      // Standard Client scoping
+      const effectiveOrgId = (orgId && orgId !== '00000000-0000-4000-a000-000000000003') ? orgId : null
+      if (log.organization_id !== effectiveOrgId) {
+        return res.status(StatusCodes.FORBIDDEN).json({
+          error: { code: 'FORBIDDEN', message: 'Access denied' }
+        })
+      }
+      
+      // If client_sub, check if it's their own call (optional refinement, but usually they see all in org if SDR)
+      // For now, org level is fine as per requirements.
     }
   }
 

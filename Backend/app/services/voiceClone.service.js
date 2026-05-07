@@ -59,3 +59,14 @@ export const updateCloneStatus = async (cloneId, status, reviewerId) => {
   if (error) throw error
   return data
 }
+export const getCloneById = async (cloneId) => {
+  const { data, error } = await supabaseAdmin
+    .schema('inbound')
+    .from('voice_clone_submissions')
+    .select('*')
+    .eq('id', cloneId)
+    .single()
+
+  if (error) return null
+  return data
+}

@@ -4,8 +4,11 @@ import { Loader2, Search, UserPlus, Mail, Shield, Building2, Trash2, Edit2 } fro
 
 
 import { toast } from 'sonner';
+import { useAuth } from '@/context/AuthContext';
 
 const AdminUserView: React.FC = () => {
+  const { user, canManageUsers, isGCCAdmin } = useAuth();
+  // ... (rest of state)
   const [users, setUsers] = useState<any[]>([]);
   const [orgs, setOrgs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -72,8 +75,6 @@ const AdminUserView: React.FC = () => {
     setIsModalOpen(true);
   };
 
-
-
   const filteredUsers = users.filter(u => 
     u.email.toLowerCase().includes(searchTerm.toLowerCase()) || 
     (u.full_name || '').toLowerCase().includes(searchTerm.toLowerCase())
@@ -91,7 +92,6 @@ const AdminUserView: React.FC = () => {
   };
 
   if (isLoading) {
-
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="animate-spin text-[hsl(var(--primary))]" />
@@ -112,12 +112,14 @@ const AdminUserView: React.FC = () => {
             className="w-full bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-lg py-2 pl-10 pr-4 text-xs focus:outline-none focus:border-[hsl(var(--primary))]/50"
           />
         </div>
-        <button 
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-[hsl(var(--primary))] text-black rounded-lg text-xs font-semibold hover:opacity-90 transition-opacity"
-        >
-          <UserPlus size={16} /> Add New User
-        </button>
+        {canManageUsers && (
+          <button 
+            onClick={() => setIsModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-[hsl(var(--primary))] text-black rounded-lg text-xs font-semibold hover:opacity-90 transition-opacity"
+          >
+            <UserPlus size={16} /> Add New User
+          </button>
+        )}
       </div>
 
       {/* Modal */}
@@ -164,27 +166,36 @@ const AdminUserView: React.FC = () => {
                     onChange={e => setFormData({...formData, role: e.target.value as any})}
                     className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[hsl(var(--primary))]"
                   >
-                    <option value="client_sub">Client Sub (SDR)</option>
-                    <option value="client_admin">Client Admin</option>
-                    <option value="sp_sub">Partner Sub</option>
-                    <option value="sp_primary">Partner Primary</option>
-                    <option value="gcc_reviewer">GCC Reviewer</option>
-                    <option value="gcc_admin">GCC Admin</option>
+                    {!isGCCAdmin ? (
+                      <>
+                        <option value="client_sub">Client Sub (SDR)</option>
+                        {user?.role === 'sp_primary' && <option value="sp_sub">Partner Sub</option>}
+                      </>
+                    ) : (
+                      <>
+                        <option value="client_sub">Client Sub (SDR)</option>
+                        <option value="client_admin">Client Admin</option>
+                        <option value="sp_sub">Partner Sub</option>
+                        <option value="sp_primary">Partner Primary</option>
+                        <option value="gcc_reviewer">GCC Reviewer</option>
+                        <option value="gcc_admin">GCC Admin</option>
+                      </>
+                    )}
                   </select>
                 </div>
                 <div>
                   <label className="block text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] mb-1">Organization</label>
                   <select 
                     value={formData.organization_id}
+                    disabled={!isGCCAdmin}
                     onChange={e => setFormData({...formData, organization_id: e.target.value})}
-                    className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[hsl(var(--primary))]"
+                    className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[hsl(var(--primary))] disabled:opacity-50"
                   >
                     <option value="" disabled>Select Organization</option>
                     {orgs.map(org => (
                       <option key={org.id} value={org.id}>{org.name}</option>
                     ))}
                   </select>
-
                 </div>
               </div>
               <div className="flex items-center gap-3 mt-6">
@@ -256,20 +267,22 @@ const AdminUserView: React.FC = () => {
                   {new Date(user.created_at).toLocaleDateString()}
                 </td>
                 <td className="px-4 py-4">
-                  <div className="flex items-center gap-1">
-                    <button 
-                      onClick={() => startEdit(user)}
-                      className="p-1.5 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] transition-colors"
-                    >
-                      <Edit2 size={14} />
-                    </button>
-                    <button 
-                      onClick={() => handleDeleteUser(user.id)}
-                      className="p-1.5 text-[hsl(var(--muted-foreground))] hover:text-red-500 transition-colors"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
+                  {canManageUsers && (
+                    <div className="flex items-center gap-1">
+                      <button 
+                        onClick={() => startEdit(user)}
+                        className="p-1.5 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] transition-colors"
+                      >
+                        <Edit2 size={14} />
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteUser(user.id)}
+                        className="p-1.5 text-[hsl(var(--muted-foreground))] hover:text-red-500 transition-colors"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  )}
                 </td>
               </tr>
 

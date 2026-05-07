@@ -1,4 +1,5 @@
 import * as leadService from '../services/lead.service.js'
+import * as userService from '../services/user.service.js'
 import { StatusCodes } from 'http-status-codes'
 
 /**
@@ -11,10 +12,19 @@ export const getLeads = async (req, res) => {
 
   if (['gcc_admin', 'gcc_reviewer'].includes(role)) {
     leads = await leadService.listAllLeads()
+  } else if (['sp_primary', 'sp_sub'].includes(role)) {
+    const { data: assignments } = await userService.getSPClientAssignments(userId)
+    const orgIds = assignments?.map(a => a.client_org_id) || []
+    
+    if (orgIds.length > 0) {
+      leads = await leadService.listLeadsByOrgs(orgIds)
+    } else {
+      leads = []
+    }
   } else {
     // Org Admin sees everything in org, Sub-user only sees own
     const effectiveOrgId = (orgId && orgId !== '00000000-0000-4000-a000-000000000003') ? orgId : null
-    const filterUserId = ['client_admin', 'sp_primary'].includes(role) ? null : userId
+    const filterUserId = (role === 'client_admin') ? null : userId
     leads = await leadService.listLeadsByOrg(effectiveOrgId, filterUserId)
   }
 
@@ -32,12 +42,24 @@ export const getLead = async (req, res) => {
   }
 
   // Scoping
-  if (!['gcc_admin', 'gcc_reviewer'].includes(req.user.role)) {
-    const effectiveOrgId = (req.user.orgId && req.user.orgId !== '00000000-0000-4000-a000-000000000003') ? req.user.orgId : null
-    if (lead.organization_id !== effectiveOrgId) {
-      return res.status(StatusCodes.FORBIDDEN).json({
-        error: { code: 'FORBIDDEN', message: 'Access denied' }
-      })
+  const { role, orgId, userId } = req.user
+  if (!['gcc_admin', 'gcc_reviewer'].includes(role)) {
+    if (['sp_primary', 'sp_sub'].includes(role)) {
+      const { data: assignments } = await userService.getSPClientAssignments(userId)
+      const assignedOrgIds = assignments?.map(a => a.client_org_id) || []
+      
+      if (!assignedOrgIds.includes(lead.organization_id)) {
+        return res.status(StatusCodes.FORBIDDEN).json({
+          error: { code: 'FORBIDDEN', message: 'Access denied - Client not assigned' }
+        })
+      }
+    } else {
+      const effectiveOrgId = (orgId && orgId !== '00000000-0000-4000-a000-000000000003') ? orgId : null
+      if (lead.organization_id !== effectiveOrgId) {
+        return res.status(StatusCodes.FORBIDDEN).json({
+          error: { code: 'FORBIDDEN', message: 'Access denied' }
+        })
+      }
     }
   }
 

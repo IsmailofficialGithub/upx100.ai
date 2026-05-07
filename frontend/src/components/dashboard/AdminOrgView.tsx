@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import api from '@/lib/api';
 import AdminDataView from './AdminDataView';
+import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
 
 const AdminOrgView: React.FC = () => {
+  const { isGCCAdmin } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  // ... (rest of state)
   const [editingOrg, setEditingOrg] = useState<any>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [formData, setFormData] = useState({
@@ -13,6 +16,7 @@ const AdminOrgView: React.FC = () => {
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
+    // ... (handleSubmit logic)
     e.preventDefault();
     try {
       if (editingOrg) {
@@ -37,7 +41,6 @@ const AdminOrgView: React.FC = () => {
     setIsModalOpen(true);
   };
 
-
   const handleDeleteOrg = async (id: string) => {
     if (!window.confirm('Are you sure? This will delete the organization and potentially orphaned records.')) return;
     try {
@@ -55,9 +58,9 @@ const AdminOrgView: React.FC = () => {
         key={refreshKey}
         title="All Organizations" 
         endpoint="organizations"
-        onAdd={() => setIsModalOpen(true)}
-        onEdit={startEdit}
-        onDelete={handleDeleteOrg}
+        onAdd={isGCCAdmin ? () => setIsModalOpen(true) : undefined}
+        onEdit={isGCCAdmin ? startEdit : undefined}
+        onDelete={isGCCAdmin ? handleDeleteOrg : undefined}
 
 
         columns={[

@@ -78,3 +78,21 @@ export const getLogById = async (logId) => {
   }
   return data
 }
+
+export const listLogsByOrgs = async (orgIds, userId = null) => {
+  if (!orgIds || orgIds.length === 0) return []
+  
+  let query = supabaseAdmin
+    .from('view_call_logs')
+    .select('*')
+    .in('organization_id', orgIds)
+    .order('created_at', { ascending: false })
+
+  if (userId) {
+    query = query.eq('user_id', userId)
+  }
+
+  const { data, error } = await query
+  if (error) throw error
+  return data
+}

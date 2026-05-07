@@ -23,11 +23,15 @@ export const getNumbers = async (req, res) => {
 }
 
 export const provisionNumber = async (req, res) => {
+  if (req.user.role !== 'gcc_admin') {
+    return res.status(StatusCodes.FORBIDDEN).json({
+      error: { message: 'Only GCC Admin can provision new numbers.' }
+    })
+  }
+
   const numberData = {
     ...req.body,
-    organization_id: req.user.role === 'gcc_admin' 
-      ? req.body.organization_id 
-      : (req.user.orgId && req.user.orgId !== '00000000-0000-4000-a000-000000000003' ? req.user.orgId : null),
+    organization_id: req.body.organization_id,
     user_id: req.user.userId
   }
 
@@ -42,25 +46,12 @@ export const provisionNumber = async (req, res) => {
 
 export const updateNumber = async (req, res) => {
   const { numberId } = req.params
-  const { role, orgId } = req.user
+  const { role } = req.user
 
   if (role !== 'gcc_admin') {
-    const existing = await phoneService.getNumberById(numberId)
-    const effectiveOrgId = (orgId && orgId !== '00000000-0000-4000-a000-000000000003') ? orgId : null
-    if (!existing || existing.organization_id !== effectiveOrgId) {
-      return res.status(StatusCodes.FORBIDDEN).json({
-        error: { code: 'FORBIDDEN', message: 'You do not have permission to manage this number' }
-      })
-    }
-    
-    // Sub-users can only manage their own numbers
-    if (!['client_admin', 'sp_primary'].includes(role) && existing.user_id !== req.user.userId) {
-      return res.status(StatusCodes.FORBIDDEN).json({
-        error: { code: 'FORBIDDEN', message: 'You do not have permission to manage this number' }
-      })
-    }
-    // Organization cannot be changed by non-GCC
-    delete req.body.organization_id
+    return res.status(StatusCodes.FORBIDDEN).json({
+      error: { message: 'Only GCC Admin can update number configurations.' }
+    })
   }
 
   const result = await phoneService.updateNumber(numberId, {
@@ -105,22 +96,12 @@ export const checkStatus = async (req, res) => {
 export const bindNumber = async (req, res) => {
   const { numberId } = req.params
   const { agentId } = req.body
-  const { role, orgId } = req.user
+  const { role } = req.user
 
   if (role !== 'gcc_admin') {
-    const existing = await phoneService.getNumberById(numberId)
-    const effectiveOrgId = (orgId && orgId !== '00000000-0000-4000-a000-000000000003') ? orgId : null
-    if (!existing || existing.organization_id !== effectiveOrgId) {
-      return res.status(StatusCodes.FORBIDDEN).json({
-        error: { code: 'FORBIDDEN', message: 'You do not have permission to manage this number' }
-      })
-    }
-    // Sub-users can only bind their own numbers
-    if (!['client_admin', 'sp_primary'].includes(role) && existing.user_id !== req.user.userId) {
-      return res.status(StatusCodes.FORBIDDEN).json({
-        error: { code: 'FORBIDDEN', message: 'You do not have permission to manage this number' }
-      })
-    }
+    return res.status(StatusCodes.FORBIDDEN).json({
+      error: { message: 'Only GCC Admin can bind numbers to agents.' }
+    })
   }
 
   const result = await phoneService.bindNumberToAgent(numberId, agentId)
@@ -134,9 +115,14 @@ export const bindNumber = async (req, res) => {
 
 export const requestPort = async (req, res) => {
   const { numberId } = req.params
+  const { role } = req.user
   const portData = req.body
 
-  const result = await phoneService.requestPort(numberId, portData)
+  if (role !== 'gcc_admin' && role !== 'client_admin') {
+    return res.status(StatusCodes.FORBIDDEN).json({
+      error: { message: 'Only Client Admin or GCC Admin can initiate port requests.' }
+    })
+  }
 
   return res.json({
     message: 'Port request submitted successfully',
@@ -146,22 +132,12 @@ export const requestPort = async (req, res) => {
 
 export const deleteNumber = async (req, res) => {
   const { numberId } = req.params
-  const { role, orgId } = req.user
+  const { role } = req.user
 
   if (role !== 'gcc_admin') {
-    const existing = await phoneService.getNumberById(numberId)
-    const effectiveOrgId = (orgId && orgId !== '00000000-0000-4000-a000-000000000003') ? orgId : null
-    if (!existing || existing.organization_id !== effectiveOrgId) {
-      return res.status(StatusCodes.FORBIDDEN).json({
-        error: { code: 'FORBIDDEN', message: 'You do not have permission to delete this number' }
-      })
-    }
-    // Sub-users can only delete their own numbers
-    if (!['client_admin', 'sp_primary'].includes(role) && existing.user_id !== req.user.userId) {
-      return res.status(StatusCodes.FORBIDDEN).json({
-        error: { code: 'FORBIDDEN', message: 'You do not have permission to delete this number' }
-      })
-    }
+    return res.status(StatusCodes.FORBIDDEN).json({
+      error: { message: 'Only GCC Admin can delete numbers.' }
+    })
   }
 
   const result = await phoneService.deleteNumber(numberId)

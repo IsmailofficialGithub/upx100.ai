@@ -13,7 +13,8 @@ import {
   Users, 
   Building2, 
   Phone, 
-  FileText 
+  FileText ,
+  Mic,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -41,16 +42,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     { label: 'Leads', path: `/${rolePrefix}/leads`, icon: FileText, group: 'MANAGEMENT', roles: ['gcc_admin', 'sp_primary', 'sp_sub', 'client_admin', 'client_sub'] },
     { label: 'Review Scripts', path: `/${rolePrefix}/scripts`, icon: BookOpen, group: 'MANAGEMENT', roles: ['gcc_admin', 'gcc_reviewer'] },
     { label: 'Review Uploads', path: `/${rolePrefix}/uploads`, icon: BarChart3, group: 'MANAGEMENT', roles: ['gcc_admin', 'gcc_reviewer'] },
-    { label: 'Review Clones', path: `/${rolePrefix}/clones`, icon: Users, group: 'MANAGEMENT', roles: ['gcc_admin', 'gcc_reviewer'] },
     { label: 'Calendar & Meetings', path: `/${rolePrefix}/calendar`, icon: CalendarDays, group: 'CAMPAIGN', roles: ['gcc_admin', 'gcc_reviewer', 'sp_primary', 'sp_sub', 'client_admin', 'client_sub'] },
     { label: 'Analytics & Insights', path: `/${rolePrefix}/analytics`, icon: BarChart3, group: 'CAMPAIGN', roles: ['gcc_admin', 'gcc_reviewer', 'sp_primary', 'sp_sub', 'client_admin', 'client_sub'] },
     { label: 'AI Engine', path: `/${rolePrefix}/engine`, icon: Cpu, group: 'INTELLIGENCE', roles: ['gcc_admin', 'gcc_reviewer', 'client_admin'] },
     { label: 'Sales Playbook', path: `/${rolePrefix}/playbook`, icon: BookOpen, group: 'INTELLIGENCE', roles: ['gcc_admin', 'gcc_reviewer', 'sp_primary', 'sp_sub', 'client_admin', 'client_sub'] },
+    { label: 'Commissions', path: `/${rolePrefix}/commissions`, icon: BarChart3, group: 'CAMPAIGN', roles: ['sp_primary', 'sp_sub'] },
   ];
-
-  if (isSPPrimary) {
-    navItems.push({ label: 'Commissions', path: `/${rolePrefix}/commissions`, icon: BarChart3, group: 'CAMPAIGN', roles: ['sp_primary'] });
-  }
 
   const handleNav = (path: string) => {
     navigate(path);

@@ -47,7 +47,8 @@ interface Agent {
 }
 
 const AdminAgentsView: React.FC = () => {
-  const { user, isGCCAdmin, isClient } = useAuth();
+  const { user, isGCC, isSP, isClient, isGCCAdmin, isClientAdmin } = useAuth();
+  const isAdminView = isGCC || isSP;
   const navigate = useNavigate();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -110,10 +111,10 @@ const AdminAgentsView: React.FC = () => {
   useEffect(() => {
     fetchAgents();
     fetchInitialUsers();
-    if (isGCCAdmin) {
+    if (isAdminView) {
       fetchInitialOrgs();
     }
-  }, [isGCCAdmin, refreshKey]);
+  }, [isAdminView, refreshKey]);
 
   const fetchAgents = async () => {
     setIsLoading(true);
@@ -139,7 +140,7 @@ const AdminAgentsView: React.FC = () => {
 
   const fetchInitialUsers = async () => {
     try {
-      const endpoint = isGCCAdmin ? '/admin/users' : '/users';
+      const endpoint = isAdminView ? '/admin/users' : '/users';
       const response = await api.get(endpoint);
       setUsers(response.data.data);
     } catch (error) {
@@ -278,7 +279,7 @@ const AdminAgentsView: React.FC = () => {
         ...formData,
         voice_name: selectedVoice ? selectedVoice.name : formData.voice_persona,
         voice_provider: selectedVoice ? selectedVoice.provider : 'Custom',
-        organization_id: isGCCAdmin 
+        organization_id: isAdminView 
           ? (formData.organization_id && formData.organization_id !== 'null' ? formData.organization_id : null)
           : (user?.orgId && user.orgId !== 'null' && user.orgId !== '00000000-0000-4000-a000-000000000003' ? user.orgId : null)
       };
@@ -365,7 +366,7 @@ const AdminAgentsView: React.FC = () => {
       setEditingAgent(null);
       setFormData({
         name: '',
-        organization_id: isGCCAdmin ? '' : (user?.orgId && user.orgId !== 'null' && user.orgId !== '00000000-0000-4000-a000-000000000003' ? user.orgId : ''),
+        organization_id: isAdminView ? '' : (user?.orgId && user.orgId !== 'null' && user.orgId !== '00000000-0000-4000-a000-000000000003' ? user.orgId : ''),
         user_id: '',
         vapi_id: '',
         voice_persona: '',
@@ -385,7 +386,7 @@ const AdminAgentsView: React.FC = () => {
         fallback_enabled: false,
         conversation_agent_link: ''
       });
-      setOrgSearch(isGCCAdmin ? '' : (user?.entityName || ''));
+      setOrgSearch(isAdminView ? '' : (user?.entityName || ''));
       setUserSearch('');
       setIsCustomVoice(false);
       setCurrentStep(1);
@@ -410,7 +411,7 @@ const AdminAgentsView: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-display font-semibold text-[hsl(var(--foreground))]">{isGCCAdmin ? "Global AI Agents" : "My AI Agents"}</h2>
+        <h2 className="text-lg font-display font-semibold text-[hsl(var(--foreground))]">{isAdminView ? "Global AI Agents" : "My AI Agents"}</h2>
         <div className="flex items-center gap-3">
           <button 
             onClick={fetchAgents}
@@ -430,12 +431,14 @@ const AdminAgentsView: React.FC = () => {
               className="w-full bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-lg py-2 pl-10 pr-4 text-xs focus:outline-none focus:border-[hsl(var(--primary))]/50"
             />
           </div>
-          <button 
-            onClick={() => openModal()}
-            className="flex items-center gap-2 px-4 py-2 bg-[hsl(var(--primary))] text-black rounded-lg text-xs font-semibold hover:opacity-90 transition-opacity"
-          >
-            <Plus size={14} /> Create Agent
-          </button>
+          {isGCCAdmin && (
+            <button 
+              onClick={() => openModal()}
+              className="flex items-center gap-2 px-4 py-2 bg-[hsl(var(--primary))] text-black rounded-lg text-xs font-semibold hover:opacity-90 transition-opacity"
+            >
+              <Plus size={14} /> Create Agent
+            </button>
+          )}
         </div>
       </div>
 
@@ -444,7 +447,7 @@ const AdminAgentsView: React.FC = () => {
           <thead className="bg-[hsl(var(--muted))] border-b border-[hsl(var(--border-v))]">
             <tr>
               <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Agent</th>
-              {isGCCAdmin && <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Organization</th>}
+              {isAdminView && <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Organization</th>}
               <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Vapi ID</th>
               <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Status</th>
               <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Created</th>
@@ -465,7 +468,7 @@ const AdminAgentsView: React.FC = () => {
                     </div>
                   </div>
                 </td>
-                {isGCCAdmin && (
+                {isAdminView && (
                     <td className="px-4 py-4">
                         <div className="flex items-center gap-2 text-[hsl(var(--foreground))]">
                             <Building2 size={12} className="text-[hsl(var(--muted-foreground))]" />
@@ -497,20 +500,24 @@ const AdminAgentsView: React.FC = () => {
                     >
                       <RotateCw size={14} />
                     </button>
-                    <button 
-                      onClick={() => openModal(agent)}
-                      className="p-1.5 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] transition-colors"
-                      title="Edit Agent"
-                    >
-                      <Edit2 size={14} />
-                    </button>
-                    <button 
-                      onClick={() => handleDelete(agent.id)}
-                      className="p-1.5 text-[hsl(var(--muted-foreground))] hover:text-red-500 transition-colors"
-                      title="Delete Agent"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    {isGCCAdmin && (
+                      <>
+                        <button 
+                          onClick={() => openModal(agent)}
+                          className="p-1.5 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] transition-colors"
+                          title="Edit Agent"
+                        >
+                          <Edit2 size={14} />
+                        </button>
+                        <button 
+                          onClick={() => handleDelete(agent.id)}
+                          className="p-1.5 text-[hsl(var(--muted-foreground))] hover:text-red-500 transition-colors"
+                          title="Delete Agent"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -578,7 +585,7 @@ const AdminAgentsView: React.FC = () => {
                           <Building2 size={12} /> Organization
                         </label>
                         
-                        {isGCCAdmin ? (
+                        {isAdminView ? (
                           <>
                             <input 
                               type="text"
@@ -654,7 +661,7 @@ const AdminAgentsView: React.FC = () => {
                           <User size={12} /> Assign to User (Optional)
                         </label>
                         
-                        {isGCCAdmin || (user?.role === 'client_admin' && !isClient) ? ( // This condition is a bit redundant now but keeping it safe
+                        {isAdminView || (user?.role === 'client_admin' && !isClient) ? ( // This condition is a bit redundant now but keeping it safe
                           <>
                             <input 
                               type="text"

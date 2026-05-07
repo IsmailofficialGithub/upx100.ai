@@ -91,3 +91,21 @@ export const syncToCRM = async (leadId) => {
   if (error) throw error
   return data
 }
+
+export const listLeadsByOrgs = async (orgIds, userId = null) => {
+  if (!orgIds || orgIds.length === 0) return []
+
+  let query = supabaseAdmin
+    .from('view_leads')
+    .select('*')
+    .in('organization_id', orgIds)
+    .order('created_at', { ascending: false })
+
+  if (userId) {
+    query = query.eq('user_id', userId)
+  }
+
+  const { data, error } = await query
+  if (error) throw error
+  return data
+}

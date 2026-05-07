@@ -64,7 +64,7 @@ export const auth = async (req, res, next) => {
  */
 export const isAdmin = (req, res, next) => {
   const role = req.user?.role
-  if (!role || (!role.startsWith('gcc_') && role !== 'admin')) {
+  if (!role || (!role.startsWith('gcc_') && !role.startsWith('sp_') && role !== 'admin')) {
     console.warn(`[Auth] Admin access denied for role: ${role}`)
     return res.status(StatusCodes.FORBIDDEN).json({
       error: { code: 'ACCESS_DENIED', message: 'This action requires administrative privileges' }

@@ -82,19 +82,19 @@ export const createUser = async (req, res) => {
   const { email, password, role, organization_id, full_name } = req.body
   const creatorRole = req.user.role
 
-  // RBAC validation as per matrix
+  // RBAC validation as per strict requirements
   if (creatorRole === 'gcc_admin') {
-    // Can create any role
+    // GCC Admin can create any role
   } else if (creatorRole === 'sp_primary') {
     if (role !== 'sp_sub') {
       return res.status(StatusCodes.FORBIDDEN).json({
-        error: { message: 'Sales Partner Primary can only create SP Sub-users' }
+        error: { message: 'Sales Partner Primary can only create Sales Partner Sub-users (Sales Reps)' }
       })
     }
   } else if (creatorRole === 'client_admin') {
     if (role !== 'client_sub') {
       return res.status(StatusCodes.FORBIDDEN).json({
-        error: { message: 'Client Admin can only create Client Sub-users' }
+        error: { message: 'Client Admin can only create Client Sub-users (SDRs/Team Leads)' }
       })
     }
   } else {
@@ -118,7 +118,6 @@ export const createUser = async (req, res) => {
       })
     }
 
-    // 2. Create Public Profile
     const profileData = {
       id: authData.user.id,
       organization_id: creatorRole === 'gcc_admin' ? organization_id : req.user.orgId,

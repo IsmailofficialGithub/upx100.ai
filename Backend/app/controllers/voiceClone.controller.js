@@ -43,12 +43,29 @@ export const getClones = async (req, res) => {
 export const review = async (req, res) => {
   const { cloneId } = req.params
   const { status } = req.body
-  const { userId } = req.user
+  const { role, orgId, userId } = req.user
 
   if (!['approved', 'rejected'].includes(status)) {
     return res.status(StatusCodes.BAD_REQUEST).json({
       error: { code: 'INVALID_STATUS', message: 'Status must be approved or rejected' }
     })
+  }
+
+  // RBAC Check
+  if (role !== 'gcc_admin') {
+    if (role !== 'client_admin') {
+      return res.status(StatusCodes.FORBIDDEN).json({
+        error: { code: 'FORBIDDEN', message: 'Only Client Admin or GCC Admin can review voice clones' }
+      })
+    }
+
+    // Client Admin must own the clone
+    const clone = await voiceService.getCloneById(cloneId)
+    if (!clone || clone.organization_id !== orgId) {
+      return res.status(StatusCodes.FORBIDDEN).json({
+        error: { code: 'FORBIDDEN', message: 'You can only review voice clones within your organization' }
+      })
+    }
   }
 
   const result = await voiceService.updateCloneStatus(cloneId, status, userId)
