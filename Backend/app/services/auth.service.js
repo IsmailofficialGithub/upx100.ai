@@ -30,7 +30,7 @@ export const getUserFromToken = async (token) => {
 export const getUserProfile = async (userId) => {
   return await supabaseAdmin
     .from('profiles')
-    .select('id, organization_id, role, is_active, organizations!profiles_organization_id_fkey(country_code)')
+    .select('id, organization_id, role, is_active, full_name, organizations!profiles_organization_id_fkey(name, country_code)')
     .eq('id', userId)
     .single()
 }

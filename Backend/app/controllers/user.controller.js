@@ -128,13 +128,21 @@ export const createUser = async (req, res) => {
       is_active: true
     }
 
-    const { data: profile, error: profileError } = await userService.createUserProfile(profileData)
+    console.log('[UserCtrl] Creating profile with data:', JSON.stringify(profileData, null, 2))
 
+    const { data: profile, error: profileError } = await userService.createUserProfile(profileData)
+    
     if (profileError) {
+      console.error('[UserCtrl] Profile creation error:', profileError)
       // Cleanup auth user if profile fails
       await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        error: { code: 'PROFILE_ERROR', message: 'Failed to create user profile' }
+        error: { 
+          code: 'PROFILE_ERROR', 
+          message: 'Failed to create user profile', 
+          details: profileError.message,
+          hint: profileError.hint
+        }
       })
     }
 
