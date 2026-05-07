@@ -131,7 +131,9 @@ const AdminAgentsView: React.FC = () => {
 
   const fetchInitialOrgs = async () => {
     try {
+      console.log('[AdminAgentsView] Fetching initial orgs...');
       const response = await api.get('/admin/organizations');
+      console.log('[AdminAgentsView] Initial orgs fetched:', response.data.data?.length);
       setOrgs(response.data.data);
     } catch (error) {
       console.error('Failed to fetch orgs', error);

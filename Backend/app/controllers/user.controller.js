@@ -16,12 +16,29 @@ export const getUsers = async (req, res) => {
     users = data
   } 
   else if (role === 'sp_primary' || role === 'sp_sub') {
-    const searchId = role === 'sp_primary' ? userId : req.user.profile.created_by // Simplified for sp_sub
-    const { data: assignments, error: assignError } = await userService.getSPClientAssignments(role === 'sp_primary' ? userId : req.user.profile.created_by)
+    let spId = userId
+    if (role === 'sp_sub') {
+      // Find the primary user for this SP organization to get their assignments
+      const { data: primary } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('organization_id', orgId)
+        .eq('role', 'sp_primary')
+        .single()
+      
+      if (primary) {
+        spId = primary.id
+      }
+    }
+
+    const { data: assignments, error: assignError } = await userService.getSPClientAssignments(spId)
     if (assignError) throw assignError
     
-    const clientOrgIds = assignments.map(a => a.client_org_id)
-    const { data, error } = await userService.listUsersByOrgs(clientOrgIds)
+    const clientOrgIds = assignments?.map(a => a.client_org_id) || []
+    // Also include their own organization to see team members
+    const orgsToFetch = [...clientOrgIds, orgId]
+    
+    const { data, error } = await userService.listUsersByOrgs(orgsToFetch)
     if (error) throw error
     users = data
   }

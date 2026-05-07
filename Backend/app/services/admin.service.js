@@ -4,18 +4,30 @@ import { supabaseAdmin } from '../config/supabase.js';
  * Admin Service - Global access to all data
  */
 
-export const getGlobalStats = async () => {
-  // Aggregate stats across all organizations
-  const { count: totalOrgs } = await supabaseAdmin.from('organizations').select('*', { count: 'exact', head: true });
-  const { count: totalUsers } = await supabaseAdmin.from('profiles').select('*', { count: 'exact', head: true });
-  const { count: totalCalls } = await supabaseAdmin.schema('inbound').from('call_logs').select('*', { count: 'exact', head: true });
-  const { count: totalLeads } = await supabaseAdmin.schema('inbound').from('leads').select('*', { count: 'exact', head: true });
-  const { count: totalAgents } = await supabaseAdmin.schema('inbound').from('agents').select('*', { count: 'exact', head: true });
+export const getGlobalStats = async (targetOrgIds = null) => {
+  // Aggregate stats across all organizations (or scoped ones)
+  let orgQuery = supabaseAdmin.from('organizations').select('*', { count: 'exact', head: true });
+  let userQuery = supabaseAdmin.from('profiles').select('*', { count: 'exact', head: true });
+  let callQuery = supabaseAdmin.schema('inbound').from('call_logs').select('*', { count: 'exact', head: true });
+  let leadQuery = supabaseAdmin.schema('inbound').from('leads').select('*', { count: 'exact', head: true });
+  let agentQuery = supabaseAdmin.schema('inbound').from('agents').select('*', { count: 'exact', head: true });
+
+  if (targetOrgIds) {
+    orgQuery = orgQuery.in('id', targetOrgIds);
+    userQuery = userQuery.in('organization_id', targetOrgIds);
+    callQuery = callQuery.in('organization_id', targetOrgIds);
+    leadQuery = leadQuery.in('organization_id', targetOrgIds);
+    agentQuery = agentQuery.in('organization_id', targetOrgIds);
+  }
+
+  const { count: totalOrgs } = await orgQuery;
+  const { count: totalUsers } = await userQuery;
+  const { count: totalCalls } = await callQuery;
+  const { count: totalLeads } = await leadQuery;
+  const { count: totalAgents } = await agentQuery;
 
   // Get status breakdown for calls
   const { data: callStatusBreakdown } = await supabaseAdmin.rpc('get_call_status_breakdown'); 
-  // Note: if RPC doesn't exist, we'd do a grouped query. 
-  // Let's assume we do a raw query for now or just return the counts.
 
   const { count: pendingScripts } = await supabaseAdmin.schema('inbound').from('script_change_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending');
   const { count: pendingUploads } = await supabaseAdmin.schema('inbound').from('target_account_uploads').select('*', { count: 'exact', head: true }).eq('status', 'pending_review');
@@ -33,12 +45,15 @@ export const getGlobalStats = async () => {
   };
 };
 
-export const getAllUsers = async (searchTerm = '') => {
+export const getAllUsers = async (searchTerm = '', targetOrgIds = null) => {
   let query = supabaseAdmin
-    .schema('inbound')
     .from('profiles')
     .select('*, organizations!profiles_organization_id_fkey(name, country_code)')
     .order('created_at', { ascending: false });
+
+  if (targetOrgIds) {
+    query = query.in('organization_id', targetOrgIds);
+  }
 
   if (searchTerm && typeof searchTerm === 'string' && searchTerm.trim() !== '') {
     const term = searchTerm.trim();
@@ -48,12 +63,15 @@ export const getAllUsers = async (searchTerm = '') => {
   return await query;
 };
 
-export const getAllOrganizations = async (searchTerm = '') => {
+export const getAllOrganizations = async (searchTerm = '', targetOrgIds = null) => {
   let query = supabaseAdmin
-    .schema('inbound')
     .from('organizations')
     .select('*')
     .order('created_at', { ascending: false });
+
+  if (targetOrgIds) {
+    query = query.in('id', targetOrgIds);
+  }
 
   if (searchTerm && typeof searchTerm === 'string' && searchTerm.trim() !== '') {
     const term = searchTerm.trim();
@@ -63,60 +81,102 @@ export const getAllOrganizations = async (searchTerm = '') => {
   return await query;
 };
 
-export const getAllCallLogs = async () => {
-  return await supabaseAdmin
+export const getAllCallLogs = async (targetOrgIds = null) => {
+  let query = supabaseAdmin
     .schema('inbound')
     .from('call_logs')
     .select('*, organizations!call_logs_organization_id_fkey(name), agents(name)')
     .order('created_at', { ascending: false });
+
+  if (targetOrgIds) {
+    query = query.in('organization_id', targetOrgIds);
+  }
+
+  return await query;
 };
 
-export const getAllLeads = async () => {
-  return await supabaseAdmin
+export const getAllLeads = async (targetOrgIds = null) => {
+  let query = supabaseAdmin
     .schema('inbound')
     .from('leads')
     .select('*, organizations!leads_organization_id_fkey(name), agents(name)')
     .order('created_at', { ascending: false });
+
+  if (targetOrgIds) {
+    query = query.in('organization_id', targetOrgIds);
+  }
+
+  return await query;
 };
 
-export const getAllPhoneNumbers = async () => {
-  return await supabaseAdmin
+export const getAllPhoneNumbers = async (targetOrgIds = null) => {
+  let query = supabaseAdmin
     .schema('inbound')
     .from('phone_numbers')
     .select('*, organizations!phone_numbers_organization_id_fkey(name), agents(name)')
     .order('created_at', { ascending: false });
+
+  if (targetOrgIds) {
+    query = query.in('organization_id', targetOrgIds);
+  }
+
+  return await query;
 };
 
-export const getAllAgents = async () => {
-  return await supabaseAdmin
+export const getAllAgents = async (targetOrgIds = null) => {
+  let query = supabaseAdmin
     .schema('inbound')
     .from('agents')
     .select('*, organizations!agents_organization_id_fkey(name)')
     .order('created_at', { ascending: false });
+
+  if (targetOrgIds) {
+    query = query.in('organization_id', targetOrgIds);
+  }
+
+  return await query;
 };
 
-export const getAllScriptRequests = async () => {
-  return await supabaseAdmin
+export const getAllScriptRequests = async (targetOrgIds = null) => {
+  let query = supabaseAdmin
     .schema('inbound')
     .from('script_change_requests')
     .select('*, organizations!script_change_requests_organization_id_fkey(name)')
     .order('created_at', { ascending: false });
+
+  if (targetOrgIds) {
+    query = query.in('organization_id', targetOrgIds);
+  }
+
+  return await query;
 };
 
-export const getAllTargetUploads = async () => {
-  return await supabaseAdmin
+export const getAllTargetUploads = async (targetOrgIds = null) => {
+  let query = supabaseAdmin
     .schema('inbound')
     .from('target_account_uploads')
     .select('*, organizations!target_account_uploads_organization_id_fkey(name)')
     .order('created_at', { ascending: false });
+
+  if (targetOrgIds) {
+    query = query.in('organization_id', targetOrgIds);
+  }
+
+  return await query;
 };
 
-export const getAllVoiceClones = async () => {
-  return await supabaseAdmin
+export const getAllVoiceClones = async (targetOrgIds = null) => {
+  let query = supabaseAdmin
     .schema('inbound')
     .from('voice_clone_submissions')
     .select('*, organizations!voice_clone_submissions_organization_id_fkey(name)')
     .order('created_at', { ascending: false });
+
+  if (targetOrgIds) {
+    query = query.in('organization_id', targetOrgIds);
+  }
+
+  return await query;
 };
 
 // --- CRUD OPERATIONS ---

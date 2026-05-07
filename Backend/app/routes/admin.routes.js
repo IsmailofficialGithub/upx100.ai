@@ -11,6 +11,17 @@ const elevatedRoles = ['gcc_admin', 'gcc_reviewer', 'sp_primary', 'sp_sub'];
 router.use(auth, isAdmin);
 
 router.get('/stats', requireRole(elevatedRoles), adminController.getStats);
+router.get('/debug/scoping', requireRole(elevatedRoles), async (req, res) => {
+  const targetOrgIds = await adminController.getTargetOrgIds(req);
+  res.json({ 
+    user: {
+      id: req.user.userId,
+      role: req.user.role,
+      orgId: req.user.orgId
+    },
+    targetOrgIds 
+  });
+});
 
 // Users
 router.get('/users', requireRole(elevatedRoles), adminController.getUsers);

@@ -12,6 +12,7 @@ import targetUploadRoutes from './targetUpload.routes.js'
 import adminRoutes from './admin.routes.js'
 import dashboardRoutes from './dashboard.routes.js'
 import analyticsRoutes from './analytics.routes.js'
+import commissionRoutes from './commission.routes.js'
 
 const router = express.Router()
 
@@ -20,6 +21,7 @@ router.use('/auth', authRoutes)
 router.use('/admin', adminRoutes)
 router.use('/dashboard', dashboardRoutes)
 router.use('/analytics', analyticsRoutes)
+router.use('/commissions', commissionRoutes)
 router.use('/users', userRoutes)
 
 router.use('/agents', agentRoutes)

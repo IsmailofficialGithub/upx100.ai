@@ -99,6 +99,7 @@ function App() {
           {/* Partner Routes */}
           <Route path="/partner" element={<DashboardShell />}>
             <Route path="dashboard" element={<DashboardView />} />
+            <Route path="organizations" element={<AdminOrgView />} />
             <Route path="analytics" element={<AnalyticsView />} />
             <Route path="commissions" element={
               <AdminDataView 
@@ -115,6 +116,8 @@ function App() {
             } />
             <Route path="call-logs" element={<CallLogsView />} />
             <Route path="leads" element={<LeadsView />} />
+            <Route path="calendar" element={<CalendarView />} />
+            <Route path="playbook" element={<PlaybookView />} />
             <Route path="phone-numbers" element={
               <AdminDataView 
                 title="Client Phone Numbers" 
