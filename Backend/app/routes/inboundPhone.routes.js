@@ -13,7 +13,7 @@ router.use(auth)
 // Client Admin: can request port, list own, bind own numbers to agents
 
 router.get('/', phoneController.getNumbers)
-router.get('/:numberId/status', requireRole(['gcc_admin']), phoneController.checkStatus)
+router.get('/:numberId/status', requireRole(['gcc_admin', 'client_admin', 'client_sub', 'sp_primary', 'sp_sub']), phoneController.checkStatus)
 
 router.post('/', requireRole(['gcc_admin', 'client_admin', 'client_sub', 'sp_primary', 'sp_sub']), phoneController.provisionNumber)
 

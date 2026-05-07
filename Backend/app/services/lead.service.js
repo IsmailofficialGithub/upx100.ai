@@ -12,7 +12,7 @@ export const listLeadsByOrg = async (orgId, userId = null) => {
   if (orgId && orgId !== 'null' && orgId !== '00000000-0000-4000-a000-000000000003') {
     query = query.eq('organization_id', orgId)
   } else {
-    query = query.is('organization_id', null)
+    query = query.or('organization_id.is.null,organization_id.eq.00000000-0000-4000-a000-000000000003')
   }
   query = query.order('created_at', { ascending: false })
 
@@ -44,7 +44,10 @@ export const getLeadById = async (leadId) => {
     .eq('id', leadId)
     .single()
 
-  if (error) throw error
+  if (error) {
+    if (error.code === 'PGRST116') return null;
+    throw error;
+  }
   return data
 }
 

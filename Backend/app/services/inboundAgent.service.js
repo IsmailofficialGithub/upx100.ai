@@ -177,7 +177,10 @@ export const getAgentById = async (agentId) => {
     .eq('id', agentId)
     .single()
 
-  if (error) throw error
+  if (error) {
+    if (error.code === 'PGRST116') return null;
+    throw error;
+  }
   return {
     ...data,
     phone_number_id: data.phone_numbers?.[0]?.id || null
@@ -194,7 +197,7 @@ export const listAgentsByOrg = async (orgId, userId = null) => {
   if (orgId && orgId !== 'null' && orgId !== '00000000-0000-4000-a000-000000000003') {
     query = query.eq('organization_id', orgId)
   } else {
-    query = query.is('organization_id', null)
+    query = query.or('organization_id.is.null,organization_id.eq.00000000-0000-4000-a000-000000000003')
   }
 
   if (userId) {

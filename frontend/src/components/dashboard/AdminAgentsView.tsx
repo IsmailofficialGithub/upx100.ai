@@ -245,6 +245,9 @@ const AdminAgentsView: React.FC = () => {
     if (currentStep === 3) {
       return !!formData.goal && !!formData.script;
     }
+    if (currentStep === 4) {
+      return !!formData.phone_number_id;
+    }
     return true;
   };
 
@@ -532,7 +535,7 @@ const AdminAgentsView: React.FC = () => {
                   <Bot size={18} />
                 </div>
                 <h3 className="font-display font-semibold text-[hsl(var(--foreground))]">
-                  {editingAgent ? 'Edit Agent' : 'Create New Agent'}
+                  {editingAgent ? 'Edit Agent' : 'Agent Configuration'}
                 </h3>
               </div>
               <button 
@@ -854,30 +857,62 @@ const AdminAgentsView: React.FC = () => {
                 )}
 
                 {currentStep === 3 && (
-                  <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300 max-h-[50vh] overflow-y-auto px-1 custom-scrollbar">
-                    <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300 max-h-[60vh] overflow-y-auto px-1 custom-scrollbar">
+                    <div className="p-3 bg-blue-500/5 border border-blue-500/10 rounded-lg mb-4">
+                      <p className="text-[10px] text-blue-600 font-medium">
+                        The Step-by-Step Script is the core logic for your AI. Define exactly how it should handle calls.
+                      </p>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
+                          <Terminal size={12} /> Full Agent Script
+                        </label>
+                        <button 
+                          type="button"
+                          onClick={() => {
+                            const template = `IDENTITY AND MISSION\n\nName: ${formData.name}\nRole: ${formData.agent_type} Agent\nGoal: ${formData.goal}\nBackground: ${formData.background}\n\nINSTRUCTIONS\n${formData.instruction_voice}\n\nWELCOME MESSAGE\n"${formData.welcome_message}"`;
+                            setFormData({...formData, script: template});
+                            toast.info("Base template generated!");
+                          }}
+                          className="text-[9px] bg-[hsl(var(--primary)/10)] text-[hsl(var(--primary))] px-2 py-1 rounded hover:bg-[hsl(var(--primary)/20)] transition-colors font-semibold"
+                        >
+                          Generate from Details
+                        </button>
+                      </div>
+                      <textarea 
+                        placeholder="Write the full conversation logic here..."
+                        value={formData.script}
+                        onChange={e => setFormData({ ...formData, script: e.target.value })}
+                        rows={12}
+                        className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-3 text-[11px] font-mono focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))] transition-all resize-none leading-relaxed custom-scrollbar"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 pt-4 border-t border-[hsl(var(--border-v)/0.5)]">
                       <div className="space-y-2">
                         <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
-                          <Target size={12} /> Main Goal
+                          <Target size={12} /> Goal (Reference)
                         </label>
                         <textarea 
-                          placeholder="What should the agent achieve?"
+                          placeholder="Agent's primary objective..."
                           value={formData.goal}
                           onChange={e => setFormData({ ...formData, goal: e.target.value })}
                           rows={2}
-                          className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))] transition-all resize-none"
+                          className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-[10px] text-[hsl(var(--foreground))] focus:outline-none focus:border-[hsl(var(--primary))/30] transition-all resize-none"
                         />
                       </div>
                       <div className="space-y-2">
                         <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
-                          <Info size={12} /> Company Background
+                          <Info size={12} /> Background (Reference)
                         </label>
                         <textarea 
-                          placeholder="Briefly describe the company..."
+                          placeholder="Company context..."
                           value={formData.background}
                           onChange={e => setFormData({ ...formData, background: e.target.value })}
                           rows={2}
-                          className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))] transition-all resize-none"
+                          className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-[10px] text-[hsl(var(--foreground))] focus:outline-none focus:border-[hsl(var(--primary))/30] transition-all resize-none"
                         />
                       </div>
                     </div>
@@ -888,7 +923,7 @@ const AdminAgentsView: React.FC = () => {
                       </label>
                       <input 
                         type="text"
-                        placeholder="e.g. Hello! How can I help you today?"
+                        placeholder="Greeting..."
                         value={formData.welcome_message}
                         onChange={e => setFormData({ ...formData, welcome_message: e.target.value })}
                         className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))] transition-all"
@@ -897,27 +932,14 @@ const AdminAgentsView: React.FC = () => {
 
                     <div className="space-y-2">
                       <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
-                        <BookOpen size={12} /> Behavioral Instructions
+                        <BookOpen size={12} /> Voice Instructions
                       </label>
                       <textarea 
-                        placeholder="e.g. Be professional and patient..."
+                        placeholder="Tone and behavior..."
                         value={formData.instruction_voice}
                         onChange={e => setFormData({ ...formData, instruction_voice: e.target.value })}
-                        rows={3}
+                        rows={2}
                         className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))] transition-all resize-none"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
-                        <Terminal size={12} /> Step-by-Step Script
-                      </label>
-                      <textarea 
-                        placeholder="1. Greet 2. Qualify..."
-                        value={formData.script}
-                        onChange={e => setFormData({ ...formData, script: e.target.value })}
-                        rows={4}
-                        className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-[11px] font-mono focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))] transition-all resize-none"
                       />
                     </div>
                   </div>
@@ -939,15 +961,16 @@ const AdminAgentsView: React.FC = () => {
                     
                     <div className="space-y-2">
                       <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
-                        <Phone size={12} /> Assign Phone Number (Optional)
+                        <Phone size={12} /> Assign Phone Number *
                       </label>
                       <select 
                         value={formData.phone_number_id}
                         onChange={e => setFormData({ ...formData, phone_number_id: e.target.value })}
-                        disabled={isLoadingNumbers || !formData.organization_id}
+                        disabled={isLoadingNumbers || !isGCCAdmin && !formData.organization_id && (user?.orgId && user.orgId !== '00000000-0000-4000-a000-000000000003')}
+                        required
                         className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))] transition-all appearance-none disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        <option value="">No number linked</option>
+                        <option value="" disabled>Select a number...</option>
                         {availableNumbers.map(num => (
                           <option key={num.id} value={num.id}>
                             {num.phone_number} {num.label ? `(${num.label})` : ''} {num.agent_id ? '• Currently Assigned' : ''}
@@ -994,22 +1017,6 @@ const AdminAgentsView: React.FC = () => {
                           <p className="text-[9px] text-[hsl(var(--muted-foreground))] italic">Must include country code (e.g. +1...)</p>
                         </div>
                       )}
-                    </div>
-
-                    <div className="pt-4 border-t border-[hsl(var(--border-v))] space-y-4">
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
-                          <Link2 size={12} /> Conversation Link
-                        </label>
-                        <input 
-                          type="url"
-                          placeholder="https://..."
-                          value={formData.conversation_agent_link}
-                          onChange={e => setFormData({ ...formData, conversation_agent_link: e.target.value })}
-                          className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))] transition-all"
-                        />
-                        <p className="text-[9px] text-[hsl(var(--muted-foreground))] italic">Link to the conversational AI instance</p>
-                      </div>
                     </div>
                   </div>
                 )}
