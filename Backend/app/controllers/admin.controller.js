@@ -5,7 +5,10 @@ import { supabaseAdmin } from '../config/supabase.js';
 
 export const getTargetOrgIds = async (req) => {
   const { role, userId, orgId } = req.user;
-  if (role === 'gcc_admin' || role === 'gcc_reviewer') {
+  console.log('[AdminController] getTargetOrgIds - User:', userId, 'Role:', role, 'Org:', orgId);
+  
+  if (role === 'gcc_admin' || role === 'gcc_reviewer' || role === 'admin') {
+    console.log('[AdminController] All-access granted');
     return null; // All access
   }
   
@@ -22,10 +25,30 @@ export const getTargetOrgIds = async (req) => {
       if (primary) spId = primary.id;
     }
     const { data: assignments } = await userService.getSPClientAssignments(spId);
-    return assignments?.map(a => a.client_org_id) || [];
+    const assignedIds = assignments?.map(a => a.client_org_id) || [];
+    
+    // Fallback to own org if no assignments, or null for all-access if no orgId
+    if (assignedIds.length === 0) {
+      if (orgId) {
+        console.log('[AdminController] No SP assignments found, falling back to own orgId:', orgId);
+        return [orgId];
+      }
+      console.log('[AdminController] SP has no assignments and no orgId, granting all-access for discovery');
+      return null; 
+    }
+    
+    return assignedIds;
   }
 
   // Clients
+  if (!orgId) {
+    if (role.startsWith('gcc_') || role.startsWith('sp_') || role === 'admin') {
+      console.log('[AdminController] Admin-level user with no orgId, granting all-access');
+      return null;
+    }
+    console.warn('[AdminController] User has no orgId and is not a global admin');
+    return [];
+  }
   return [orgId];
 };
 

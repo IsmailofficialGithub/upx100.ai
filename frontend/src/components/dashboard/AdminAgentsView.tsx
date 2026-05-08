@@ -10,8 +10,282 @@ import {
   Link2
 } from 'lucide-react';
 import { toast } from 'sonner';
-import agentVoices from '@/lib/agentvoices.json';
 import { useAuth } from '@/context/AuthContext';
+
+// const VOICE_OPTIONS = [
+//   { name: "Elliot", value: "elliot", provider: "ElevenLabs", status: "Active" },
+//   { name: "Kylie", value: "kylie", provider: "ElevenLabs", status: "Active" },
+//   { name: "Rohan", value: "rohan", provider: "ElevenLabs", status: "Active" },
+//   { name: "Lily", value: "lily", provider: "ElevenLabs", status: "Active" },
+//   { name: "Savannah", value: "savannah", provider: "ElevenLabs", status: "Active" },
+//   { name: "Hana", value: "hana", provider: "ElevenLabs", status: "Active" },
+//   { name: "Neha", value: "neha", provider: "ElevenLabs", status: "Active" },
+//   { name: "Cole", value: "cole", provider: "ElevenLabs", status: "Active" },
+//   { name: "Harry", value: "harry", provider: "ElevenLabs", status: "Active" },
+//   { name: "Paige", value: "paige", provider: "ElevenLabs", status: "Active" },
+//   { name: "Spencer", value: "spencer", provider: "ElevenLabs", status: "Active" },
+//   { name: "Leah", value: "leah", provider: "ElevenLabs", status: "Active" },
+//   { name: "Tara", value: "tara", provider: "ElevenLabs", status: "Active" },
+//   { name: "Jess", value: "jess", provider: "ElevenLabs", status: "Active" },
+//   { name: "Leo", value: "leo", provider: "ElevenLabs", status: "Active" },
+//   { name: "Dan", value: "dan", provider: "ElevenLabs", status: "Active" },
+//   { name: "Mia", value: "mia", provider: "ElevenLabs", status: "Active" },
+//   { name: "Zac", value: "zac", provider: "ElevenLabs", status: "Active" },
+//   { name: "Zoe", value: "zoe", provider: "ElevenLabs", status: "Active" },
+//   { 
+//     name: "Jake", 
+//     value: "jake", 
+//     provider: "ElevenLabs", 
+//     status: "Coming Soon", 
+//     description: "Social Media and Podcast Voice – Informative, Energetic, Youthful" 
+//   },
+//   { 
+//     name: "Wayne", 
+//     value: "wayne", 
+//     provider: "ElevenLabs", 
+//     status: "Coming Soon", 
+//     description: "Special Phone Agent" 
+//   },
+// ];
+
+const VOICE_OPTIONS=[
+
+  {
+    "id": 1,
+    "name": "Elliot",
+    "provider": "vapi",
+    "status": "active"
+  },
+  {
+    "id": 2,
+    "name": "Rohan",
+    "provider": "vapi",
+    "status": "active"
+  },
+  {
+    "id": 3,
+    "name": "Lily",
+    "provider": "vapi",
+    "status": "active"
+  },
+  {
+    "id": 4,
+    "name": "Hana",
+    "provider": "vapi",
+    "status": "active"
+  },
+  {
+    "id": 5,
+    "name": "Harry",
+    "provider": "vapi",
+    "status": "active"
+  },
+  {
+    "id":   6,
+    "name": "Paige",
+    "provider": "vapi",
+    "status": "active"
+  },
+  {
+    "id": 7,
+    "name": "Spencer",
+    "provider": "vapi",
+    "status": "active"
+  },
+  {
+    "id": 8,
+    "name": "Leah",
+    "provider": "vapi",
+    "status": "active"
+  },
+  {
+    "id": 13,
+    "name": "Tara",
+    "provider": "vapi",
+    "status": "active"
+  },
+  {
+    "id": 14,
+    "name": "Jess",
+    "provider": "vapi",
+    "status": "active"
+  },
+  {
+    "id": 15,
+    "name": "Leo",
+    "provider": "vapi",
+    "status": "active"
+  },
+  {
+    "id": 16,
+    "name": "Dan",
+    "provider": "vapi",
+    "status": "active"
+  },
+  {
+    "id": 17,
+    "name": "Mia",
+    "provider": "vapi",
+    "status": "active"
+  },
+  {
+    "id": 18,
+    "name": "Zac",
+    "provider": "vapi",
+    "status": "active"
+  },
+  {
+    "id": 19,
+    "name": "Zoe",
+    "provider": "vapi",
+    "status": "active"
+  },
+  {
+    "id": 20,
+    "name": "Amalthea",
+    "provider": "deepgram",
+    "status": "active"
+  },
+  {
+    "id": 21,
+    "name": "Andromeda",
+    "provider": "deepgram",
+    "status": "active"
+  },
+  {
+    "id": 22,
+    "name": "Asteria",
+    "provider": "deepgram",
+    "status": "active"
+  },
+  {
+    "id": 23,
+    "name": "Athena",
+    "provider": "deepgram",
+    "status": "active"
+  },
+  {
+    "id": 24,
+    "name": "Aurora",
+    "provider": "deepgram",
+    "status": "active"
+  },
+  {
+    "id": 25,
+    "name": "Callista",
+    "provider": "deepgram",
+    "status": "active"
+  },
+  {
+    "id": 26,
+    "name": "Cora",
+    "provider": "deepgram",
+    "status": "active"
+  },
+  {
+    "id": 27,
+    "name": "Cordelia",
+    "provider": "deepgram",
+    "status": "active"
+  },
+  {
+    "id": 28,
+    "name": "Delia",
+    "provider": "deepgram",
+    "status": "active"
+  },
+  {
+    "id": 29,
+    "name": "Electra",
+    "provider": "deepgram",
+    "status": "active"
+  },
+  {
+    "id": 30,
+    "name": "Harmonia",
+    "provider": "deepgram",
+    "status": "active"
+  },
+  {
+    "id": 31,
+    "name": "Helena",
+    "provider": "deepgram",
+    "status": "active"
+  },
+  {
+    "id": 32,
+    "name": "Hera",
+    "provider": "deepgram",
+    "status": "active"
+  },
+  {
+    "id": 33,
+    "name": "Iris",
+    "provider": "deepgram",
+    "status": "active"
+  },
+  {
+    "id": 34,
+    "name": "Juno",
+    "provider": "deepgram",
+    "status": "active"
+  },
+  {
+    "id": 35,
+    "name": "Luna",
+    "provider": "deepgram",
+    "status": "active"
+  },
+  {
+    "id": 36,
+    "name": "Minerva",
+    "provider": "deepgram",
+    "status": "active"
+  },
+  {
+    "id": 37,
+    "name": "Ophelia",
+    "provider": "deepgram",
+    "status": "active"
+  },
+  {
+    "id": 38,
+    "name": "Pandora",
+    "provider": "deepgram",
+    "status": "active"
+  },
+  {
+    "id": 39,
+    "name": "Phoebe",
+    "provider": "deepgram",
+    "status": "active"
+  },
+  {
+    "id": 40,
+    "name": "Selene",
+    "provider": "deepgram",
+    "status": "active"
+  },
+  {
+    "id": 41,
+    "name": "Thalia",
+    "provider": "deepgram",
+    "status": "active"
+  },
+  {
+    "id": 42,
+    "name": "Theia",
+    "provider": "deepgram",
+    "status": "active"
+  },
+  {
+    "id": 43,
+    "name": "Vesta",
+    "provider": "deepgram",
+    "status": "active"
+  }
+]
+
 
 interface Organization {
   id: string;
@@ -39,7 +313,7 @@ interface Agent {
   agent_type?: string;
   tone?: string;
   model?: string;
-  organizations?: Organization;
+  organizations?: Organization | Organization[];
   fallback_number?: string;
   fallback_enabled?: boolean;
   metadata?: any;
@@ -98,12 +372,15 @@ const AdminAgentsView: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(1);
 
   const defaultVoices = [
-    ...agentVoices.map(v => ({
-      id: v.voice_id,
-      name: v.voice_name,
-      provider: v.provider
+    ...VOICE_OPTIONS.map(v => ({
+      id: String(v.id).toLowerCase(),
+      name: v.provider.toLowerCase() === 'deepgram' 
+        ? v.name.toLowerCase() 
+        : v.name.charAt(0).toUpperCase() + v.name.slice(1).toLowerCase(),
+      provider: v.provider.charAt(0).toUpperCase() + v.provider.slice(1).toLowerCase(),
+      status: v.status.charAt(0).toUpperCase() + v.status.slice(1).toLowerCase()
     })),
-    { id: 'custom', name: 'Other / Custom...', provider: 'Custom' }
+    { id: 'custom', name: 'Other / Custom...', provider: 'Custom', status: 'Active' }
   ];
 
   const [isCustomVoice, setIsCustomVoice] = useState(false);
@@ -279,6 +556,7 @@ const AdminAgentsView: React.FC = () => {
       const selectedVoice = defaultVoices.find(v => v.id === formData.voice_persona);
       const enrichedPayload = {
         ...formData,
+        voice_persona: formData.voice_persona.toLowerCase(),
         voice_name: selectedVoice ? selectedVoice.name : formData.voice_persona,
         voice_provider: selectedVoice ? selectedVoice.provider : 'Custom',
         organization_id: isAdminView 
@@ -340,7 +618,7 @@ const AdminAgentsView: React.FC = () => {
         organization_id: agent.organization_id,
         user_id: agent.user_id,
         vapi_id: agent.vapi_id || '',
-        voice_persona: agent.voice_persona || '',
+        voice_persona: agent.voice_persona?.toLowerCase() || '',
         script: agent.script || '',
         phone_number_id: agent.phone_number_id || '',
         company_name: agent.company_name || '',
@@ -357,12 +635,13 @@ const AdminAgentsView: React.FC = () => {
         fallback_enabled: agent.fallback_enabled ?? agent.metadata?.fallback_config?.enabled ?? false,
         conversation_agent_link: agent.conversation_agent_link || ''
       });
-      setOrgSearch(agent.organizations?.name || '');
+      const org = agent.organizations;
+      setOrgSearch(Array.isArray(org) ? org[0]?.name || '' : org?.name || '');
       const currentUser = users.find(u => u.id === agent.user_id);
       setUserSearch(currentUser?.full_name || currentUser?.email || '');
       
       // Check if current voice is in defaults
-      const isDefault = defaultVoices.some(v => v.id === agent.voice_persona);
+      const isDefault = defaultVoices.some(v => v.id === agent.voice_persona?.toLowerCase());
       setIsCustomVoice(!isDefault && !!agent.voice_persona);
     } else {
       setEditingAgent(null);
@@ -398,7 +677,7 @@ const AdminAgentsView: React.FC = () => {
 
   const filteredAgents = agents.filter(a => 
     a.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    a.organizations?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (Array.isArray(a.organizations) ? a.organizations[0]?.name : a.organizations?.name)?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     a.vapi_id?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -474,7 +753,7 @@ const AdminAgentsView: React.FC = () => {
                     <td className="px-4 py-4">
                         <div className="flex items-center gap-2 text-[hsl(var(--foreground))]">
                             <Building2 size={12} className="text-[hsl(var(--muted-foreground))]" />
-                            {agent.organizations?.name || 'N/A'}
+                            {Array.isArray(agent.organizations) ? agent.organizations[0]?.name : (agent.organizations?.name || 'N/A')}
                         </div>
                     </td>
                 )}
@@ -782,7 +1061,7 @@ const AdminAgentsView: React.FC = () => {
                             <option value="">Select a voice...</option>
                             {defaultVoices.map(voice => (
                               <option key={voice.id} value={voice.id}>
-                                {voice.name} {voice.provider !== 'Custom' ? `(${voice.provider})` : ''}
+                                {voice.name} {voice.provider !== 'Custom' ? `(${voice.provider})` : ''} {voice.status === 'Coming Soon' ? '- Coming Soon' : ''}
                               </option>
                             ))}
                           </select>

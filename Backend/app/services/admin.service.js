@@ -78,7 +78,28 @@ export const getAllOrganizations = async (searchTerm = '', targetOrgIds = null) 
     query = query.ilike('name', `%${term}%`);
   }
 
-  return await query;
+  let result = await query;
+  console.log('[AdminService] getAllOrganizations - Query result count:', result.data?.length, 'Error:', result.error);
+
+  // Fallback to Inbound_Organizations if standard organizations is empty or fails
+  if (((!result.data || result.data.length === 0) || result.error) && !targetOrgIds) {
+    console.log('[AdminService] organizations table empty, trying Inbound_Organizations...');
+    let fallbackQuery = supabaseAdmin
+      .from('Inbound_Organizations')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (searchTerm && typeof searchTerm === 'string' && searchTerm.trim() !== '') {
+      fallbackQuery = fallbackQuery.ilike('name', `%${term}%`);
+    }
+    
+    const fallbackResult = await fallbackQuery;
+    if (!fallbackResult.error && fallbackResult.data?.length > 0) {
+      return fallbackResult;
+    }
+  }
+
+  return result;
 };
 
 export const getAllCallLogs = async (targetOrgIds = null) => {
