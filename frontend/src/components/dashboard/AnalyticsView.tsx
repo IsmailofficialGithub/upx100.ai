@@ -46,21 +46,33 @@ const AnalyticsView: React.FC = () => {
   const objectionInsights = data?.objectionInsights || mockObjections;
   const revenueProjection = data?.revenueProjection || mockProjection;
 
+  const MONTHLY_MEETINGS = 18;
+  const MONTHLY_COST = 3000;
+
   const roiCalc = useMemo(() => {
-    const monthlyMeetings = 18;
-    const projectedMeetings = monthlyMeetings * runway;
+    const projectedMeetings = MONTHLY_MEETINGS * runway;
     const pipelineValue = projectedMeetings * acv;
     const expectedRevenue = pipelineValue * (closeRate / 100);
-    const totalCost = runway * 3000;
-    const roi = ((expectedRevenue - totalCost) / totalCost);
+    const totalCost = runway * MONTHLY_COST;
+    const roi = (expectedRevenue - totalCost) / totalCost;
     return { projectedMeetings, pipelineValue, expectedRevenue, totalCost, roi };
   }, [acv, closeRate, runway]);
 
-  const projectionData = revenueProjection.labels.slice(0, runway).map((label: string, i: number) => ({
-    name: label,
-    revenue: revenueProjection.data[i] * (closeRate / 100) * (acv / 145000),
-    costs: revenueProjection.costs[i] * runway / 12,
-  }));
+  /** Cumulative expected revenue & cost by month — driven by the same sliders as ROI (not static API curve). */
+  const projectionData = useMemo(() => {
+    const labels =
+      revenueProjection.labels.length >= runway
+        ? revenueProjection.labels.slice(0, runway)
+        : Array.from({ length: runway }, (_, i) => `Month ${i + 1}`);
+    return labels.map((name, i) => {
+      const month = i + 1;
+      const meetingsCumulative = MONTHLY_MEETINGS * month;
+      const pipelineCumulative = meetingsCumulative * acv;
+      const revenueCumulative = pipelineCumulative * (closeRate / 100);
+      const costsCumulative = month * MONTHLY_COST;
+      return { name, revenue: revenueCumulative, costs: costsCumulative };
+    });
+  }, [revenueProjection.labels, runway, acv, closeRate]);
 
   if (isLoading) {
     return (
@@ -277,11 +289,15 @@ const AnalyticsView: React.FC = () => {
           <h3 className="text-sm font-display font-semibold text-[hsl(var(--foreground))] mb-4">Revenue Projection</h3>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={projectionData}>
+              <AreaChart data={projectionData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} key={`${acv}-${closeRate}-${runway}`}>
                 <defs>
                   <linearGradient id="revGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
                     <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="costGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0.25} />
+                    <stop offset="100%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#888' }} axisLine={false} tickLine={false} />
@@ -293,7 +309,18 @@ const AnalyticsView: React.FC = () => {
                     borderRadius: '8px',
                     fontSize: '12px',
                   }}
-                  formatter={(value: number) => [`${currencySymbol}${value.toLocaleString()}`, 'Expected Revenue']}
+                  formatter={(value: number, name: string) => [
+                    `${currencySymbol}${Math.round(value).toLocaleString()}`,
+                    name === 'revenue' ? 'Cumulative expected revenue' : 'Cumulative cost',
+                  ]}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="costs"
+                  stroke="hsl(var(--muted-foreground))"
+                  fill="url(#costGradient)"
+                  strokeWidth={1.5}
+                  name="costs"
                 />
                 <Area
                   type="monotone"
@@ -301,10 +328,15 @@ const AnalyticsView: React.FC = () => {
                   stroke="hsl(var(--primary))"
                   fill="url(#revGradient)"
                   strokeWidth={2}
+                  name="revenue"
                 />
               </AreaChart>
             </ResponsiveContainer>
           </div>
+          <p className="text-[10px] font-mono text-[hsl(var(--muted-foreground))] mt-2">
+            Curve uses the same assumptions as the calculator: {MONTHLY_MEETINGS} meetings/mo, ACV and close rate applied cumulatively; {currencySymbol}
+            {MONTHLY_COST.toLocaleString()}/mo cost.
+          </p>
         </div>
       )}
     </div>

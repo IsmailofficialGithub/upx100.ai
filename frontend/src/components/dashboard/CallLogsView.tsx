@@ -93,6 +93,7 @@ const CallLogsView: React.FC = () => {
       <AdminDataView 
         title="Recent Communications" 
         endpoint="/call-logs"
+        emptyMessage="No call logs yet. When outbound or inbound sessions complete, results and durations will show here."
         columns={columns}
         renderActions={(row) => (
           <div className="flex items-center gap-2">

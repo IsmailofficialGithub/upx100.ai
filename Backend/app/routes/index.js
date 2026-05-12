@@ -10,6 +10,7 @@ import scriptRequestRoutes from './scriptRequest.routes.js'
 import voiceCloneRoutes from './voiceClone.routes.js'
 import targetUploadRoutes from './targetUpload.routes.js'
 import adminRoutes from './admin.routes.js'
+import exportRoutes from './export.routes.js'
 import dashboardRoutes from './dashboard.routes.js'
 import analyticsRoutes from './analytics.routes.js'
 import commissionRoutes from './commission.routes.js'
@@ -19,6 +20,7 @@ const router = express.Router()
 // Mount sub-routers
 router.use('/auth', authRoutes)
 router.use('/admin', adminRoutes)
+router.use('/export', exportRoutes)
 router.use('/dashboard', dashboardRoutes)
 router.use('/analytics', analyticsRoutes)
 router.use('/commissions', commissionRoutes)

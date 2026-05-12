@@ -16,7 +16,7 @@ export const pauseAgent = async (req, res) => {
     })
   }
 
-  const result = await campaignService.pauseCampaign(agentId, orgId, userId, reason)
+  const result = await campaignService.pauseCampaign(agentId, orgId, userId, reason, { role: req.user.role })
 
   return res.json({
     message: 'Campaign paused successfully',
@@ -29,7 +29,7 @@ export const resumeAgent = async (req, res) => {
   const { reason } = req.body
   const { orgId, userId } = req.user
 
-  const result = await campaignService.resumeCampaign(agentId, orgId, userId, reason)
+  const result = await campaignService.resumeCampaign(agentId, orgId, userId, reason, { role: req.user.role })
 
   return res.json({
     message: 'Campaign resume initiated',

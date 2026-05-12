@@ -6,10 +6,21 @@ import { StatusCodes } from 'http-status-codes'
  */
 
 export const submit = async (req, res) => {
+  const organizationId = req.user.orgId || req.body.organization_id || null
+  if (!organizationId) {
+    return res.status(StatusCodes.BAD_REQUEST).json({
+      error: {
+        code: 'MISSING_ORGANIZATION',
+        message:
+          'organization_id is required. Your profile has no default org — pass organization_id in the JSON body (e.g. GCC admin), or assign an organization to your user.',
+      },
+    })
+  }
+
   const uploadData = {
     ...req.body,
-    organization_id: req.user.orgId,
-    user_id: req.user.userId
+    organization_id: organizationId,
+    user_id: req.user.userId,
   }
 
   // Basic validation for file reference
@@ -33,6 +44,14 @@ export const getUploads = async (req, res) => {
 
   if (['gcc_admin', 'gcc_reviewer'].includes(role)) {
     uploads = await uploadService.listAllUploads()
+  } else if (!orgId) {
+    return res.status(StatusCodes.BAD_REQUEST).json({
+      error: {
+        code: 'MISSING_ORGANIZATION',
+        message:
+          'Your profile has no organization. Assign an organization to your user, or use a GCC account to list all uploads.',
+      },
+    })
   } else {
     uploads = await uploadService.listUploadsByOrg(orgId)
   }

@@ -1,6 +1,12 @@
 import * as authService from '../services/auth.service.js'
 import { StatusCodes } from 'http-status-codes'
 
+/** Coerce absent or junk values to null so UUID columns never see the string "null". */
+const normalizeOptionalUuid = (value) => {
+  if (value == null || value === '' || value === 'null' || value === 'undefined') return null
+  return value
+}
+
 /**
  * Middleware to authenticate requests using Supabase JWT
  * Attaches user profile and context to the request object
@@ -44,7 +50,7 @@ export const auth = async (req, res, next) => {
     // 4. Attach context to request
     req.user = {
       userId: profile.id,
-      orgId: profile.organization_id || null,
+      orgId: normalizeOptionalUuid(profile.organization_id),
       role: profile.role,
       email: user.email,
       profile: profile

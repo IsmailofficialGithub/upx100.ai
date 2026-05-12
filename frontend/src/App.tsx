@@ -67,6 +67,7 @@ function App() {
               <AdminDataView 
                 title="Script Change Requests" 
                 endpoint="script-requests"
+                emptyMessage="No script change requests yet. When partners or clients submit copy updates, they will appear here for review."
                 columns={[
                   { key: 'organizations', label: 'Org', render: (val) => val?.name },
                   { key: 'script_text', label: 'Request' },
@@ -81,6 +82,7 @@ function App() {
               <AdminDataView 
                 title="Target List Uploads" 
                 endpoint="target-uploads"
+                emptyMessage="No target list uploads yet. Approved uploads from client organizations will show here with row counts and status."
                 columns={[
                   { key: 'organizations', label: 'Org', render: (val) => val?.name },
                   { key: 'file_url', label: 'File' },
@@ -105,6 +107,7 @@ function App() {
               <AdminDataView 
                 title="Commission Earnings" 
                 endpoint="/commissions"
+                emptyMessage="No commission earnings yet. Earnings populate after Month 1 client payments are processed and reconciled."
                 columns={[
                   { key: 'period', label: 'Period' },
                   { key: 'collected_mrr', label: 'Collected MRR ($)' },
@@ -122,6 +125,7 @@ function App() {
               <AdminDataView 
                 title="Client Phone Numbers" 
                 endpoint="/phone-numbers"
+                emptyMessage="No client phone numbers yet. When lines are provisioned for your portfolio, they will appear here with status and provider."
                 columns={[
                   { key: 'phone_number', label: 'Number' },
                   { key: 'status', label: 'Status' },
@@ -132,8 +136,9 @@ function App() {
             } />
             <Route path="agents" element={
               <AdminDataView 
-                title="Client AI Agents" 
+                title="AI Agent Management" 
                 endpoint="/agents"
+                emptyMessage="No AI agents yet. When agents are deployed for your accounts, they will appear here with Vapi identifiers and status."
                 columns={[
                   { key: 'name', label: 'Agent Name' },
                   { key: 'status', label: 'Status' },

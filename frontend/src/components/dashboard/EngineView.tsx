@@ -28,13 +28,35 @@ const EngineView: React.FC = () => {
   const [isLoadingUploads, setIsLoadingUploads] = useState(true);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { canSubmitScripts, canUploadTargets } = useAuth();
+  const { canSubmitScripts, canUploadTargets, user, isGCC, isSP } = useAuth();
+  const [orgChoices, setOrgChoices] = useState<{ id: string; name: string }[]>([]);
+  const [uploadOrgId, setUploadOrgId] = useState('');
+
   const currentScript = scripts[scriptTab];
 
-
   useEffect(() => {
-    fetchUploads();
-  }, []);
+    if (user?.orgId) {
+      setUploadOrgId(user.orgId);
+      return;
+    }
+    if (!user || (!isGCC && !isSP)) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.get<{ data: { id: string; name: string }[] }>('/admin/organizations');
+        const rows = res.data?.data || [];
+        if (!cancelled && rows.length) {
+          setOrgChoices(rows);
+          setUploadOrgId((prev) => (prev && rows.some((r) => r.id === prev) ? prev : rows[0].id));
+        }
+      } catch {
+        /* no admin access or network */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.orgId, user?.role, isGCC, isSP]);
 
   const fetchUploads = async () => {
     try {
@@ -46,6 +68,10 @@ const EngineView: React.FC = () => {
       setIsLoadingUploads(false);
     }
   };
+
+  useEffect(() => {
+    fetchUploads();
+  }, []);
 
   const handleFileDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -83,12 +109,17 @@ const EngineView: React.FC = () => {
 
   const handleUpload = async () => {
     if (!csvData) return;
+    const organizationId = user?.orgId || uploadOrgId;
+    if (!organizationId) {
+      toast.error('Select an organization (or sign in with a user that has an org).');
+      return;
+    }
     setIsUploading(true);
     try {
       await api.post('/target-uploads', {
         file_url: csvFileName,
         row_count: csvData.length,
-        // In a real app we would send the JSON or a file upload reference
+        organization_id: organizationId,
       });
       toast.success('Target list uploaded successfully');
       setCsvData(null);
@@ -101,8 +132,44 @@ const EngineView: React.FC = () => {
     }
   };
 
+  const downloadCsvTemplate = () => {
+    const header = 'Name,Company,Title,Email';
+    const sample = 'Jane Doe,Acme Inc,VP Sales,jane@example.com';
+    const csv = `${header}\n${sample}\n`;
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'target-accounts-template.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Template downloaded');
+  };
+
   return (
     <div className="space-y-6">
+      {!user?.orgId && orgChoices.length > 0 && (canSubmitScripts || canUploadTargets) && (
+        <div className="bg-[hsl(var(--card))] border border-amber-500/25 rounded-xl p-4">
+          <label className="block text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] mb-1.5 tracking-wider">
+            Organization for scripts &amp; uploads
+          </label>
+          <select
+            value={uploadOrgId}
+            onChange={(e) => setUploadOrgId(e.target.value)}
+            className="w-full max-w-md text-xs rounded-lg border border-[hsl(var(--border-v))] bg-[hsl(var(--card))] text-[hsl(var(--foreground))] px-2 py-2"
+          >
+            {orgChoices.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.name}
+              </option>
+            ))}
+          </select>
+          <p className="text-[10px] text-[hsl(var(--muted-foreground))] mt-2">
+            Your profile has no default organization. Requests and CSV uploads are stored under the org you select here.
+          </p>
+        </div>
+      )}
+
       {/* Campaign Scripts */}
       <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-4">
         <h3 className="text-sm font-display font-semibold text-[hsl(var(--foreground))] mb-4">Campaign Scripts</h3>
@@ -146,14 +213,20 @@ const EngineView: React.FC = () => {
             />
             <div className="flex justify-end mt-2">
               <button
-                onClick={async () => { 
+                onClick={async () => {
+                  const organizationId = user?.orgId || uploadOrgId;
+                  if (!organizationId) {
+                    toast.error('Select an organization above, or sign in with a user that has an org.');
+                    return;
+                  }
                   try {
                     await api.post('/script-requests', {
                       script_text: scriptChange,
-                      campaign_type: scriptTab
+                      campaign_type: scriptTab,
+                      organization_id: organizationId,
                     });
-                    setScriptChange(''); 
-                    toast.success('Script change request submitted!'); 
+                    setScriptChange('');
+                    toast.success('Script change request submitted!');
                   } catch (err) {
                     toast.error('Failed to submit request');
                   }
@@ -173,13 +246,18 @@ const EngineView: React.FC = () => {
       <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-4">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-display font-semibold text-[hsl(var(--foreground))]">Target Accounts</h3>
-          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]/80 transition-colors">
+          <button
+            type="button"
+            onClick={downloadCsvTemplate}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]/80 transition-colors"
+          >
             <Download size={14} /> Download Template
           </button>
         </div>
 
         {/* Upload Zone */}
         {canUploadTargets ? (
+          <div className="space-y-3">
           <div
             onDragOver={e => { e.preventDefault(); setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
@@ -195,6 +273,7 @@ const EngineView: React.FC = () => {
             <Upload size={24} className="mx-auto mb-2 text-[hsl(var(--muted-foreground))]" />
             <p className="text-sm text-[hsl(var(--foreground))]">Drop CSV file here or click to browse</p>
             <p className="text-[11px] text-[hsl(var(--muted-foreground))] mt-1">Name, Company, Title, Email columns required</p>
+          </div>
           </div>
         ) : (
           <div className="border-2 border-dashed border-[hsl(var(--border-v))] rounded-xl p-8 text-center bg-[hsl(var(--muted))]/30">

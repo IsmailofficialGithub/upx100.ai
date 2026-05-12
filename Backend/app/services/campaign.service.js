@@ -1,16 +1,32 @@
+import { StatusCodes } from 'http-status-codes'
 import { supabaseAdmin } from '../config/supabase.js'
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+const isValidUuid = (value) => typeof value === 'string' && UUID_RE.test(value)
 
 /**
  * Campaign Service
  * Manages the running state of AI agents and logs pause/resume events.
  */
 
-export const pauseCampaign = async (agentId, orgId, userId, reason) => {
+export const pauseCampaign = async (agentId, orgId, userId, reason, { role } = {}) => {
+  const scopedOrgId = isValidUuid(orgId) ? orgId : null
+
   // 1. Update agent status
   let query = supabaseAdmin.schema('inbound').from('agents').update({ status: 'paused' })
-  
+
   if (agentId === 'global') {
-    query = query.eq('organization_id', orgId)
+    if (scopedOrgId) {
+      query = query.eq('organization_id', scopedOrgId)
+    } else if (role === 'gcc_admin') {
+      // No org on profile: do not use .eq('organization_id', null) — PostgREST sends invalid uuid "null".
+    } else {
+      const err = new Error('Organization context is required to pause all campaigns for your organization.')
+      err.status = StatusCodes.BAD_REQUEST
+      err.code = 'MISSING_ORGANIZATION'
+      throw err
+    }
   } else {
     query = query.eq('id', agentId)
   }
@@ -19,30 +35,46 @@ export const pauseCampaign = async (agentId, orgId, userId, reason) => {
 
   if (agentError) throw agentError
 
-  // 2. Log the event
-  const { error: logError } = await supabaseAdmin
-    .schema('inbound')
-    .from('campaign_pause_log')
-    .insert({
-      agent_id: agentId === 'global' ? null : agentId,
-      actioned_by: userId,
-      action: 'pause',
-      reason: reason
-    })
+  // 2. Log the event (campaign_pause_log.organization_id is NOT NULL)
+  if (scopedOrgId) {
+    const { error: logError } = await supabaseAdmin
+      .schema('public')
+      .from('campaign_pause_log')
+      .insert({
+        agent_id: agentId === 'global' ? null : agentId,
+        organization_id: scopedOrgId,
+        user_id: userId,
+        action: 'pause',
+        reason: reason
+      })
 
-  if (logError) {
-    console.warn('Logging check:', logError.message)
+    if (logError) {
+      console.warn('Logging check:', logError.message)
+    }
+  } else if (agentId === 'global' && role === 'gcc_admin') {
+    console.warn('[campaign] Global pause by gcc_admin with no organization_id — agents updated, pause log skipped.')
   }
 
   return data
 }
 
-export const resumeCampaign = async (agentId, orgId, userId, reason) => {
+export const resumeCampaign = async (agentId, orgId, userId, reason, { role } = {}) => {
+  const scopedOrgId = isValidUuid(orgId) ? orgId : null
+
   // 1. Update agent status
   let query = supabaseAdmin.schema('inbound').from('agents').update({ status: 'activating' })
-  
+
   if (agentId === 'global') {
-    query = query.eq('organization_id', orgId)
+    if (scopedOrgId) {
+      query = query.eq('organization_id', scopedOrgId)
+    } else if (role === 'gcc_admin') {
+      // Same as pause: avoid .eq('organization_id', null).
+    } else {
+      const err = new Error('Organization context is required to resume all campaigns for your organization.')
+      err.status = StatusCodes.BAD_REQUEST
+      err.code = 'MISSING_ORGANIZATION'
+      throw err
+    }
   } else {
     query = query.eq('id', agentId)
   }
@@ -52,15 +84,20 @@ export const resumeCampaign = async (agentId, orgId, userId, reason) => {
   if (agentError) throw agentError
 
   // 2. Log the event
-  await supabaseAdmin
-    .schema('inbound')
-    .from('campaign_pause_log')
-    .insert({
-      agent_id: agentId === 'global' ? null : agentId,
-      actioned_by: userId,
-      action: 'resume',
-      reason: reason || 'Manual resume'
-    })
+  if (scopedOrgId) {
+    await supabaseAdmin
+      .schema('public')
+      .from('campaign_pause_log')
+      .insert({
+        agent_id: agentId === 'global' ? null : agentId,
+        organization_id: scopedOrgId,
+        user_id: userId,
+        action: 'resume',
+        reason: reason || 'Manual resume'
+      })
+  } else if (agentId === 'global' && role === 'gcc_admin') {
+    console.warn('[campaign] Global resume by gcc_admin with no organization_id — agents updated, resume log skipped.')
+  }
 
   return data
 }

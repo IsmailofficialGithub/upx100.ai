@@ -360,6 +360,13 @@ const AdminPhoneNumbersView: React.FC = () => {
         key={refreshKey}
         title={isAdminView ? "Global Phone Numbers" : "My Phone Numbers"} 
         endpoint="/phone-numbers"
+        emptyMessage={
+          isGCC
+            ? 'No phone numbers in the network yet. Import or register lines so organizations can run campaigns.'
+            : isSP
+              ? 'No client phone numbers yet. When lines are provisioned for accounts in your portfolio, they will appear here.'
+              : 'No phone numbers assigned to your organization yet. Contact your admin or import a line to get started.'
+        }
         columns={[
           { key: 'phone_number', label: 'Number' },
           { 

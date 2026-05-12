@@ -120,9 +120,9 @@ const LandingPage: React.FC = () => {
             </p>
 
             <div className="flex flex-wrap gap-2">
-              {['TCPA Compliant', 'PECR/TPS Verified', 'STIR/SHAKEN Attested', 'Compliance-Gated Pipeline'].map(chip => (
+              {['Compliance-gated dialing', 'PECR/TPS screened lists', 'STIR/SHAKEN attested', 'Compliance-Gated Pipeline'].map((chip) => (
                 <span key={chip} className="px-2.5 py-1 bg-white/5 border border-white/10 rounded text-[10px] font-mono text-white/50">
-                  {chip === 'TCPA Compliant' && isUK ? 'GDPR Compliant' : chip}
+                  {chip}
                 </span>
               ))}
             </div>
@@ -462,14 +462,16 @@ const LandingPage: React.FC = () => {
             <div>
               <p className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] tracking-wider mb-3">Compliance</p>
               <p className="text-xs text-[hsl(var(--muted-foreground))]">
-                {isUK ? 'GDPR Compliant · ISO 27001 · Cyber Essentials Plus' : 'TCPA Compliant · SOC 2 Type II'}
+                {isUK
+                  ? 'GDPR-oriented controls · ISO 27001 · Cyber Essentials Plus'
+                  : 'Compliance-oriented controls · SOC 2 Type II'}
               </p>
             </div>
           </div>
           <div className="pt-6 border-t border-[hsl(var(--border-v))] flex flex-col sm:flex-row items-center justify-between gap-4">
             <p className="text-[11px] text-[hsl(var(--muted-foreground))]/50">© 2025 UP100X.AI. All rights reserved.</p>
             <p className="text-[11px] text-[hsl(var(--muted-foreground))]/50">
-              {isUK ? 'PECR/TPS Compliant · GDPR Ready' : 'TCPA Compliant · STIR/SHAKEN'}
+              {isUK ? 'PECR/TPS screening · GDPR-oriented program' : 'Compliance gates · STIR/SHAKEN attested traffic'}
             </p>
           </div>
         </div>

@@ -94,10 +94,18 @@ export const benchmarks = {
   response: { yours: 12, network: 8, top25: 18, unit: '%' },
 };
 
+/** Demo org IDs for calendar company filter (map to your Supabase orgs in real data). */
+export const calendarDemoOrganizations = [
+  { id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', name: 'NexGen Alliance' },
+  { id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', name: 'DataFirst Partner Org' },
+  { id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', name: 'Secure / Vertex Portfolio' },
+] as const;
+
 export const meetings = [
   {
     id: 'm1',
-    date: '2025-07-24',
+    organizationId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    date: '2026-05-20',
     time: '14:30',
     company: 'CloudScale Inc',
     contact: 'James Thompson',
@@ -118,7 +126,8 @@ export const meetings = [
   },
   {
     id: 'm2',
-    date: '2025-07-22',
+    organizationId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+    date: '2026-05-10',
     time: '10:00',
     company: 'DataFirst Corp',
     contact: 'Sarah Williams',
@@ -139,35 +148,38 @@ export const meetings = [
   },
   {
     id: 'm3',
-    date: '2025-07-28',
+    organizationId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+    date: '2026-06-08',
     time: '11:00',
     company: 'SecureFlow',
     contact: 'Michael Chen',
     email: 'mchen@secureflow.co',
     title: 'Head of Security',
-    status: 'upcoming',
-    outcome: null,
+    status: 'completed',
+    outcome: 'proposal',
     enrichment: { industry: 'Cybersecurity', employees: '67', revenue: '$12M', hq: 'Denver, CO', funding: 'Series A' },
     transcript: [],
     aiStrategy: 'First touch — lead with recent funding announcement. Reference peer companies in Series A stage.',
   },
   {
     id: 'm4',
-    date: '2025-07-20',
+    organizationId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    date: '2026-04-12',
     time: '15:30',
     company: 'GreenLeaf Tech',
     contact: 'Amanda Foster',
     email: 'afoster@greenleaftech.com',
     title: 'CIO',
     status: 'completed',
-    outcome: 'no-show',
+    outcome: 'noShow',
     enrichment: { industry: 'AgTech', employees: '312', revenue: '$56M', hq: 'Portland, OR', funding: 'Public' },
     transcript: [],
     aiStrategy: 'No-show — recommend email follow-up with case study from similar AgTech company.',
   },
   {
     id: 'm5',
-    date: '2025-07-18',
+    organizationId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+    date: '2026-01-18',
     time: '09:00',
     company: 'Vertex Systems',
     contact: 'David Park',
@@ -285,8 +297,8 @@ export const faqData = [
     tags: ['Pricing'],
   },
   {
-    q: 'How do you ensure compliance with TCPA/GDPR?',
-    a: 'Every contact is scrubbed against the National Do Not Call Registry (US) or TPS/CTPS (UK) before any outreach. We also maintain suppression lists, honor opt-out requests within 24 hours, and provide full audit trails. Our platform is SOC 2 Type II certified.',
+    q: 'How do you handle regulatory compliance (US / UK)?',
+    a: 'Contacts are scrubbed against the National Do Not Call Registry (US) or TPS/CTPS (UK) before outreach where applicable. We maintain suppression lists, honor opt-out requests quickly, and provide audit trails. Compliance gates are configurable to your program; we do not replace your legal review.',
     tags: ['Compliance'],
   },
   {

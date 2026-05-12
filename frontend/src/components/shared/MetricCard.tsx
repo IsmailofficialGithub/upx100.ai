@@ -14,8 +14,22 @@ const MetricCard: React.FC<MetricCardProps> = ({ label, value, subtext, tooltip,
 
   return (
     <div
-      className={`relative bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-4 transition-all duration-200 hover:border-[hsl(var(--primary))]/50 cursor-pointer ${className}`}
+      className={`relative bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-4 transition-all duration-200 ${
+        onClick ? 'cursor-pointer hover:border-[hsl(var(--primary))]/50' : 'cursor-default'
+      } ${className}`}
       onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={
+        onClick
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onClick();
+              }
+            }
+          : undefined
+      }
       onMouseEnter={() => tooltip && setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
     >

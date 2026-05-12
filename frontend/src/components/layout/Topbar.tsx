@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
-import { Menu, Moon, Sun, Download, Pause, Play, LogOut } from 'lucide-react';
+import { Menu, Moon, Sun, Download, Pause, Play, LogOut, Loader2 } from 'lucide-react';
 import api from '@/lib/api';
 import { toast } from 'sonner';
+import { downloadMonthlyExportPdf, type MonthlyExportPayload } from '@/lib/exportMonthlyPdf';
 
 interface TopbarProps {
   title: string;
@@ -15,6 +16,7 @@ const Topbar: React.FC<TopbarProps> = ({ title, onMenuClick }) => {
   const { isAuthenticated, logout, login, canPauseCampaigns } = useAuth();
   const [showPauseModal, setShowPauseModal] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   const handleLogin = () => {
     login('client_admin');
@@ -24,11 +26,12 @@ const Topbar: React.FC<TopbarProps> = ({ title, onMenuClick }) => {
     try {
       await api.post('/campaigns/global/pause', { reason });
       setIsPaused(true);
-      setShowPauseModal(false);
       toast.success('Campaigns paused successfully');
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error('Failed to pause campaigns');
       console.error(err);
+    } finally {
+      setShowPauseModal(false);
     }
   };
 
@@ -36,11 +39,30 @@ const Topbar: React.FC<TopbarProps> = ({ title, onMenuClick }) => {
     try {
       await api.post('/campaigns/global/resume', { reason: 'Manual resume' });
       setIsPaused(false);
-      setShowPauseModal(false);
       toast.success('Campaigns resumed successfully');
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error('Failed to resume campaigns');
       console.error(err);
+    } finally {
+      setShowPauseModal(false);
+    }
+  };
+
+  const handleExportPdf = async () => {
+    setExportingPdf(true);
+    try {
+      const { data } = await api.get<{ data: MonthlyExportPayload }>('/export/monthly');
+      downloadMonthlyExportPdf(data.data);
+      toast.success('PDF downloaded');
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === 'object' && 'response' in err
+          ? (err as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
+          : undefined;
+      toast.error(msg || 'Could not generate export');
+      console.error(err);
+    } finally {
+      setExportingPdf(false);
     }
   };
 
@@ -69,9 +91,15 @@ const Topbar: React.FC<TopbarProps> = ({ title, onMenuClick }) => {
               </button>
 
 
-              <button className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]/80 transition-colors">
-                <Download size={14} />
-                <span>Export</span>
+              <button
+                type="button"
+                onClick={handleExportPdf}
+                disabled={exportingPdf}
+                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]/80 transition-colors disabled:opacity-50"
+                title="Download last 30 days as PDF (scoped to your role)"
+              >
+                {exportingPdf ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                <span>{exportingPdf ? '…' : 'Export'}</span>
               </button>
 
               {canPauseCampaigns && (

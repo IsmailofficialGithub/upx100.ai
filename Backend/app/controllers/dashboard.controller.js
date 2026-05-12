@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '../config/supabase.js'
 import { StatusCodes } from 'http-status-codes'
 import * as userService from '../services/user.service.js'
+import { aggregateRegionalFromCallLogs } from '../utils/usCallerRegion.js'
 
 /**
  * Get unified dashboard stats for a client or SP
@@ -99,6 +100,63 @@ export const getStats = async (req, res) => {
       return { label: new Date(date).toLocaleDateString('en-US', { weekday: 'short' }), count };
     });
 
+    const OUTREACH_SERIES_DAYS = 90
+    const dayCounts = {}
+    for (const log of callLogs || []) {
+      const key = log.created_at?.split('T')[0]
+      if (!key) continue
+      dayCounts[key] = (dayCounts[key] || 0) + 1
+    }
+    const outreachDaySeries = []
+    for (let i = 0; i < OUTREACH_SERIES_DAYS; i++) {
+      const d = new Date()
+      d.setHours(0, 0, 0, 0)
+      d.setDate(d.getDate() - (OUTREACH_SERIES_DAYS - 1 - i))
+      const key = d.toISOString().split('T')[0]
+      outreachDaySeries.push({
+        date: key,
+        label: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        count: dayCounts[key] || 0,
+      })
+    }
+
+    const connectedCount = (callLogs || []).filter(
+      (c) => c.status === 'success' || c.status === 'follow_up'
+    ).length
+    const leadCount = leads?.length || 0
+    const pctOfCalls = (n) =>
+      totalOutreach > 0 ? Math.round((n / totalOutreach) * 100) : null
+
+    const funnelData =
+      totalOutreach <= 0
+        ? [
+            { stage: 'Total Calls', count: 0, percentage: null, color: 'hsl(var(--muted-foreground))' },
+            { stage: 'Connected', count: 0, percentage: null, color: 'hsl(var(--accent-blue))' },
+            { stage: 'Qualified Leads', count: 0, percentage: null, color: 'hsl(var(--primary))' },
+            { stage: 'Success', count: 0, percentage: null, color: '#00ff88' },
+          ]
+        : [
+            { stage: 'Total Calls', count: totalOutreach, percentage: 100, color: 'hsl(var(--muted-foreground))' },
+            {
+              stage: 'Connected',
+              count: connectedCount,
+              percentage: pctOfCalls(connectedCount),
+              color: 'hsl(var(--accent-blue))',
+            },
+            {
+              stage: 'Qualified Leads',
+              count: leadCount,
+              percentage: pctOfCalls(leadCount),
+              color: 'hsl(var(--primary))',
+            },
+            {
+              stage: 'Success',
+              count: totalMeetings,
+              percentage: pctOfCalls(totalMeetings),
+              color: '#00ff88',
+            },
+          ]
+
     const statsResult = {
       metrics: {
         outreach: { label: 'Call Logs', value: totalOutreach, change: '' },
@@ -107,18 +165,14 @@ export const getStats = async (req, res) => {
         callTime: { label: 'Total Call Time', value: `${totalHours}h ${totalMins}m`, change: '' }
       },
       liveCalls: formattedLiveCalls,
-      funnelData: [
-        { stage: 'Total Calls', count: totalOutreach, percentage: 100, color: 'hsl(var(--muted-foreground))' },
-        { stage: 'Connected', count: (callLogs || []).filter(c => c.status === 'success' || c.status === 'follow_up').length, percentage: totalOutreach > 0 ? Math.round(((callLogs || []).filter(c => c.status === 'success' || c.status === 'follow_up').length / totalOutreach) * 100) : 0, color: 'hsl(var(--accent-blue))' },
-        { stage: 'Qualified Leads', count: leads?.length || 0, percentage: totalOutreach > 0 ? Math.round(((leads?.length || 0) / totalOutreach) * 100) : 0, color: 'hsl(var(--primary))' },
-        { stage: 'Success', count: totalMeetings, percentage: totalOutreach > 0 ? Math.round((totalMeetings / totalOutreach) * 100) : 0, color: '#00ff88' }
-      ],
+      funnelData,
       outreachActivity: {
         daily: { labels: dailyActivity.map(a => a.label), data: dailyActivity.map(a => a.count) },
         weekly: { labels: ['W1', 'W2', 'W3', 'W4'], data: [0, 0, 0, totalOutreach] },
         monthly: { labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'], data: [0, 0, 0, 0, 0, totalOutreach] }
       },
-      regionalData: [], 
+      outreachDaySeries,
+      regionalData: aggregateRegionalFromCallLogs(callLogs || []), 
       emailStats: { sent: 0, openRate: 0, replyRate: 0 },
       benchmarks: {
         meetings: { yours: totalOutreach > 0 ? (totalMeetings / 4).toFixed(1) : 0, network: 2.1, top25: 4.2, unit: '/week' },

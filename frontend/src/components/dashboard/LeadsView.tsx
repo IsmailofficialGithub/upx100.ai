@@ -98,6 +98,7 @@ const LeadsView: React.FC = () => {
       <AdminDataView 
         title="Qualified Leads" 
         endpoint="/leads"
+        emptyMessage="No qualified leads yet. Once our campaigns are live, leads matching our ICP will appear here."
         columns={columns}
         renderActions={(row) => (
           <button 

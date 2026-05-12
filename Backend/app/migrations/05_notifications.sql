@@ -1,4 +1,4 @@
--- 05: UTILITIES (Notifications)
+-- 05: INBOUND — notifications
 
 CREATE TABLE inbound.notifications (
   id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -10,4 +10,5 @@ CREATE TABLE inbound.notifications (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX ON inbound.notifications (user_id, read_at) WHERE read_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON inbound.notifications (user_id, read_at)
+  WHERE read_at IS NULL;

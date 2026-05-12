@@ -99,25 +99,28 @@ const TeamView: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))]" size={16} />
-          <input 
-            type="text" 
-            placeholder="Search team..." 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-lg py-2 pl-10 pr-4 text-xs focus:outline-none focus:border-[hsl(var(--primary))]/50"
-          />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="text-lg font-display font-semibold text-[hsl(var(--foreground))] shrink-0">Team</h2>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 flex-1 min-w-0 sm:justify-end">
+          <div className="relative flex-1 max-w-md w-full sm:ml-4">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))]" size={16} />
+            <input
+              type="text"
+              placeholder="Search team..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-lg py-2 pl-10 pr-4 text-xs focus:outline-none focus:border-[hsl(var(--primary))]/50"
+            />
+          </div>
+          {(isClientAdmin || isSPPrimary) && (
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-[hsl(var(--primary))] text-black rounded-lg text-xs font-semibold hover:opacity-90 transition-opacity shrink-0"
+            >
+              <UserPlus size={16} /> Add Team Member
+            </button>
+          )}
         </div>
-        {(isClientAdmin || isSPPrimary) && (
-          <button 
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-[hsl(var(--primary))] text-black rounded-lg text-xs font-semibold hover:opacity-90 transition-opacity"
-          >
-            <UserPlus size={16} /> Add Team Member
-          </button>
-        )}
       </div>
 
       {isModalOpen && (
@@ -187,7 +190,16 @@ const TeamView: React.FC = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-[hsl(var(--border-v))]">
-            {filteredUsers.map((u) => (
+            {filteredUsers.length === 0 ? (
+              <tr>
+                <td colSpan={4} className="px-6 py-14 text-center text-sm text-[hsl(var(--muted-foreground))]">
+                  {searchTerm.trim()
+                    ? 'No team members match your search.'
+                    : 'No team members in this view yet. When sub-users are added to your organization, they will appear here.'}
+                </td>
+              </tr>
+            ) : (
+              filteredUsers.map((u) => (
               <tr key={u.id} className="hover:bg-[hsl(var(--muted))]/50 transition-colors">
                 <td className="px-4 py-4">
                   <div className="flex items-center gap-3">
@@ -230,7 +242,8 @@ const TeamView: React.FC = () => {
                   )}
                 </td>
               </tr>
-            ))}
+              ))
+            )}
           </tbody>
         </table>
       </div>

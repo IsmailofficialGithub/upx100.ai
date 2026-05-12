@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '../config/supabase.js';
+import { enrichScriptRequestRows } from './scriptRequest.service.js';
 
 /**
  * Admin Service - Global access to all data
@@ -162,14 +163,21 @@ export const getAllScriptRequests = async (targetOrgIds = null) => {
   let query = supabaseAdmin
     .schema('inbound')
     .from('script_change_requests')
-    .select('*, organizations!script_change_requests_organization_id_fkey(name)')
+    .select('*')
     .order('created_at', { ascending: false });
 
   if (targetOrgIds) {
     query = query.in('organization_id', targetOrgIds);
   }
 
-  return await query;
+  const { data, error } = await query;
+  if (error) return { data, error };
+  try {
+    const enriched = await enrichScriptRequestRows(data || []);
+    return { data: enriched, error: null };
+  } catch (e) {
+    return { data: null, error: e };
+  }
 };
 
 export const getAllTargetUploads = async (targetOrgIds = null) => {

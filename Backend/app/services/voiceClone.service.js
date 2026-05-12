@@ -36,7 +36,7 @@ export const listAllClones = async () => {
   const { data, error } = await supabaseAdmin
     .schema('inbound')
     .from('voice_clone_submissions')
-    .select('*, organizations!voice_clone_submissions_organization_id_fkey(name), profiles:user_id(full_name)')
+    .select('*, organizations!voice_clone_submissions_organization_id_fkey(name), profiles!voice_clone_submissions_submitted_by_fkey(full_name)')
     .order('created_at', { ascending: false })
 
   if (error) throw error

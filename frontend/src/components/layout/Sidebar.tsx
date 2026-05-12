@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { useTheme } from '@/context/ThemeContext';
 import api from '@/lib/api';
 import { 
   LayoutDashboard, 
@@ -26,8 +25,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, isGCC, isSP, isClient, isSPPrimary } = useAuth();
-  const { complianceLabel } = useTheme();
-
   const rolePrefix = isGCC ? 'admin' : isSP ? 'partner' : 'client';
   const portalName = isGCC ? 'Admin Portal' : isSP ? 'Partner Portal' : 'Client Portal';
 
@@ -37,7 +34,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     { label: 'Team', path: `/${rolePrefix}/team`, icon: Users, group: 'MANAGEMENT', roles: ['sp_primary', 'sp_sub', 'client_admin'] },
     { label: 'Organizations', path: `/${rolePrefix}/organizations`, icon: Building2, group: 'MANAGEMENT', roles: ['gcc_admin', 'gcc_reviewer', 'sp_primary'] },
     { label: 'Phone Numbers', path: `/${rolePrefix}/phone-numbers`, icon: Phone, group: 'MANAGEMENT', roles: ['gcc_admin', 'gcc_reviewer', 'client_admin', 'client_sub', 'sp_primary', 'sp_sub'] },
-    { label: 'AI Agents', path: `/${rolePrefix}/agents`, icon: Cpu, group: 'MANAGEMENT', roles: ['gcc_admin', 'gcc_reviewer', 'client_admin', 'client_sub', 'sp_primary', 'sp_sub'] },
+    { label: 'AI Agent Management', path: `/${rolePrefix}/agents`, icon: Cpu, group: 'MANAGEMENT', roles: ['gcc_admin', 'gcc_reviewer', 'client_admin', 'client_sub', 'sp_primary', 'sp_sub'] },
     { label: 'Call Logs', path: `/${rolePrefix}/call-logs`, icon: Phone, group: 'MANAGEMENT', roles: ['gcc_admin', 'gcc_reviewer', 'sp_primary', 'sp_sub', 'client_admin', 'client_sub'] },
     { label: 'Leads', path: `/${rolePrefix}/leads`, icon: FileText, group: 'MANAGEMENT', roles: ['gcc_admin', 'gcc_reviewer', 'sp_primary', 'sp_sub', 'client_admin', 'client_sub'] },
     { label: 'Review Scripts', path: `/${rolePrefix}/scripts`, icon: BookOpen, group: 'MANAGEMENT', roles: ['gcc_admin', 'gcc_reviewer'] },
@@ -66,7 +63,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       >
         <div className="flex items-center justify-between p-4 border-b border-[hsl(var(--border-v))]">
           <div>
-            <h1 className="font-mono text-sm font-bold text-[hsl(var(--primary))]">Q-UP.AI</h1>
+            <h1 className="font-mono text-sm font-bold text-[hsl(var(--primary))]">UP100X</h1>
             <p className="text-[10px] font-mono text-[hsl(var(--muted-foreground))] mt-0.5">
               {user?.entityName || portalName}
             </p>
@@ -121,7 +118,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
             </span>
             <span className="text-[9px] font-mono text-[hsl(var(--muted-foreground))]">
-              Engine active · {complianceLabel} compliant
+              Engine active · Compliance gates active
             </span>
           </div>
         </div>

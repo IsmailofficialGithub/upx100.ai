@@ -5,7 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
 
 const AdminOrgView: React.FC = () => {
-  const { isGCCAdmin } = useAuth();
+  const { isGCCAdmin, isSP } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
   // ... (rest of state)
   const [editingOrg, setEditingOrg] = useState<any>(null);
@@ -58,6 +58,11 @@ const AdminOrgView: React.FC = () => {
         key={refreshKey}
         title="All Organizations" 
         endpoint="organizations"
+        emptyMessage={
+          isSP
+            ? 'No additional organizations are linked to your partner account yet. You should at least see your own sales partner org; contact support if this list is empty.'
+            : 'No organizations returned. Create an organization to onboard a client or partner.'
+        }
         onAdd={isGCCAdmin ? () => setIsModalOpen(true) : undefined}
         onEdit={isGCCAdmin ? startEdit : undefined}
         onDelete={isGCCAdmin ? handleDeleteOrg : undefined}

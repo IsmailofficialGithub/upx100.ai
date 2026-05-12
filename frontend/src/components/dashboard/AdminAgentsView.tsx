@@ -7,7 +7,9 @@ import {
   X, Check, AlertCircle, Info, Target, Heart,
   BookOpen, Zap, Cpu, Globe, Users, Terminal, User,
   RotateCw,
-  Link2
+  Link2,
+  Volume2,
+  Square
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
@@ -384,6 +386,95 @@ const AdminAgentsView: React.FC = () => {
   ];
 
   const [isCustomVoice, setIsCustomVoice] = useState(false);
+  const [previewSpeaking, setPreviewSpeaking] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      if (typeof window !== 'undefined' && window.speechSynthesis) window.speechSynthesis.cancel();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) return;
+    const warm = () => {
+      window.speechSynthesis.getVoices();
+    };
+    warm();
+    window.speechSynthesis.addEventListener('voiceschanged', warm);
+    return () => window.speechSynthesis.removeEventListener('voiceschanged', warm);
+  }, []);
+
+  useEffect(() => {
+    if (!isModalOpen && typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      setPreviewSpeaking(false);
+    }
+  }, [isModalOpen]);
+
+  const pickBrowserTtsVoice = (personaId: string, language: string): SpeechSynthesisVoice | null => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) return null;
+    const prefixMap: Record<string, string> = {
+      english: 'en',
+      spanish: 'es',
+      french: 'fr',
+      german: 'de',
+      arabic: 'ar',
+    };
+    const p = (prefixMap[language] || 'en').toLowerCase();
+    const all = window.speechSynthesis.getVoices();
+    let list = all.filter((v) => v.lang?.toLowerCase().startsWith(p));
+    if (!list.length && p !== 'en') {
+      list = all.filter((v) => v.lang?.toLowerCase().startsWith('en'));
+    }
+    if (!list.length) return null;
+    let h = 0;
+    for (let i = 0; i < personaId.length; i++) h = (Math.imul(31, h) + personaId.charCodeAt(i)) | 0;
+    return list[Math.abs(h) % list.length];
+  };
+
+  const stopVoicePreview = () => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    setPreviewSpeaking(false);
+  };
+
+  const playVoicePreview = () => {
+    const personaId = formData.voice_persona?.trim();
+    if (!personaId) {
+      toast.error('Select or enter a voice first.');
+      return;
+    }
+    if (typeof window === 'undefined' || !window.speechSynthesis) {
+      toast.error('Speech preview is not supported in this browser.');
+      return;
+    }
+
+    const selectedMeta = defaultVoices.find((v) => v.id === personaId);
+    const displayName = selectedMeta?.name || personaId;
+
+    window.speechSynthesis.cancel();
+
+    const text =
+      formData.welcome_message?.trim() ||
+      `Hi — this is a quick browser preview for the ${displayName} persona. On live calls your agent uses the cloud voice you selected, not this device voice. How can I help you today?`;
+
+    const u = new SpeechSynthesisUtterance(text);
+    const picked = pickBrowserTtsVoice(personaId, formData.language);
+    if (picked) {
+      u.voice = picked;
+      u.lang = picked.lang;
+    }
+
+    const prov = selectedMeta?.provider?.toLowerCase() || '';
+    u.rate = prov === 'deepgram' ? 0.96 : 0.94;
+    u.pitch = 1;
+
+    u.onend = () => setPreviewSpeaking(false);
+    u.onerror = () => setPreviewSpeaking(false);
+
+    setPreviewSpeaking(true);
+    window.speechSynthesis.speak(u);
+  };
 
   useEffect(() => {
     fetchAgents();
@@ -1093,6 +1184,44 @@ const AdminAgentsView: React.FC = () => {
                           <option value="arabic">Arabic</option>
                         </select>
                       </div>
+                    </div>
+
+                    <div className="rounded-lg border border-[hsl(var(--border-v))] bg-[hsl(var(--muted))]/40 p-3 space-y-2">
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] tracking-wider flex items-center gap-1.5">
+                            <Volume2 size={12} className="shrink-0" /> Quick voice preview
+                          </p>
+                          <p className="text-[10px] text-[hsl(var(--muted-foreground))] mt-1 leading-snug">
+                            Plays instantly using your browser&apos;s speech engine. Live calls use the Vapi or Deepgram voice you selected above.
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={playVoicePreview}
+                            disabled={previewSpeaking || !formData.voice_persona?.trim()}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+                          >
+                            {previewSpeaking ? <Loader2 size={14} className="animate-spin" /> : <Volume2 size={14} />}
+                            {previewSpeaking ? 'Playing…' : 'Play preview'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={stopVoicePreview}
+                            disabled={!previewSpeaking}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium border border-[hsl(var(--border-v))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                          >
+                            <Square size={12} className="shrink-0" fill="currentColor" />
+                            Stop
+                          </button>
+                        </div>
+                      </div>
+                      {formData.welcome_message?.trim() ? (
+                        <p className="text-[10px] text-[hsl(var(--muted-foreground))]">
+                          Preview uses your welcome message. Clear it to hear the default sample line instead.
+                        </p>
+                      ) : null}
                     </div>
 
                     <div className="grid grid-cols-3 gap-4">
