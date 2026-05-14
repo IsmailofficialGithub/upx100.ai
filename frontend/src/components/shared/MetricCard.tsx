@@ -2,14 +2,24 @@ import React, { useState } from 'react';
 
 interface MetricCardProps {
   label: string;
-  value: string;
+  value: string | number;
   subtext?: string;
   tooltip?: string;
   onClick?: () => void;
   className?: string;
+  /** Monospace value (GCC admin metric tiles). */
+  valueMono?: boolean;
 }
 
-const MetricCard: React.FC<MetricCardProps> = ({ label, value, subtext, tooltip, onClick, className = '' }) => {
+const MetricCard: React.FC<MetricCardProps> = ({
+  label,
+  value,
+  subtext,
+  tooltip,
+  onClick,
+  className = '',
+  valueMono = false,
+}) => {
   const [showTooltip, setShowTooltip] = useState(false);
 
   return (
@@ -36,7 +46,11 @@ const MetricCard: React.FC<MetricCardProps> = ({ label, value, subtext, tooltip,
       <p className="text-[10px] font-mono font-semibold uppercase tracking-wider text-[hsl(var(--muted-foreground))] mb-1">
         {label}
       </p>
-      <p className="text-2xl font-bold font-display text-[hsl(var(--primary))]">{value}</p>
+      <p
+        className={`text-2xl font-bold text-[hsl(var(--primary))] ${valueMono ? 'font-mono tracking-tight' : 'font-display'}`}
+      >
+        {value}
+      </p>
       {subtext && (
         <p className="text-[11px] font-mono text-[hsl(var(--muted-foreground))] mt-1">{subtext}</p>
       )}

@@ -9,11 +9,13 @@ import { downloadMonthlyExportPdf, type MonthlyExportPayload } from '@/lib/expor
 interface TopbarProps {
   title: string;
   onMenuClick: () => void;
+  /** Dark portal shell (GCC, partner, client reference layouts). */
+  portalShell?: boolean;
 }
 
-const Topbar: React.FC<TopbarProps> = ({ title, onMenuClick }) => {
+const Topbar: React.FC<TopbarProps> = ({ title, onMenuClick, portalShell }) => {
   const { toggleMode, isLight } = useTheme();
-  const { isAuthenticated, logout, login, canPauseCampaigns, canExportMonthly } = useAuth();
+  const { isAuthenticated, logout, login, canPauseCampaigns, canExportMonthly, isGCCAdmin } = useAuth();
   const [showPauseModal, setShowPauseModal] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
@@ -68,15 +70,36 @@ const Topbar: React.FC<TopbarProps> = ({ title, onMenuClick }) => {
 
   return (
     <>
-      <header className="sticky top-0 z-30 h-[52px] bg-[hsl(var(--card))]/80 backdrop-blur-xl border-b border-[hsl(var(--border-v))] flex items-center justify-between px-4">
-        <div className="flex items-center gap-3">
+      <header
+        className={`sticky top-0 z-30 h-[52px] flex items-center justify-between px-4 sm:px-6 border-b border-[hsl(var(--border-v))] ${
+          portalShell
+            ? 'gcc-topbar'
+            : 'bg-[hsl(var(--card))]/80 backdrop-blur-xl'
+        }`}
+      >
+        <div className="flex items-center gap-3 min-w-0">
           <button
             onClick={onMenuClick}
-            className="md:hidden p-1.5 rounded-md hover:bg-[hsl(var(--muted))] text-[hsl(var(--foreground))]"
+            className={`md:hidden p-1.5 rounded-md hover:bg-[hsl(var(--muted))] ${
+              portalShell ? 'text-[#FF3333] hover:text-[#cc2929]' : 'text-[hsl(var(--foreground))]'
+            }`}
           >
             <Menu size={20} />
           </button>
-          <h2 className="text-sm font-display font-semibold text-[hsl(var(--foreground))]">{title}</h2>
+          <div className="flex items-center gap-2 min-w-0">
+            <h2
+              className={`text-sm font-semibold text-[hsl(var(--foreground))] truncate ${
+                portalShell ? 'font-body' : 'font-display'
+              }`}
+            >
+              {title}
+            </h2>
+            {isGCCAdmin && !portalShell && (
+              <span className="hidden sm:inline shrink-0 text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-md border border-amber-500/35 bg-amber-500/10 text-amber-700 dark:text-amber-400">
+                GCC Admin
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
@@ -84,7 +107,11 @@ const Topbar: React.FC<TopbarProps> = ({ title, onMenuClick }) => {
             <>
               <button
                 onClick={toggleMode}
-                className="p-2 rounded-lg hover:bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors"
+                className={`p-2 rounded-lg hover:bg-[hsl(var(--muted))] transition-colors ${
+                  portalShell
+                    ? 'text-[#FF3333] hover:text-[#cc2929]'
+                    : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
+                }`}
                 title="Toggle theme"
               >
                 {isLight ? <Moon size={16} /> : <Sun size={16} />}
@@ -96,10 +123,14 @@ const Topbar: React.FC<TopbarProps> = ({ title, onMenuClick }) => {
                 type="button"
                 onClick={handleExportPdf}
                 disabled={exportingPdf}
-                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]/80 transition-colors disabled:opacity-50"
+                className={
+                  portalShell
+                    ? 'gcc-export-btn hidden sm:flex items-center gap-1.5 disabled:opacity-50 [&_svg]:text-[#FF3333]'
+                    : 'hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]/80 transition-colors disabled:opacity-50'
+                }
                 title="Download last 30 days as PDF (scoped to your role)"
               >
-                {exportingPdf ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                {exportingPdf ? <Loader2 size={14} className="animate-spin text-[#FF3333]" /> : <Download size={14} />}
                 <span>{exportingPdf ? '…' : 'Export'}</span>
               </button>
               )}

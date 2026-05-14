@@ -69,24 +69,30 @@ const AdminDataView: React.FC<AdminDataViewProps> = ({
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-display font-semibold text-[hsl(var(--foreground))]">{title}</h2>
-        <div className="flex items-center gap-3 ml-4 flex-1 max-w-md">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))]" size={16} />
+    <div className="admin-data-view flex flex-col gap-4 w-full min-w-0 max-w-[1400px] mx-auto">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between w-full min-w-0">
+        <h2 className="text-base sm:text-lg font-semibold text-[hsl(var(--foreground))] tracking-tight shrink-0">
+          {title}
+        </h2>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto sm:min-w-[280px] sm:max-w-[420px] sm:shrink-0">
+          <div className="relative w-full min-w-0">
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))] pointer-events-none"
+              size={16}
+            />
             <input
               type="text"
-              placeholder={`Search ${title.toLowerCase()}...`}
+              placeholder={`Search ${title.toLowerCase()}…`}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-lg py-2 pl-10 pr-4 text-xs focus:outline-none focus:border-[hsl(var(--primary))]/50"
+              className="w-full min-h-[40px] bg-[hsl(var(--secondary))] border border-[hsl(var(--border-v))] rounded-[10px] py-2.5 pl-10 pr-4 text-xs text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--muted-foreground))] focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))]/40 focus:border-[hsl(var(--primary))]/50"
             />
           </div>
           {onAdd && (
             <button
+              type="button"
               onClick={onAdd}
-              className="px-4 py-2 bg-[hsl(var(--primary))] text-black rounded-lg text-xs font-semibold hover:opacity-90 transition-opacity whitespace-nowrap"
+              className="shrink-0 px-4 py-2.5 min-h-[40px] bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] rounded-[10px] text-xs font-semibold hover:opacity-90 transition-opacity whitespace-nowrap"
             >
               Add New
             </button>
@@ -94,24 +100,29 @@ const AdminDataView: React.FC<AdminDataViewProps> = ({
         </div>
       </div>
 
-      <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl overflow-hidden">
-        <table className="w-full text-xs text-left">
-          <thead className="bg-[hsl(var(--muted))] border-b border-[hsl(var(--border-v))]">
+      <div className="admin-data-panel bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-[10px] sm:rounded-xl overflow-hidden shadow-sm">
+        <table className="admin-data-table w-full text-xs text-left">
+          <thead className="border-b border-[hsl(var(--border-v))] bg-[hsl(var(--muted))]/40">
             <tr>
               {columns.map((col) => (
-                <th key={col.key} className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">
+                <th
+                  key={col.key}
+                  className="px-4 sm:px-5 py-3 font-mono text-[10px] uppercase tracking-wide text-[hsl(var(--muted-foreground))] text-left font-semibold"
+                >
                   {col.label}
                 </th>
               ))}
               {(onEdit || onDelete || renderActions) && (
-                <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Actions</th>
+                <th className="px-4 sm:px-5 py-3 font-mono text-[10px] uppercase tracking-wide text-[hsl(var(--muted-foreground))] text-right font-semibold w-[1%] whitespace-nowrap">
+                  Actions
+                </th>
               )}
             </tr>
           </thead>
-          <tbody className="divide-y divide-[hsl(var(--border-v))]">
+          <tbody>
             {filteredData.length === 0 ? (
               <tr>
-                <td colSpan={colSpan} className="px-6 py-14 text-center align-middle">
+                <td colSpan={colSpan} className="px-5 py-14 text-center align-middle border-b-0">
                   <p className="text-sm text-[hsl(var(--foreground))] max-w-md mx-auto leading-relaxed">
                     {searchTerm.trim()
                       ? 'No rows match your search. Try different keywords or clear the search box.'
@@ -122,15 +133,21 @@ const AdminDataView: React.FC<AdminDataViewProps> = ({
               </tr>
             ) : (
               filteredData.map((row, idx) => (
-                <tr key={row.id || idx} className="hover:bg-[hsl(var(--muted))]/50 transition-colors">
+                <tr
+                  key={row.id || idx}
+                  className="border-b border-[hsl(var(--border))] last:border-b-0 hover:bg-[hsl(var(--muted))]/40 transition-colors"
+                >
                   {columns.map((col) => (
-                    <td key={col.key} className="px-4 py-4">
+                    <td
+                      key={col.key}
+                      className="px-4 sm:px-5 py-3.5 text-[hsl(var(--foreground))] text-[13px] leading-snug"
+                    >
                       {col.render ? col.render(row[col.key], row) : row[col.key] ?? 'N/A'}
                     </td>
                   ))}
                   {(onEdit || onDelete || renderActions) && (
-                    <td className="px-4 py-4">
-                      <div className="flex items-center gap-1">
+                    <td className="px-4 sm:px-5 py-3.5 text-right">
+                      <div className="inline-flex items-center justify-end gap-1">
                         {renderActions && renderActions(row)}
                         {onEdit && (
                           <button

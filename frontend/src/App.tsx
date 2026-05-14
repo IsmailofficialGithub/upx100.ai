@@ -93,6 +93,21 @@ function App() {
               />
             } />
 
+            <Route path="commissions" element={
+              <AdminDataView 
+                title="Commission overview" 
+                endpoint="/commissions"
+                emptyMessage="No commission records yet. Earnings populate after client payments are processed and reconciled."
+                columns={[
+                  { key: 'period', label: 'Period' },
+                  { key: 'collected_mrr', label: 'Collected MRR ($)' },
+                  { key: 'rate', label: 'Rate (%)', render: (val) => `${val}%` },
+                  { key: 'amount', label: 'Commission ($)' },
+                  { key: 'status', label: 'Status' }
+                ]}
+              />
+            } />
+
           </Route>
 
 

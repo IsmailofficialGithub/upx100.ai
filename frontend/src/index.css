@@ -208,3 +208,254 @@
   opacity: 1;
   transform: translateY(0);
 }
+
+/* —— Portal shell (GCC admin/reviewer, partner, client — reference HTML) —— */
+.upx-portal-shell {
+  --gcc-danger: #ff3333;
+  --background: 0 0% 0%;
+  --foreground: 0 0% 100%;
+  --card: 0 0% 4%;
+  --card-foreground: 0 0% 100%;
+  --popover: 0 0% 4%;
+  --popover-foreground: 0 0% 100%;
+  --primary: 150 100% 50%;
+  --primary-foreground: 0 0% 0%;
+  --secondary: 0 0% 7%;
+  --secondary-foreground: 0 0% 100%;
+  --muted: 0 0% 7%;
+  --muted-foreground: 0 0% 63%;
+  --accent: 150 100% 50%;
+  --accent-foreground: 0 0% 0%;
+  --accent-blue: 210 100% 50%;
+  --destructive: 0 100% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --warning: 43 100% 59%;
+  --warning-foreground: 0 0% 0%;
+  --border: 0 0% 10%;
+  --border-v: 0 0% 16%;
+  --input: 0 0% 10%;
+  --ring: 150 100% 50%;
+  --gcc-sidebar: #0a0a0a;
+  --gcc-met-bg: #111111;
+}
+
+/* Light mode: portal must not keep forcing dark tokens (otherwise theme toggle has no effect). */
+[data-theme$='-light'] .upx-portal-shell {
+  --gcc-danger: #ff3333;
+  --background: 40 7% 96%;
+  --foreground: 0 0% 10%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 10%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 10%;
+  --primary: 210 100% 50%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 0 0% 92%;
+  --secondary-foreground: 0 0% 10%;
+  --muted: 40 5% 90%;
+  --muted-foreground: 0 0% 40%;
+  --accent: 210 100% 50%;
+  --accent-foreground: 0 0% 100%;
+  --accent-blue: 210 100% 40%;
+  --destructive: 12 90% 45%;
+  --destructive-foreground: 0 0% 100%;
+  --warning: 38 100% 40%;
+  --warning-foreground: 0 0% 0%;
+  --border: 0 0% 0% / 0.1;
+  --border-v: 0 0% 0% / 0.18;
+  --input: 0 0% 90%;
+  --ring: 210 100% 50%;
+  --gcc-sidebar: #ffffff;
+  --gcc-met-bg: #ebebeb;
+}
+
+.upx-portal-shell h1,
+.upx-portal-shell h2,
+.upx-portal-shell h3,
+.upx-portal-shell h4 {
+  font-family: var(--font-body);
+}
+
+.upx-portal-shell .gcc-sidebar {
+  width: 240px;
+  background: var(--gcc-sidebar);
+  border-right: 1px solid hsl(var(--border));
+}
+
+.upx-portal-shell .gcc-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 20px;
+  font-size: 12px;
+  font-weight: 500;
+  color: hsl(var(--muted-foreground));
+  border-left: 3px solid transparent;
+  transition: color 0.12s, border-color 0.12s, background 0.12s;
+  width: 100%;
+  text-align: left;
+}
+
+/* Nav icons: brand red #FF3333 at reduced strength until active (green/blue primary). */
+.upx-portal-shell .gcc-nav-item svg {
+  color: #ff3333;
+  opacity: 0.48;
+  transition: color 0.12s, opacity 0.12s;
+}
+
+.upx-portal-shell .gcc-nav-item:hover {
+  color: hsl(var(--foreground));
+  background: hsl(var(--muted) / 0.5);
+}
+
+.upx-portal-shell .gcc-nav-item:hover svg {
+  color: #ff3333;
+  opacity: 0.78;
+}
+
+.upx-portal-shell .gcc-nav-item-active {
+  color: hsl(var(--primary));
+  border-left-color: hsl(var(--primary));
+  font-weight: 600;
+  background: hsl(var(--primary) / 0.08);
+}
+
+.upx-portal-shell .gcc-nav-item-active svg {
+  color: hsl(var(--primary));
+  opacity: 1;
+}
+
+.upx-portal-shell .gcc-nav-group-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  color: hsl(var(--muted-foreground));
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  padding: 10px 20px 4px;
+  position: relative;
+  padding-left: 26px;
+}
+
+.upx-portal-shell .gcc-nav-group-label::before {
+  content: '';
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  margin-top: -5px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--gcc-danger);
+  opacity: 0.55;
+  box-shadow: 0 0 6px rgba(255, 51, 51, 0.35);
+}
+
+.upx-portal-shell .gcc-nav-badge {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-left: auto;
+  background: rgba(255, 51, 51, 0.12);
+  color: #ff3333;
+  border: 1px solid rgba(255, 51, 51, 0.38);
+  box-shadow: 0 0 10px rgba(255, 51, 51, 0.1);
+}
+
+.upx-portal-shell .gcc-topbar {
+  height: 52px;
+  background: hsl(var(--card) / 0.92);
+  border-bottom: 1px solid hsl(var(--border));
+  backdrop-filter: blur(12px);
+}
+
+.upx-portal-shell .gcc-export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid hsl(var(--border-v));
+  background: transparent;
+  color: hsl(var(--muted-foreground));
+  transition: border-color 0.12s, color 0.12s;
+}
+
+.upx-portal-shell .gcc-export-btn:hover:not(:disabled) {
+  border-color: hsl(var(--primary));
+  color: hsl(var(--foreground));
+}
+
+.upx-portal-shell .gcc-tick-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, hsl(var(--primary)) 0%, var(--gcc-danger) 100%);
+  flex-shrink: 0;
+  animation: gcc-pulse 2s ease-in-out infinite;
+  box-shadow: 0 0 8px rgba(255, 51, 51, 0.25);
+}
+
+@keyframes gcc-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.upx-portal-shell .admin-data-view table {
+  border-collapse: collapse;
+}
+
+.upx-portal-shell .admin-data-view thead {
+  background: transparent !important;
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.upx-portal-shell .admin-data-view thead th {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  color: hsl(var(--muted-foreground));
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.upx-portal-shell .admin-data-view tbody tr {
+  transition: background 0.1s;
+}
+
+.upx-portal-shell .admin-data-view tbody tr:hover {
+  background: hsl(var(--muted) / 0.6);
+}
+
+.upx-portal-shell .admin-data-view tbody td {
+  font-size: 13px;
+  vertical-align: middle;
+}
+
+.upx-portal-shell .gcc-metric-tile {
+  background: var(--gcc-met-bg);
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  padding: 14px 12px;
+}
+
+/* Thin red accent on metric labels in portal dashboards. */
+.upx-portal-shell .gcc-metric-tile p:first-of-type {
+  border-left: 2px solid rgba(255, 51, 51, 0.42);
+  padding-left: 8px;
+  margin-left: -2px;
+}
+
+.upx-portal-shell .admin-data-panel {
+  background: #121212;
+  border-color: rgba(255, 255, 255, 0.08);
+}

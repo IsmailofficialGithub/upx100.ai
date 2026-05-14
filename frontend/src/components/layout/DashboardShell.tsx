@@ -5,7 +5,6 @@ import Topbar from './Topbar';
 import { useAuth } from '@/context/AuthContext';
 import LiveTicker from '@/components/shared/LiveTicker';
 
-
 const pageTitles: Record<string, string> = {
   '/client/dashboard': 'Campaign Dashboard',
   '/client/calendar': 'Calendar & Meetings',
@@ -17,8 +16,54 @@ const pageTitles: Record<string, string> = {
   '/admin/scripts': 'Review Script Requests',
   '/admin/uploads': 'Review Target Uploads',
   '/admin/clones': 'Review Voice Clones',
+  '/admin/commissions': 'Commission overview',
   '/partner/dashboard': 'Partner Portal',
   '/partner/analytics': 'Sales Performance',
+};
+
+/** GCC admin & reviewer: top bar titles aligned with reference nav. */
+const gccPortalAdminTitles: Record<string, string> = {
+  '/admin/dashboard': 'Command Centre',
+  '/admin/organizations': 'All Clients',
+  '/admin/call-logs': 'Live Calls',
+  '/admin/uploads': 'HITL — Target uploads',
+  '/admin/scripts': 'HITL — Script requests',
+  '/admin/analytics': 'Compliance Monitor',
+  '/admin/user': 'Sales Partners',
+  '/admin/commissions': 'Revenue & Payments',
+  '/admin/agents': 'AI Agent Management',
+  '/admin/phone-numbers': 'Phone Numbers',
+  '/admin/leads': 'Leads',
+  '/admin/calendar': 'Calendar & Meetings',
+  '/admin/engine': 'AI Engine',
+  '/admin/playbook': 'Sales Playbook',
+};
+
+const partnerPortalTitles: Record<string, string> = {
+  '/partner/dashboard': 'Overview',
+  '/partner/organizations': 'Client Portfolio',
+  '/partner/calendar': 'Onboarding',
+  '/partner/playbook': 'Script Requests',
+  '/partner/commissions': 'Financials',
+  '/partner/analytics': 'Sales Performance',
+  '/partner/call-logs': 'Call Logs',
+  '/partner/leads': 'Leads',
+  '/partner/phone-numbers': 'Client Phone Numbers',
+  '/partner/agents': 'AI Agents',
+  '/partner/team': 'Team',
+};
+
+const clientPortalTitles: Record<string, string> = {
+  '/client/dashboard': 'Dashboard',
+  '/client/calendar': 'Calendar & Meetings',
+  '/client/analytics': 'Analytics & Insights',
+  '/client/call-logs': 'Call Logs',
+  '/client/leads': 'Leads',
+  '/client/engine': 'AI Engine',
+  '/client/playbook': 'Sales Playbook',
+  '/client/phone-numbers': 'Phone Numbers',
+  '/client/agents': 'AI Agent Management',
+  '/client/team': 'Team',
 };
 
 const DashboardShell: React.FC = () => {
@@ -26,7 +71,27 @@ const DashboardShell: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
-  const title = pageTitles[location.pathname] || 'Dashboard';
+  const path = location.pathname;
+  const prefix = path.split('/')[1];
+
+  const portalShell =
+    (user?.role === 'gcc_admin' && prefix === 'admin') ||
+    (user?.role === 'gcc_reviewer' && prefix === 'admin') ||
+    ((user?.role === 'sp_primary' || user?.role === 'sp_sub') && prefix === 'partner') ||
+    ((user?.role === 'client_admin' || user?.role === 'client_sub') && prefix === 'client');
+
+  const isGccPortal = (user?.role === 'gcc_admin' || user?.role === 'gcc_reviewer') && prefix === 'admin';
+  const isPartnerPortal =
+    (user?.role === 'sp_primary' || user?.role === 'sp_sub') && prefix === 'partner';
+  const isClientPortal =
+    (user?.role === 'client_admin' || user?.role === 'client_sub') && prefix === 'client';
+
+  const title =
+    (isGccPortal && gccPortalAdminTitles[path]) ||
+    (isPartnerPortal && partnerPortalTitles[path]) ||
+    (isClientPortal && clientPortalTitles[path]) ||
+    pageTitles[path] ||
+    'Dashboard';
 
   React.useEffect(() => {
     if (!isAuthenticated) {
@@ -34,10 +99,9 @@ const DashboardShell: React.FC = () => {
       return;
     }
 
-    // Role-based route protection
     const pathPrefix = location.pathname.split('/')[1];
     const userRole = user?.role || '';
-    
+
     const isAccessingAdmin = pathPrefix === 'admin';
     const isAccessingPartner = pathPrefix === 'partner';
     const isAccessingClient = pathPrefix === 'client';
@@ -49,20 +113,21 @@ const DashboardShell: React.FC = () => {
     if (isAccessingAdmin && !hasAdminRole) navigate('/login');
     if (isAccessingPartner && !hasPartnerRole) navigate('/login');
     if (isAccessingClient && !hasClientRole) navigate('/login');
-    
   }, [isAuthenticated, user, location.pathname, navigate]);
 
   if (!isAuthenticated) return null;
 
-
-
   return (
-    <div className="min-h-screen bg-[hsl(var(--background))]">
+    <div className={`min-h-screen bg-[hsl(var(--background))] ${portalShell ? 'upx-portal-shell' : ''}`}>
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <div className="md:ml-60 flex flex-col min-h-screen">
-        <Topbar title={title} onMenuClick={() => setSidebarOpen(true)} />
+      <div className={`flex flex-col min-h-screen ${portalShell ? 'md:ml-[240px]' : 'md:ml-60'}`}>
+        <Topbar title={title} onMenuClick={() => setSidebarOpen(true)} portalShell={portalShell} />
         <LiveTicker />
-        <main className="flex-1 min-h-0 p-4 sm:p-6 overflow-x-hidden">
+        <main
+          className={`flex-1 min-h-0 overflow-x-hidden ${
+            portalShell ? 'px-5 sm:px-6 py-5' : 'p-4 sm:p-6'
+          }`}
+        >
           <Outlet />
         </main>
       </div>
