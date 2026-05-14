@@ -13,7 +13,7 @@ interface TopbarProps {
 
 const Topbar: React.FC<TopbarProps> = ({ title, onMenuClick }) => {
   const { toggleMode, isLight } = useTheme();
-  const { isAuthenticated, logout, login, canPauseCampaigns } = useAuth();
+  const { isAuthenticated, logout, login, canPauseCampaigns, canExportMonthly } = useAuth();
   const [showPauseModal, setShowPauseModal] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
@@ -91,6 +91,7 @@ const Topbar: React.FC<TopbarProps> = ({ title, onMenuClick }) => {
               </button>
 
 
+              {canExportMonthly && (
               <button
                 type="button"
                 onClick={handleExportPdf}
@@ -101,6 +102,7 @@ const Topbar: React.FC<TopbarProps> = ({ title, onMenuClick }) => {
                 {exportingPdf ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
                 <span>{exportingPdf ? '…' : 'Export'}</span>
               </button>
+              )}
 
               {canPauseCampaigns && (
                 <button

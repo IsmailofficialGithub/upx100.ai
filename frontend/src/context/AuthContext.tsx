@@ -41,6 +41,7 @@ interface AuthContextType {
   canManageUsers: boolean;
   canViewFinances: boolean;
   canUploadTargets: boolean;
+  canExportMonthly: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
 }
@@ -62,6 +63,7 @@ const AuthContext = createContext<AuthContextType>({
   canManageUsers: false,
   canViewFinances: false,
   canUploadTargets: false,
+  canExportMonthly: false,
   login: async () => {},
   logout: () => {},
 });
@@ -137,6 +139,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const canManageUsers = ['gcc_admin', 'sp_primary', 'client_admin'].includes(user?.role || '');
   const canViewFinances = ['gcc_admin', 'sp_primary'].includes(user?.role || '');
   const canUploadTargets = ['gcc_admin', 'gcc_reviewer', 'client_admin'].includes(user?.role || '');
+  const canExportMonthly = user?.role === 'gcc_admin' || user?.role === 'client_admin';
 
   return (
     <AuthContext.Provider value={{
@@ -148,6 +151,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       canSubmitScripts, canApproveScripts,
       canManageUsers, canViewFinances,
       canUploadTargets,
+      canExportMonthly,
       login, logout,
     }}>
       {children}
