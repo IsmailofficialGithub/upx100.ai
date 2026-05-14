@@ -3,17 +3,24 @@ import axios from 'axios'
 import { supabaseAdmin } from '../config/supabase.js'
 
 jest.mock('axios')
-jest.mock('../config/supabase.js', () => ({
-  supabase: {
-    from: jest.fn().mockReturnThis(),
-    insert: jest.fn().mockReturnThis(),
-    update: jest.fn().mockReturnThis(),
-    delete: jest.fn().mockReturnThis(),
-    select: jest.fn().mockReturnThis(),
-    eq: jest.fn().mockReturnThis(),
-    single: jest.fn().mockImplementation(() => Promise.resolve({ data: { id: 'phone-uuid' }, error: null })),
+jest.mock('../config/supabase.js', () => {
+  const build = () => {
+    const chain = {}
+    chain.schema = jest.fn(() => chain)
+    chain.from = jest.fn(() => chain)
+    chain.insert = jest.fn(() => chain)
+    chain.update = jest.fn(() => chain)
+    chain.delete = jest.fn(() => chain)
+    chain.select = jest.fn(() => chain)
+    chain.eq = jest.fn(() => chain)
+    chain.single = jest.fn(() => Promise.resolve({ data: { id: 'phone-uuid' }, error: null }))
+    return chain
   }
-}))
+  return {
+    supabaseAdmin: build(),
+    createSupabaseForRequest: jest.fn(() => null)
+  }
+})
 
 describe('InboundPhone Service', () => {
   beforeEach(() => {
@@ -29,7 +36,13 @@ describe('InboundPhone Service', () => {
 
     await phoneService.provisionNumber(mockData)
 
-    expect(axios.post).toHaveBeenCalledWith('http://test-base/import', mockData)
+    expect(axios.post).toHaveBeenCalledWith(
+      'http://test-base/import',
+      expect.objectContaining({
+        organization_id: mockData.organization_id,
+        phone_number: mockData.phone_number
+      })
+    )
     expect(supabaseAdmin.insert).toHaveBeenCalled()
   })
 

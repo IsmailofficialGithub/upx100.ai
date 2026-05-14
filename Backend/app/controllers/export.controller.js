@@ -1,24 +1,22 @@
 import { StatusCodes } from 'http-status-codes';
-import { getTargetOrgIds } from './admin.controller.js';
+import { getExportTargetOrgIds } from './admin.controller.js';
 import * as exportService from '../services/export.service.js';
-
-const ELEVATED_FOR_ADMIN_SNAPSHOT = ['gcc_admin', 'gcc_reviewer', 'sp_primary', 'sp_sub', 'admin'];
 
 /**
  * JSON payload for a PDF (or other) client export for the last 30 days, scoped like admin/dashboard APIs.
  */
 export const getMonthlyExport = async (req, res) => {
   try {
-    const targetOrgIds = await getTargetOrgIds(req);
+    const targetOrgIds = await getExportTargetOrgIds(req);
     if (Array.isArray(targetOrgIds) && targetOrgIds.length === 0) {
       return res.status(StatusCodes.FORBIDDEN).json({
-        error: { message: 'Export is not available without an organization assignment.' },
+        error: { message: 'Export is not available for your role or organization assignment.' },
       });
     }
 
     const days = Math.min(90, Math.max(1, parseInt(req.query.days, 10) || 30));
     const { from, to } = exportService.getDefaultPeriod(days);
-    const includeAdminSnapshot = ELEVATED_FOR_ADMIN_SNAPSHOT.includes(req.user.role);
+    const includeAdminSnapshot = req.user.role === 'gcc_admin' || req.user.role === 'admin';
 
     const { data, error } = await exportService.buildMonthlyExport({
       targetOrgIds,

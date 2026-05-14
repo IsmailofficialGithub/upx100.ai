@@ -5,13 +5,14 @@ import { requireRole } from '../middlewares/rbac.js'
 
 const router = express.Router();
 
-const elevatedRoles = ['gcc_admin', 'gcc_reviewer', 'sp_primary', 'sp_sub'];
+const readElevated = ['gcc_admin', 'gcc_reviewer', 'sp_primary', 'sp_sub'];
 
 // All admin routes require authentication and GCC/SP role
-router.use(auth, isAdmin);
+router.use(auth)
+router.use(isAdmin);
 
-router.get('/stats', requireRole(elevatedRoles), adminController.getStats);
-router.get('/debug/scoping', requireRole(elevatedRoles), async (req, res) => {
+router.get('/stats', requireRole(readElevated), adminController.getStats);
+router.get('/debug/scoping', requireRole(readElevated), async (req, res) => {
   const targetOrgIds = await adminController.getTargetOrgIds(req);
   res.json({ 
     user: {
@@ -23,25 +24,25 @@ router.get('/debug/scoping', requireRole(elevatedRoles), async (req, res) => {
   });
 });
 
-// Users
-router.get('/users', requireRole(elevatedRoles), adminController.getUsers);
-router.post('/users', requireRole(elevatedRoles), adminController.createUser);
-router.patch('/users/:id', requireRole(elevatedRoles), adminController.updateUser);
-router.delete('/users/:id', requireRole(elevatedRoles), adminController.deleteUser);
+// Users — mutations: GCC Admin only (matrix: create partners/clients; manage billing)
+router.get('/users', requireRole(readElevated), adminController.getUsers);
+router.post('/users', requireRole(['gcc_admin']), adminController.createUser);
+router.patch('/users/:id', requireRole(['gcc_admin']), adminController.updateUser);
+router.delete('/users/:id', requireRole(['gcc_admin']), adminController.deleteUser);
 
-// Organizations
-router.get('/organizations', requireRole(elevatedRoles), adminController.getOrganizations);
-router.post('/organizations', requireRole(elevatedRoles), adminController.createOrganization);
-router.patch('/organizations/:id', requireRole(elevatedRoles), adminController.updateOrganization);
-router.delete('/organizations/:id', requireRole(elevatedRoles), adminController.deleteOrganization);
+// Organizations — mutations: GCC Admin only
+router.get('/organizations', requireRole(readElevated), adminController.getOrganizations);
+router.post('/organizations', requireRole(['gcc_admin']), adminController.createOrganization);
+router.patch('/organizations/:id', requireRole(['gcc_admin']), adminController.updateOrganization);
+router.delete('/organizations/:id', requireRole(['gcc_admin']), adminController.deleteOrganization);
 
-router.get('/call-logs', requireRole(elevatedRoles), adminController.getCallLogs);
-router.get('/leads', requireRole(elevatedRoles), adminController.getLeads);
-router.get('/phone-numbers', requireRole(elevatedRoles), adminController.getPhoneNumbers);
-router.get('/agents', requireRole(elevatedRoles), adminController.getAgents);
-router.get('/script-requests', requireRole(elevatedRoles), adminController.getScriptRequests);
-router.get('/target-uploads', requireRole(elevatedRoles), adminController.getTargetUploads);
-router.get('/voice-clones', requireRole(elevatedRoles), adminController.getVoiceClones);
+router.get('/call-logs', requireRole(readElevated), adminController.getCallLogs);
+router.get('/leads', requireRole(readElevated), adminController.getLeads);
+router.get('/phone-numbers', requireRole(readElevated), adminController.getPhoneNumbers);
+router.get('/agents', requireRole(readElevated), adminController.getAgents);
+router.get('/script-requests', requireRole(readElevated), adminController.getScriptRequests);
+router.get('/target-uploads', requireRole(readElevated), adminController.getTargetUploads);
+router.get('/voice-clones', requireRole(readElevated), adminController.getVoiceClones);
 
 
 export default router;

@@ -9,7 +9,8 @@ jest.mock('../middlewares/auth.js', () => ({
     // Default mock user is client_admin
     req.user = { role: 'client_admin', orgId: 'org123', userId: 'user123' }
     next()
-  })
+  }),
+  isAdmin: jest.fn((req, res, next) => next())
 }))
 
 describe('Leads API', () => {
@@ -18,7 +19,7 @@ describe('Leads API', () => {
   })
 
   it('GET /api/leads should be accessible', async () => {
-    leadService.listLogsByOrg.mockResolvedValue([{ id: 'lead1' }])
+    leadService.listLeadsByOrg.mockResolvedValue([{ id: 'lead1' }])
     
     const res = await request(app).get('/api/leads')
     

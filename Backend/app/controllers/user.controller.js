@@ -3,20 +3,106 @@ import { StatusCodes } from 'http-status-codes'
 import { supabaseAdmin } from '../config/supabase.js'
 
 /**
+ * Whether the caller may read the target profile (single-user fetch).
+ */
+const canReadUserProfile = async (caller, target) => {
+  if (caller.role === 'gcc_admin' || caller.role === 'gcc_reviewer') {
+    return true
+  }
+
+  if (caller.role === 'sp_sub') {
+    if (target.id === caller.userId) return true
+    if (target.organization_id !== caller.orgId) return false
+    return target.role === 'sp_primary' || target.role === 'sp_sub'
+  }
+
+  if (caller.role === 'sp_primary') {
+    if (target.organization_id === caller.orgId) {
+      return ['sp_primary', 'sp_sub'].includes(target.role)
+    }
+    const { data: assignments } = await userService.getSPClientAssignments(caller.userId)
+    const allowedOrgs = (assignments || []).map((a) => a.client_org_id)
+    return allowedOrgs.includes(target.organization_id)
+  }
+
+  if (caller.role === 'client_admin' || caller.role === 'client_sub') {
+    return target.organization_id === caller.orgId
+  }
+
+  return false
+}
+
+/**
+ * Whether the caller may update the target profile (field allowlist applied separately).
+ */
+const canManageUserRecord = async (caller, target) => {
+  if (caller.role === 'gcc_admin') {
+    return true
+  }
+
+  if (caller.role === 'sp_primary') {
+    return (
+      target.role === 'sp_sub' &&
+      target.organization_id === caller.orgId
+    )
+  }
+
+  if (caller.role === 'client_admin') {
+    return (
+      target.role === 'client_sub' &&
+      target.organization_id === caller.orgId
+    )
+  }
+
+  if (caller.role === 'sp_sub' || caller.role === 'client_sub') {
+    return target.id === caller.userId
+  }
+
+  return false
+}
+
+const pickAllowedUpdates = (caller, body) => {
+  const forbidden = ['id', 'email']
+  const safe = { ...body }
+  for (const k of forbidden) {
+    delete safe[k]
+  }
+
+  if (caller.role === 'gcc_admin') {
+    return safe
+  }
+
+  delete safe.role
+  delete safe.organization_id
+
+  if (caller.role === 'sp_primary' || caller.role === 'client_admin') {
+    const allowed = {}
+    if (body.full_name !== undefined) allowed.full_name = body.full_name
+    if (body.is_active !== undefined) allowed.is_active = body.is_active
+    return allowed
+  }
+
+  if (caller.role === 'sp_sub' || caller.role === 'client_sub') {
+    const allowed = {}
+    if (body.full_name !== undefined) allowed.full_name = body.full_name
+    return allowed
+  }
+
+  return {}
+}
+
+/**
  * Get all users based on role-based scoping
  */
 export const getUsers = async (req, res) => {
   const { role, orgId, userId } = req.user
-  console.log(`[UserCtrl] getUsers for role: ${role}, orgId: ${orgId}`)
   let users
 
   if (role === 'gcc_admin') {
     const { data, error } = await userService.listAllUsers()
     if (error) throw error
     users = data
-  } 
-  else if (role === 'sp_primary' || role === 'sp_sub') {
-    // Partners only see sales users in their own org (downline), never client or GCC users.
+  } else if (role === 'sp_primary' || role === 'sp_sub') {
     const { data, error } = await userService.listUsersByOrg(orgId)
     if (error) throw error
     const spRoles = new Set(['sp_primary', 'sp_sub'])
@@ -24,13 +110,11 @@ export const getUsers = async (req, res) => {
     if (role === 'sp_sub') {
       users = users.filter((u) => u.id === userId)
     }
-  }
-  else if (role === 'client_admin' || role === 'client_sub') {
+  } else if (role === 'client_admin' || role === 'client_sub') {
     const { data, error } = await userService.listUsersByOrg(orgId)
     if (error) throw error
     users = data
-  }
-  else {
+  } else {
     return res.status(StatusCodes.FORBIDDEN).json({
       error: { code: 'FORBIDDEN', message: 'Insufficient permissions to view users' }
     })
@@ -52,37 +136,20 @@ export const getUser = async (req, res) => {
     })
   }
 
-  // Scoping check
-  const caller = req.user
-  if (caller.role !== 'gcc_admin' && data.organization_id !== caller.orgId) {
-    // If SP Primary, check if the user belongs to one of their assigned orgs
-    if (caller.role === 'sp_primary') {
-      const { data: assignments } = await userService.getSPClientAssignments(caller.userId)
-      const allowedOrgs = assignments.map(a => a.client_org_id)
-      if (!allowedOrgs.includes(data.organization_id)) {
-        return res.status(StatusCodes.FORBIDDEN).json({
-          error: { code: 'FORBIDDEN', message: 'Access denied' }
-        })
-      }
-    } else {
-      return res.status(StatusCodes.FORBIDDEN).json({
-        error: { code: 'FORBIDDEN', message: 'Access denied' }
-      })
-    }
+  const allowed = await canReadUserProfile(req.user, data)
+  if (!allowed) {
+    return res.status(StatusCodes.FORBIDDEN).json({
+      error: { code: 'FORBIDDEN', message: 'Access denied' }
+    })
   }
 
   return res.json({ data })
 }
 
-/**
- * Placeholder for user creation logic
- * Real implementation would involve supabaseAdmin.auth.admin.createUser
- */
 export const createUser = async (req, res) => {
   const { email, password, role, organization_id, full_name } = req.body
   const creatorRole = req.user.role
 
-  // RBAC validation as per strict requirements
   if (creatorRole === 'gcc_admin') {
     // GCC Admin can create any role
   } else if (creatorRole === 'sp_primary') {
@@ -104,10 +171,9 @@ export const createUser = async (req, res) => {
   }
 
   try {
-    // 1. Create Auth User using Admin API
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
-      password: password || 'DefaultPass123!', // Require changing on first login in real prod
+      password: password || 'DefaultPass123!',
       email_confirm: true,
       user_metadata: { full_name, role }
     })
@@ -127,25 +193,21 @@ export const createUser = async (req, res) => {
       is_active: true
     }
 
-    console.log('[UserCtrl] Creating profile with data:', JSON.stringify(profileData, null, 2))
-
     const { data: profile, error: profileError } = await userService.createUserProfile(profileData)
-    
+
     if (profileError) {
-      console.error('[UserCtrl] Profile creation error:', profileError)
-      // Cleanup auth user if profile fails
       await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        error: { 
-          code: 'PROFILE_ERROR', 
-          message: 'Failed to create user profile', 
+        error: {
+          code: 'PROFILE_ERROR',
+          message: 'Failed to create user profile',
           details: profileError.message,
           hint: profileError.hint
         }
       })
     }
 
-    return res.status(StatusCodes.CREATED).json({ 
+    return res.status(StatusCodes.CREATED).json({
       message: 'User created successfully',
       data: profile
     })
@@ -158,7 +220,27 @@ export const createUser = async (req, res) => {
 
 export const updateUser = async (req, res) => {
   const { userId } = req.params
-  const updateData = req.body
+  const { data: target, error: fetchErr } = await userService.getUserById(userId)
+
+  if (fetchErr || !target) {
+    return res.status(StatusCodes.NOT_FOUND).json({
+      error: { code: 'NOT_FOUND', message: 'User not found' }
+    })
+  }
+
+  const mayManage = await canManageUserRecord(req.user, target)
+  if (!mayManage) {
+    return res.status(StatusCodes.FORBIDDEN).json({
+      error: { code: 'FORBIDDEN', message: 'You do not have permission to update this user' }
+    })
+  }
+
+  const updateData = pickAllowedUpdates(req.user, req.body)
+  if (Object.keys(updateData).length === 0) {
+    return res.status(StatusCodes.BAD_REQUEST).json({
+      error: { code: 'INVALID_BODY', message: 'No permitted fields to update' }
+    })
+  }
 
   const { data, error } = await userService.updateUserProfile(userId, updateData)
   if (error) throw error
@@ -168,6 +250,48 @@ export const updateUser = async (req, res) => {
 
 export const deleteUser = async (req, res) => {
   const { userId } = req.params
-  await userService.deactivateUser(userId)
-  return res.json({ message: 'User deactivated' })
+  const caller = req.user
+
+  if (caller.userId === userId && caller.role !== 'gcc_admin') {
+    return res.status(StatusCodes.FORBIDDEN).json({
+      error: { code: 'FORBIDDEN', message: 'You cannot deactivate your own account' }
+    })
+  }
+
+  const { data: target, error: fetchErr } = await userService.getUserById(userId)
+
+  if (fetchErr || !target) {
+    return res.status(StatusCodes.NOT_FOUND).json({
+      error: { code: 'NOT_FOUND', message: 'User not found' }
+    })
+  }
+
+  if (caller.role === 'gcc_admin') {
+    await userService.deactivateUser(userId)
+    return res.json({ message: 'User deactivated' })
+  }
+
+  if (caller.role === 'sp_primary') {
+    if (target.role !== 'sp_sub' || target.organization_id !== caller.orgId) {
+      return res.status(StatusCodes.FORBIDDEN).json({
+        error: { code: 'FORBIDDEN', message: 'You can only deactivate sub-users in your partner team' }
+      })
+    }
+    await userService.deactivateUser(userId)
+    return res.json({ message: 'User deactivated' })
+  }
+
+  if (caller.role === 'client_admin') {
+    if (target.role !== 'client_sub' || target.organization_id !== caller.orgId) {
+      return res.status(StatusCodes.FORBIDDEN).json({
+        error: { code: 'FORBIDDEN', message: 'You can only deactivate sub-users in your organization' }
+      })
+    }
+    await userService.deactivateUser(userId)
+    return res.json({ message: 'User deactivated' })
+  }
+
+  return res.status(StatusCodes.FORBIDDEN).json({
+    error: { code: 'FORBIDDEN', message: 'You do not have permission to deactivate users' }
+  })
 }

@@ -6,13 +6,19 @@ import { StatusCodes } from 'http-status-codes'
  */
 export const requireRole = (allowedRoles) => {
   return (req, res, next) => {
-    console.log(`[RBAC] Checking role: ${req.user?.role} against ${allowedRoles.join(', ')} for ${req.method} ${req.originalUrl}`)
+    if (process.env.DEBUG_RBAC === '1') {
+      console.log(
+        `[RBAC] Checking role: ${req.user?.role} against ${allowedRoles.join(', ')} for ${req.method} ${req.originalUrl}`
+      )
+    }
     if (!req.user || !allowedRoles.includes(req.user.role)) {
-      console.warn(`[RBAC] Denied: ${req.user?.role} not in ${allowedRoles.join(', ')}`)
+      if (process.env.DEBUG_RBAC === '1') {
+        console.warn(`[RBAC] Denied: ${req.user?.role} not in ${allowedRoles.join(', ')}`)
+      }
       return res.status(StatusCodes.FORBIDDEN).json({
-        error: { 
-          code: 'FORBIDDEN', 
-          message: 'You do not have permission to perform this action' 
+        error: {
+          code: 'FORBIDDEN',
+          message: 'You do not have permission to perform this action'
         }
       })
     }

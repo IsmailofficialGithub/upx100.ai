@@ -1,14 +1,46 @@
 import * as callLogService from '../services/callLog.service.js'
 import * as userService from '../services/user.service.js'
+import { createSupabaseForRequest } from '../config/supabase.js'
 import { StatusCodes } from 'http-status-codes'
 
-/**
- * Controller for Call Logs
- */
+const SYSTEM_ORG_SENTINEL = '00000000-0000-4000-a000-000000000003'
+
+const effectiveOrgId = (orgId) =>
+  orgId && orgId !== SYSTEM_ORG_SENTINEL ? orgId : null
+
+const dealAllows = (deals, orgId, agentId) =>
+  (deals || []).some(
+    (d) => d.client_org_id === orgId && (agentId == null || d.agent_id === agentId)
+  )
+
+const fetchCallLogsWithUserClient = async (req, role, orgId, userId) => {
+  const userDb = createSupabaseForRequest(req)
+  if (!userDb || !['client_admin', 'client_sub'].includes(role)) {
+    return null
+  }
+  const org = effectiveOrgId(orgId)
+  if (!org) {
+    return []
+  }
+  let q = userDb
+    .schema('inbound')
+    .from('call_logs')
+    .select('*')
+    .eq('organization_id', org)
+    .order('created_at', { ascending: false })
+  if (role === 'client_sub') {
+    q = q.or(`user_id.eq.${userId},user_id.is.null`)
+  }
+  const { data, error } = await q
+  if (error) {
+    throw error
+  }
+  return data || []
+}
 
 export const handleVapiWebhook = async (req, res) => {
   const secret = req.headers['x-vapi-secret'] || req.headers['x-webhook-secret']
-  
+
   if (secret !== process.env.VAPI_WEBHOOK_SECRET) {
     return res.status(StatusCodes.UNAUTHORIZED).json({
       error: { code: 'UNAUTHORIZED', message: 'Invalid webhook secret' }
@@ -16,13 +48,11 @@ export const handleVapiWebhook = async (req, res) => {
   }
 
   const payload = req.body
-  // VAPI specific structure parsing (assumed based on standard payloads)
   if (payload.type === 'call.ended') {
     const callData = payload.call
-    
-    // Map VAPI payload to our DB schema
+
     const logData = {
-      organization_id: payload.organization_id || callData.metadata?.organization_id, // Metadata passed from frontend during call start
+      organization_id: payload.organization_id || callData.metadata?.organization_id,
       agent_id: callData.metadata?.agent_id,
       vapi_call_id: callData.id,
       caller_number: callData.customer?.number,
@@ -50,32 +80,48 @@ export const getLogs = async (req, res) => {
   const { role, orgId, userId } = req.user
   let logs
 
-  if (['gcc_admin', 'gcc_reviewer'].includes(role)) {
-    logs = await callLogService.listAllLogs()
-    
-    // Mask cost for reviewer
-    if (role === 'gcc_reviewer') {
-      logs = logs.map(log => ({ ...log, cost: '***' }))
-    }
-  } else if (['sp_primary', 'sp_sub'].includes(role)) {
-    // Fetch assignments for the Sales Partner
-    const { data: assignments } = await userService.getSPClientAssignments(userId)
-    const orgIds = assignments?.map(a => a.client_org_id) || []
-    
-    if (orgIds.length > 0) {
-      // SP Sub-user might be further restricted to their own leads, but for now we follow 'assigned clients'
-      logs = await callLogService.listLogsByOrgs(orgIds)
-    } else {
-      logs = []
-    }
-  } else {
-    // Org Admin sees everything in org, Sub-user only sees own
-    const effectiveOrgId = (orgId && orgId !== '00000000-0000-4000-a000-000000000003') ? orgId : null
-    const filterUserId = (role === 'client_admin') ? null : userId
-    logs = await callLogService.listLogsByOrg(effectiveOrgId, filterUserId)
-  }
+  try {
+    if (['gcc_admin', 'gcc_reviewer'].includes(role)) {
+      logs = await callLogService.listAllLogs()
 
-  return res.json({ data: logs })
+      if (role === 'gcc_reviewer') {
+        logs = logs.map((log) => ({ ...log, cost: '***' }))
+      }
+    } else if (role === 'sp_primary') {
+      const { data: assignments } = await userService.getSPClientAssignments(userId)
+      const orgIds = assignments?.map((a) => a.client_org_id) || []
+      logs = orgIds.length > 0 ? await callLogService.listLogsByOrgs(orgIds) : []
+    } else if (role === 'sp_sub') {
+      const { data: deals } = await userService.getSpSubDeals(userId)
+      if (!deals?.length) {
+        logs = []
+      } else {
+        const orgIds = [...new Set(deals.map((d) => d.client_org_id))]
+        const raw = await callLogService.listLogsByOrgs(orgIds, null)
+        logs = (raw || []).filter((row) => dealAllows(deals, row.organization_id, row.agent_id))
+      }
+    } else {
+      const rlsLogs = await fetchCallLogsWithUserClient(req, role, orgId, userId)
+      if (rlsLogs !== null) {
+        logs = rlsLogs
+      } else {
+        const eff = effectiveOrgId(orgId)
+        const filterUserId = role === 'client_admin' ? null : userId
+        logs = await callLogService.listLogsByOrg(eff, filterUserId)
+      }
+    }
+
+    return res.json({ data: logs })
+  } catch (e) {
+    if (['client_admin', 'client_sub'].includes(role)) {
+      console.warn('[call-logs] user-client failed, falling back to service role path', e?.message)
+      const eff = effectiveOrgId(orgId)
+      const filterUserId = role === 'client_admin' ? null : userId
+      const logs = await callLogService.listLogsByOrg(eff, filterUserId)
+      return res.json({ data: logs })
+    }
+    throw e
+  }
 }
 
 export const getLog = async (req, res) => {
@@ -88,7 +134,6 @@ export const getLog = async (req, res) => {
     })
   }
 
-  // Scoping
   const { role, orgId, userId } = req.user
 
   if (role === 'gcc_reviewer') {
@@ -96,27 +141,34 @@ export const getLog = async (req, res) => {
   }
 
   if (!['gcc_admin', 'gcc_reviewer'].includes(role)) {
-    if (['sp_primary', 'sp_sub'].includes(role)) {
-      // Check if log belongs to an assigned org
+    if (role === 'sp_primary') {
       const { data: assignments } = await userService.getSPClientAssignments(userId)
-      const assignedOrgIds = assignments?.map(a => a.client_org_id) || []
-      
+      const assignedOrgIds = assignments?.map((a) => a.client_org_id) || []
+
       if (!assignedOrgIds.includes(log.organization_id)) {
         return res.status(StatusCodes.FORBIDDEN).json({
           error: { code: 'FORBIDDEN', message: 'Access denied - Client not assigned' }
         })
       }
-    } else {
-      // Standard Client scoping
-      const effectiveOrgId = (orgId && orgId !== '00000000-0000-4000-a000-000000000003') ? orgId : null
-      if (log.organization_id !== effectiveOrgId) {
+    } else if (role === 'sp_sub') {
+      const { data: deals } = await userService.getSpSubDeals(userId)
+      if (!dealAllows(deals, log.organization_id, log.agent_id)) {
         return res.status(StatusCodes.FORBIDDEN).json({
           error: { code: 'FORBIDDEN', message: 'Access denied' }
         })
       }
-      
-      // If client_sub, check if it's their own call (optional refinement, but usually they see all in org if SDR)
-      // For now, org level is fine as per requirements.
+    } else {
+      const eff = effectiveOrgId(orgId)
+      if (log.organization_id !== eff) {
+        return res.status(StatusCodes.FORBIDDEN).json({
+          error: { code: 'FORBIDDEN', message: 'Access denied' }
+        })
+      }
+      if (role === 'client_sub' && log.user_id && log.user_id !== userId) {
+        return res.status(StatusCodes.FORBIDDEN).json({
+          error: { code: 'FORBIDDEN', message: 'Access denied' }
+        })
+      }
     }
   }
 

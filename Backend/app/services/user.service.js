@@ -64,3 +64,11 @@ export const getSPClientAssignments = async (spUserId) => {
     .select('client_org_id')
     .eq('sp_user_id', spUserId)
 }
+
+/** Deal scope for SP Sub (own deals / assigned agents). */
+export const getSpSubDeals = async (spSubUserId) => {
+  return await supabaseAdmin
+    .from('sp_sub_deals')
+    .select('client_org_id, agent_id')
+    .eq('sp_sub_user_id', spSubUserId)
+}

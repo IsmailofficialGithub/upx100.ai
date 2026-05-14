@@ -8,7 +8,8 @@ jest.mock('../middlewares/auth.js', () => ({
   auth: jest.fn((req, res, next) => {
     req.user = { role: 'client_admin', orgId: 'org123', userId: 'user123' }
     next()
-  })
+  }),
+  isAdmin: jest.fn((req, res, next) => next())
 }))
 
 describe('Inbound Phone API', () => {
@@ -34,12 +35,21 @@ describe('Inbound Phone API', () => {
   })
 
   it('POST /api/phone-numbers/:id/port-request should be allowed for Client Admin', async () => {
-    phoneService.requestPort.mockResolvedValue({ id: 'p1' })
-    
+    phoneService.getNumberById.mockResolvedValue({
+      id: 'p1',
+      organization_id: 'org123',
+      metadata: {}
+    })
+    phoneService.submitPortRequest.mockResolvedValue({
+      id: 'p1',
+      port_requested: true,
+      port_status: 'submitted'
+    })
+
     const res = await request(app)
       .post('/api/phone-numbers/p1/port-request')
       .send({ current_carrier: 'Twilio' })
-    
+
     expect(res.statusCode).toEqual(200)
   })
 })

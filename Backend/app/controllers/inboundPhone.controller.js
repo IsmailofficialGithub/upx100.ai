@@ -115,7 +115,7 @@ export const bindNumber = async (req, res) => {
 
 export const requestPort = async (req, res) => {
   const { numberId } = req.params
-  const { role } = req.user
+  const { role, orgId, userId } = req.user
   const portData = req.body
 
   if (role !== 'gcc_admin' && role !== 'client_admin') {
@@ -124,10 +124,34 @@ export const requestPort = async (req, res) => {
     })
   }
 
-  return res.json({
-    message: 'Port request submitted successfully',
-    data: result
-  })
+  const existing = await phoneService.getNumberById(numberId)
+  if (!existing) {
+    return res.status(StatusCodes.NOT_FOUND).json({
+      error: { code: 'NOT_FOUND', message: 'Number not found' }
+    })
+  }
+
+  if (role !== 'gcc_admin') {
+    const effectiveOrgId = orgId && orgId !== '00000000-0000-4000-a000-000000000003' ? orgId : null
+    if (!effectiveOrgId || existing.organization_id !== effectiveOrgId) {
+      return res.status(StatusCodes.FORBIDDEN).json({
+        error: { code: 'FORBIDDEN', message: 'You do not have permission to port this number' }
+      })
+    }
+  }
+
+  try {
+    const data = await phoneService.submitPortRequest(numberId, portData, userId)
+    return res.json({
+      message: 'Port request submitted successfully',
+      data
+    })
+  } catch (e) {
+    const status = e.status || StatusCodes.INTERNAL_SERVER_ERROR
+    return res.status(status).json({
+      error: { message: e.message || 'Port request failed' }
+    })
+  }
 }
 
 export const deleteNumber = async (req, res) => {

@@ -3,19 +3,22 @@ import * as userService from '../services/user.service.js';
 import { StatusCodes } from 'http-status-codes';
 import { supabaseAdmin } from '../config/supabase.js';
 
+/**
+ * Org scope for admin list APIs (stats, call logs, etc.).
+ * Only gcc_admin (and legacy admin) get null = all organizations.
+ * gcc_reviewer sees all tenants for review workflows (matrix: cross-tenant read for reviewer).
+ * Never returns null for SP without assignments (prevents accidental global data leak).
+ */
 export const getTargetOrgIds = async (req) => {
   const { role, userId, orgId } = req.user;
-  console.log('[AdminController] getTargetOrgIds - User:', userId, 'Role:', role, 'Org:', orgId);
-  
+
   if (role === 'gcc_admin' || role === 'gcc_reviewer' || role === 'admin') {
-    console.log('[AdminController] All-access granted');
-    return null; // All access
+    return null;
   }
-  
+
   if (role === 'sp_primary' || role === 'sp_sub') {
     let spId = userId;
     if (role === 'sp_sub') {
-      // Import supabaseAdmin if not present or use a service method
       const { data: primary } = await supabaseAdmin
         .from('profiles')
         .select('id')
@@ -25,31 +28,38 @@ export const getTargetOrgIds = async (req) => {
       if (primary) spId = primary.id;
     }
     const { data: assignments } = await userService.getSPClientAssignments(spId);
-    const assignedIds = assignments?.map(a => a.client_org_id) || [];
-    
-    // Fallback to own org if no assignments, or null for all-access if no orgId
+    const assignedIds = assignments?.map((a) => a.client_org_id) || [];
+
     if (assignedIds.length === 0) {
-      if (orgId) {
-        console.log('[AdminController] No SP assignments found, falling back to own orgId:', orgId);
-        return [orgId];
-      }
-      console.log('[AdminController] SP has no assignments and no orgId, granting all-access for discovery');
-      return null; 
+      if (orgId) return [orgId];
+      return [];
     }
-    
+
     return assignedIds;
   }
 
-  // Clients
   if (!orgId) {
-    if (role.startsWith('gcc_') || role.startsWith('sp_') || role === 'admin') {
-      console.log('[AdminController] Admin-level user with no orgId, granting all-access');
-      return null;
-    }
-    console.warn('[AdminController] User has no orgId and is not a global admin');
     return [];
   }
   return [orgId];
+};
+
+/**
+ * Export scope: matrix allows GCC Admin (all) and Client Admin (own org) only.
+ */
+export const getExportTargetOrgIds = async (req) => {
+  const { role, orgId } = req.user;
+
+  if (role === 'gcc_admin' || role === 'admin') {
+    return null;
+  }
+
+  if (role === 'client_admin') {
+    if (!orgId) return [];
+    return [orgId];
+  }
+
+  return [];
 };
 
 export const getStats = async (req, res) => {

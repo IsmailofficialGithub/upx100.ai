@@ -5,6 +5,43 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 const isValidUuid = (value) => typeof value === 'string' && UUID_RE.test(value)
 
+const fetchAgentRow = async (agentId) => {
+  const { data, error } = await supabaseAdmin
+    .schema('inbound')
+    .from('agents')
+    .select('id, organization_id')
+    .eq('id', agentId)
+    .is('deleted_at', null)
+    .maybeSingle()
+  if (error) throw error
+  return data
+}
+
+/**
+ * Ensure caller may pause/resume this agent (non-global).
+ */
+const assertAgentInCallerScope = (agent, orgId, role) => {
+  if (!agent) {
+    const err = new Error('Agent not found')
+    err.status = StatusCodes.NOT_FOUND
+    err.code = 'NOT_FOUND'
+    throw err
+  }
+  if (role === 'gcc_admin') {
+    return
+  }
+  if (role === 'client_admin') {
+    const scopedOrgId = isValidUuid(orgId) ? orgId : null
+    if (scopedOrgId && agent.organization_id === scopedOrgId) {
+      return
+    }
+  }
+  const err = new Error('You do not have permission to modify this campaign')
+  err.status = StatusCodes.FORBIDDEN
+  err.code = 'FORBIDDEN'
+  throw err
+}
+
 /**
  * Campaign Service
  * Manages the running state of AI agents and logs pause/resume events.
@@ -28,7 +65,12 @@ export const pauseCampaign = async (agentId, orgId, userId, reason, { role } = {
       throw err
     }
   } else {
+    const agent = await fetchAgentRow(agentId)
+    assertAgentInCallerScope(agent, orgId, role)
     query = query.eq('id', agentId)
+    if (role === 'client_admin') {
+      query = query.eq('organization_id', agent.organization_id)
+    }
   }
   
   const { data, error: agentError } = await query.select()
@@ -76,7 +118,12 @@ export const resumeCampaign = async (agentId, orgId, userId, reason, { role } = 
       throw err
     }
   } else {
+    const agent = await fetchAgentRow(agentId)
+    assertAgentInCallerScope(agent, orgId, role)
     query = query.eq('id', agentId)
+    if (role === 'client_admin') {
+      query = query.eq('organization_id', agent.organization_id)
+    }
   }
   
   const { data, error: agentError } = await query.select()

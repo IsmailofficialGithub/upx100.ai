@@ -3,17 +3,34 @@ import axios from 'axios'
 import { supabaseAdmin } from '../config/supabase.js'
 
 jest.mock('axios')
-jest.mock('../config/supabase.js', () => ({
-  supabase: {
-    from: jest.fn().mockReturnThis(),
-    insert: jest.fn().mockReturnThis(),
-    update: jest.fn().mockReturnThis(),
-    select: jest.fn().mockReturnThis(),
-    eq: jest.fn().mockReturnThis(),
-    single: jest.fn().mockImplementation(() => Promise.resolve({ data: { id: 'mock-uuid' }, error: null })),
-    is: jest.fn().mockReturnThis(),
+jest.mock('../config/supabase.js', () => {
+  const build = () => {
+    const chain = {}
+    chain.schema = jest.fn(() => chain)
+    chain.from = jest.fn(() => chain)
+    chain.insert = jest.fn(() => chain)
+    chain.update = jest.fn(() => chain)
+    chain.select = jest.fn(() => chain)
+    chain.eq = jest.fn(() => chain)
+    chain.is = jest.fn(() => chain)
+    chain.single = jest.fn(() =>
+      Promise.resolve({
+        data: {
+          id: 'mock-uuid',
+          vapi_id: 'vapi-test',
+          organization_id: 'org123',
+          phone_numbers: []
+        },
+        error: null
+      })
+    )
+    return chain
   }
-}))
+  return {
+    supabaseAdmin: build(),
+    createSupabaseForRequest: jest.fn(() => null)
+  }
+})
 
 describe('InboundAgent Service', () => {
   beforeEach(() => {
@@ -29,20 +46,30 @@ describe('InboundAgent Service', () => {
 
     const result = await agentService.createAgent(mockAgentData)
 
-    expect(axios.post).toHaveBeenCalledWith('http://test-base/create', mockAgentData)
+    expect(axios.post).toHaveBeenCalledWith(
+      'http://test-base/create',
+      expect.objectContaining({
+        name: mockAgentData.name,
+        organization_id: mockAgentData.organization_id
+      })
+    )
     expect(supabaseAdmin.from).toHaveBeenCalledWith('agents')
     expect(result.db.id).toBe('mock-uuid')
   })
 
   it('deleteAgent should call the delete webhook and update DB status', async () => {
     const agentId = 'agent-123'
-    axios.delete.mockResolvedValue({ data: { status: 'deleted' } })
+    axios.post.mockResolvedValue({ data: { status: 'deleted' } })
 
     await agentService.deleteAgent(agentId)
 
-    expect(axios.delete).toHaveBeenCalledWith(
-      'http://test-base/delete', 
-      { data: { agentId } }
+    expect(axios.post).toHaveBeenCalledWith(
+      'http://test-base/delete',
+      expect.objectContaining({
+        agentId,
+        vapi_id: 'vapi-test',
+        organization_id: 'org123'
+      })
     )
     expect(supabaseAdmin.update).toHaveBeenCalledWith(expect.objectContaining({ status: 'deleted' }))
   })

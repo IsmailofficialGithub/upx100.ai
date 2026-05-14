@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { StatusCodes } from 'http-status-codes'
 import { supabaseAdmin } from '../config/supabase.js'
 
 /**
@@ -154,6 +155,40 @@ export const checkNumberStatus = async (numberId) => {
   }
 
   return webhookResponse.data
+}
+
+/**
+ * Record a number port-in request (client submits; GCC may also record on behalf of client).
+ */
+export const submitPortRequest = async (numberId, portData, submittedByUserId) => {
+  const existing = await getNumberById(numberId)
+  if (!existing) {
+    const err = new Error('Number not found')
+    err.status = StatusCodes.NOT_FOUND
+    throw err
+  }
+
+  const meta = {
+    ...(existing.metadata || {}),
+    port_request: portData ?? {},
+    port_submitted_at: new Date().toISOString(),
+    port_submitted_by: submittedByUserId
+  }
+
+  const { data, error } = await supabaseAdmin
+    .schema('inbound')
+    .from('phone_numbers')
+    .update({
+      port_requested: true,
+      port_status: 'submitted',
+      metadata: meta
+    })
+    .eq('id', numberId)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
 }
 
 export const updateNumber = async (numberId, updateData) => {

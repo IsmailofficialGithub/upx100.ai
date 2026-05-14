@@ -11,10 +11,14 @@ router.use(auth)
 // GCC Admin can see everyone, others are scoped in controller
 router.get('/', requireRole(['gcc_admin', 'sp_primary', 'sp_sub', 'client_admin', 'client_sub']), userController.getUsers)
 
-router.get('/:userId', userController.getUser)
+router.get(
+  '/:userId',
+  requireRole(['gcc_admin', 'gcc_reviewer', 'sp_primary', 'sp_sub', 'client_admin', 'client_sub']),
+  userController.getUser
+)
 
-// Creation gates
-router.post('/', requireRole(['gcc_admin', 'sp_primary', 'sp_sub', 'client_admin', 'client_sub']), userController.createUser)
+// Creation gates (subs cannot create users)
+router.post('/', requireRole(['gcc_admin', 'sp_primary', 'client_admin']), userController.createUser)
 
 router.patch('/:userId', requireRole(['gcc_admin', 'sp_primary', 'sp_sub', 'client_admin', 'client_sub']), userController.updateUser)
 

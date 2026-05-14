@@ -8,7 +8,8 @@ jest.mock('../middlewares/auth.js', () => ({
   auth: jest.fn((req, res, next) => {
     req.user = { role: 'client_admin', orgId: 'org123', userId: 'user123' }
     next()
-  })
+  }),
+  isAdmin: jest.fn((req, res, next) => next())
 }))
 
 describe('Inbound Agent API', () => {
@@ -31,6 +32,6 @@ describe('Inbound Agent API', () => {
       .send({ name: 'New Agent' })
     
     expect(res.statusCode).toEqual(403)
-    expect(res.body.error.code).toBe('FORBIDDEN')
+    expect(res.body.error?.message).toMatch(/GCC Admin/i)
   })
 })

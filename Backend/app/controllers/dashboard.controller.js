@@ -10,19 +10,29 @@ export const getStats = async (req, res) => {
   try {
     const { role, orgId, userId } = req.user
     let targetOrgIds = [orgId]
+    let spSubDeals = null
 
-    // GCC Admin/Reviewer can see all (or we could limit them, but for now they see all)
-    // SP can see assigned orgs
+    const dealAllowsRow = (deals, row) =>
+      (deals || []).some(
+        (d) =>
+          d.client_org_id === row.organization_id &&
+          (row.agent_id == null || d.agent_id === row.agent_id)
+      )
+
     if (['gcc_admin', 'gcc_reviewer'].includes(role)) {
-      // For now, GCC see everything. In a real large system, we'd paginate or filter.
-      // But let's assume they want a global view if no org context is provided.
-      // If orgId is 000...003 (system org), they see all.
       if (orgId === '00000000-0000-4000-a000-000000000003') {
-        targetOrgIds = [] // Signal to fetch all
+        targetOrgIds = []
       }
-    } else if (['sp_primary', 'sp_sub'].includes(role)) {
+    } else if (role === 'sp_primary') {
       const { data: assignments } = await userService.getSPClientAssignments(userId)
-      targetOrgIds = assignments?.map(a => a.client_org_id) || []
+      targetOrgIds = assignments?.map((a) => a.client_org_id) || []
+    } else if (role === 'sp_sub') {
+      const { data: deals } = await userService.getSpSubDeals(userId)
+      spSubDeals = deals || []
+      targetOrgIds = [...new Set(spSubDeals.map((d) => d.client_org_id))]
+      if (targetOrgIds.length === 0) {
+        targetOrgIds = ['00000000-0000-0000-0000-000000000001']
+      }
     }
 
     const buildQuery = (schema, table) => {
@@ -34,10 +44,18 @@ export const getStats = async (req, res) => {
     }
 
     // 1. Get Call Logs
-    const { data: callLogs } = await buildQuery('inbound', 'call_logs')
+    const { data: callLogsRaw } = await buildQuery('inbound', 'call_logs')
+    let callLogs = callLogsRaw || []
+    if (role === 'sp_sub' && spSubDeals?.length) {
+      callLogs = callLogs.filter((row) => dealAllowsRow(spSubDeals, row))
+    }
 
     // 2. Get Leads
-    const { data: leads } = await buildQuery('inbound', 'leads')
+    const { data: leadsRaw } = await buildQuery('inbound', 'leads')
+    let leads = leadsRaw || []
+    if (role === 'sp_sub' && spSubDeals?.length) {
+      leads = leads.filter((row) => dealAllowsRow(spSubDeals, row))
+    }
 
     // 3. Get Phone Numbers count
     const { count: totalNumbers } = await buildQuery('inbound', 'phone_numbers')
@@ -60,10 +78,14 @@ export const getStats = async (req, res) => {
     // const hoursSaved = Math.round((totalOutreach * 5) / 60);
 
     // 5. Get Recent/Live Calls
-    const { data: recentCalls } = await buildQuery('inbound', 'call_logs')
+    let { data: recentCalls } = await buildQuery('inbound', 'call_logs')
       .select('*, agents(name)')
       .order('created_at', { ascending: false })
-      .limit(5) // Increased for multi-org view
+      .limit(5)
+    recentCalls = recentCalls || []
+    if (role === 'sp_sub' && spSubDeals?.length) {
+      recentCalls = recentCalls.filter((row) => dealAllowsRow(spSubDeals, row))
+    }
 
     const formattedLiveCalls = (recentCalls || []).map(call => {
       const transcriptLines = (call.transcript || '')
