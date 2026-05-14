@@ -238,20 +238,20 @@ const CalendarView: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] whitespace-nowrap">
-            Company
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-2 min-w-0">
+          <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] whitespace-nowrap shrink-0">
+            {isSP ? 'Strategic sales partners' : 'Company'}
           </label>
           {isGCC ? (
             <span className="text-xs text-[hsl(var(--muted-foreground))] max-w-md leading-snug">
-              Calendar view follows the <span className="text-[hsl(var(--foreground))] font-medium">tenant scope</span> control in the header (searchable for large directories).
+              Calendar follows the <span className="text-[hsl(var(--foreground))] font-medium">tenant scope</span> control in the header (searchable for large directories).
             </span>
           ) : (
             <select
               value={selectedCompanyId}
               onChange={(e) => setSelectedCompanyId(e.target.value)}
-              className="text-xs rounded-lg border border-[hsl(var(--border-v))] bg-[hsl(var(--card))] text-[hsl(var(--foreground))] px-2 py-1.5 min-w-[160px]"
+              className="text-xs rounded-lg border border-[hsl(var(--border-v))] bg-[hsl(var(--card))] text-[hsl(var(--foreground))] px-2 py-1.5 min-w-[min(100%,220px)] max-w-[320px]"
             >
               {orgOptions.map((o) => (
                 <option key={o.id} value={o.id}>
@@ -260,16 +260,16 @@ const CalendarView: React.FC = () => {
               ))}
             </select>
           )}
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={openAddDialog}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:opacity-90"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:opacity-90 shrink-0"
           >
             <Plus size={14} />
             Add meeting
           </button>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
           <button
             type="button"
             onClick={exportVisibleToIcs}
