@@ -30,7 +30,11 @@ const Topbar: React.FC<TopbarProps> = ({ title, onMenuClick, portalShell }) => {
       setIsPaused(true);
       toast.success('Campaigns paused successfully');
     } catch (err: unknown) {
-      toast.error('Failed to pause campaigns');
+      const msg =
+        err && typeof err === 'object' && 'response' in err
+          ? (err as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
+          : undefined;
+      toast.error(msg || 'Failed to pause campaigns');
       console.error(err);
     } finally {
       setShowPauseModal(false);
@@ -43,7 +47,11 @@ const Topbar: React.FC<TopbarProps> = ({ title, onMenuClick, portalShell }) => {
       setIsPaused(false);
       toast.success('Campaigns resumed successfully');
     } catch (err: unknown) {
-      toast.error('Failed to resume campaigns');
+      const msg =
+        err && typeof err === 'object' && 'response' in err
+          ? (err as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
+          : undefined;
+      toast.error(msg || 'Failed to resume campaigns');
       console.error(err);
     } finally {
       setShowPauseModal(false);

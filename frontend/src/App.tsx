@@ -1,6 +1,7 @@
 import { Routes, Route } from 'react-router-dom';
 import { ThemeProvider } from '@/context/ThemeContext';
-import { AuthProvider } from '@/context/AuthContext';
+import { AuthProvider, useAuth } from '@/context/AuthContext';
+import { GccTenantScopeProvider } from '@/context/GccTenantScopeContext';
 import { Toaster } from 'sonner';
 import LandingPage from '@/components/landing/LandingPage';
 
@@ -20,12 +21,41 @@ import AdminAgentsView from '@/components/dashboard/AdminAgentsView';
 import LeadsView from '@/components/dashboard/LeadsView';
 import CallLogsView from '@/components/dashboard/CallLogsView';
 import TeamView from '@/components/dashboard/TeamView';
+import VoicePersonaView from '@/components/dashboard/VoicePersonaView';
 
+function AdminScriptRequestsPage() {
+  const { isGCC } = useAuth();
+  return (
+    <div className="space-y-3">
+      {isGCC && (
+        <div className="rounded-lg border border-[hsl(var(--border-v))] bg-[hsl(var(--muted))]/40 px-4 py-3 text-[11px] text-[hsl(var(--muted-foreground))] leading-relaxed max-w-[1400px] mx-auto">
+          <span className="font-mono text-[10px] uppercase tracking-wider text-[hsl(var(--foreground))]">GCC note · </span>
+          Requests are an audit trail when clients or partners propose copy changes. As GCC admin you can still edit live agent scripts directly under{' '}
+          <span className="text-[hsl(var(--foreground))] font-medium">AI Agent Management</span>
+          {' '}without waiting for a ticket. AI-assisted rewrite suggestions can be layered there in a future iteration.
+        </div>
+      )}
+      <AdminDataView
+        title="Script Change Requests"
+        endpoint="script-requests"
+        emptyMessage="No script change requests yet. When partners or clients submit copy updates, they will appear here for review."
+        columns={[
+          { key: 'organizations', label: 'Org', render: (val) => val?.name },
+          { key: 'script_text', label: 'Request' },
+          { key: 'campaign_type', label: 'Campaign' },
+          { key: 'status', label: 'Status' },
+          { key: 'created_at', label: 'Date', render: (val) => new Date(val).toLocaleDateString() },
+        ]}
+      />
+    </div>
+  );
+}
 
 function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
+        <GccTenantScopeProvider>
         <Toaster position="top-right" richColors />
         <Routes>
 
@@ -62,21 +92,9 @@ function App() {
             <Route path="engine" element={<EngineView />} />
             <Route path="playbook" element={<PlaybookView />} />
             <Route path="analytics" element={<AnalyticsView />} />
-            
-            <Route path="scripts" element={
-              <AdminDataView 
-                title="Script Change Requests" 
-                endpoint="script-requests"
-                emptyMessage="No script change requests yet. When partners or clients submit copy updates, they will appear here for review."
-                columns={[
-                  { key: 'organizations', label: 'Org', render: (val) => val?.name },
-                  { key: 'script_text', label: 'Request' },
-                  { key: 'campaign_type', label: 'Campaign' },
-                  { key: 'status', label: 'Status' },
-                  { key: 'created_at', label: 'Date', render: (val) => new Date(val).toLocaleDateString() }
-                ]}
-              />
-            } />
+            <Route path="clones" element={<VoicePersonaView />} />
+
+            <Route path="scripts" element={<AdminScriptRequestsPage />} />
 
             <Route path="uploads" element={
               <AdminDataView 
@@ -166,6 +184,7 @@ function App() {
           </Route>
 
         </Routes>
+        </GccTenantScopeProvider>
       </AuthProvider>
     </ThemeProvider>
   );

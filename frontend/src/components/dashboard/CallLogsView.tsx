@@ -93,7 +93,7 @@ const CallLogsView: React.FC = () => {
       <AdminDataView 
         title="Recent Communications" 
         endpoint="/call-logs"
-        emptyMessage="No call logs yet. When outbound or inbound sessions complete, results and durations will show here."
+        emptyMessage="No call logs yet. Completed calls appear here after your telephony provider sends the Vapi call-ended webhook with X-Vapi-Secret. Ensure each assistant passes organization_id or agent_id in call metadata so rows can be attributed (see server logs if empty)."
         columns={columns}
         renderActions={(row) => (
           <div className="flex items-center gap-2">

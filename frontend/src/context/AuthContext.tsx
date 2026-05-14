@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import api from '@/lib/api';
+import { clearGccTenantScopeStorage } from '@/lib/gccTenantScope';
 import { useTheme } from './ThemeContext';
 
 
@@ -107,6 +108,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setAuthData(newAuthData);
       localStorage.setItem('up100x_auth', JSON.stringify(newAuthData));
       setRegion(userData.region);
+      if (!['gcc_admin', 'gcc_reviewer'].includes(userData.role)) {
+        clearGccTenantScopeStorage();
+      }
     } catch (error: any) {
 
       console.error('Login error:', error.response?.data?.error || error.message);
@@ -117,6 +121,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = useCallback(() => {
     setAuthData(null);
     localStorage.removeItem('up100x_auth');
+    clearGccTenantScopeStorage();
   }, []);
 
   const user = authData?.user || null;

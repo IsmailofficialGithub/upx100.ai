@@ -3,6 +3,7 @@ import api from '@/lib/api';
 import { winLossData as mockWinLoss, objectionInsights as mockObjections, roiDefaults as mockRoi, revenueProjection as mockProjection } from '@/data/mockData';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
+import { useGccTenantScope } from '@/context/GccTenantScopeContext';
 import {
   XAxis, YAxis, Tooltip, ResponsiveContainer, Area, AreaChart,
 } from 'recharts';
@@ -11,7 +12,8 @@ import { toast } from 'sonner';
 
 const AnalyticsView: React.FC = () => {
   const { currencySymbol } = useTheme();
-  const { canViewFinances } = useAuth();
+  const { canViewFinances, isGCC } = useAuth();
+  const gccScope = useGccTenantScope();
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -40,7 +42,7 @@ const AnalyticsView: React.FC = () => {
       }
     };
     fetchAnalytics();
-  }, []);
+  }, [isGCC, gccScope.scopeOrgId]);
 
   const winLossData = data?.winLossData || mockWinLoss;
   const objectionInsights = data?.objectionInsights || mockObjections;
@@ -85,6 +87,13 @@ const AnalyticsView: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {isGCC && (
+        <p className="text-[11px] text-[hsl(var(--muted-foreground))] rounded-lg border border-[hsl(var(--border-v))] bg-[hsl(var(--muted))]/30 px-3 py-2">
+          {gccScope.scopeOrgId === 'all'
+            ? 'Win/loss and ROI sliders reflect all leads in the network. Pick a company in the header scope control for account-specific analytics.'
+            : 'Figures below are scoped to the company selected in the tenant scope control in the header.'}
+        </p>
+      )}
       {/* Win/Loss + Objections Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Win/Loss Analysis */}

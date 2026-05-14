@@ -1,18 +1,26 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '@/lib/api';
 import MetricCard from '@/components/shared/MetricCard';
 import { Users, FileText, BarChart3, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
+import { useGccTenantScope } from '@/context/GccTenantScopeContext';
 
 const AdminDashboardView: React.FC = () => {
+  const navigate = useNavigate();
   const { isGCCAdmin, isGCCReviewer } = useAuth();
+  const gccScope = useGccTenantScope();
   const gccPortalMetrics = isGCCAdmin || isGCCReviewer;
   const [stats, setStats] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const hitlCardClass = (extra: string) =>
+    `rounded-xl p-4 flex items-center justify-between border text-left w-full transition-colors ${extra}`;
+
   useEffect(() => {
     const fetchStats = async () => {
+      setIsLoading(true);
       try {
         const response = await api.get('/admin/stats');
         setStats(response.data.data);
@@ -23,7 +31,7 @@ const AdminDashboardView: React.FC = () => {
       }
     };
     fetchStats();
-  }, []);
+  }, [gccScope.scopeOrgId]);
 
   if (isLoading) {
     return (
@@ -41,34 +49,40 @@ const AdminDashboardView: React.FC = () => {
           value={stats.organizations}
           className={gccPortalMetrics ? 'gcc-metric-tile' : ''}
           valueMono={gccPortalMetrics}
+          onClick={() => navigate('/admin/organizations')}
         />
         <MetricCard
           label="Total Users"
           value={stats.users}
           className={gccPortalMetrics ? 'gcc-metric-tile' : ''}
           valueMono={gccPortalMetrics}
+          onClick={() => navigate('/admin/user')}
         />
         <MetricCard
           label="Global Call Volume"
           value={stats.calls}
           className={gccPortalMetrics ? 'gcc-metric-tile' : ''}
           valueMono={gccPortalMetrics}
+          onClick={() => navigate('/admin/call-logs')}
         />
         <MetricCard
           label="Active AI Agents"
           value={stats.agents}
           className={gccPortalMetrics ? 'gcc-metric-tile' : ''}
           valueMono={gccPortalMetrics}
+          onClick={() => navigate('/admin/agents')}
         />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div
-          className={`rounded-xl p-4 flex items-center justify-between border ${
+        <button
+          type="button"
+          onClick={() => navigate('/admin/scripts')}
+          className={hitlCardClass(
             gccPortalMetrics
-              ? 'gcc-metric-tile border-[hsl(var(--border))]'
-              : 'bg-[hsl(var(--card))] border border-[hsl(var(--border-v))]'
-          }`}
+              ? 'gcc-metric-tile border-[hsl(var(--border))] hover:border-[hsl(var(--primary))]/35 cursor-pointer'
+              : 'bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] hover:border-[hsl(var(--primary))]/50 cursor-pointer',
+          )}
         >
           <div>
             <p className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] mb-1">
@@ -85,13 +99,15 @@ const AdminDashboardView: React.FC = () => {
           <div className="p-3 bg-amber-500/10 rounded-lg text-amber-500">
             <FileText size={24} />
           </div>
-        </div>
-        <div
-          className={`rounded-xl p-4 flex items-center justify-between border ${
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate('/admin/uploads')}
+          className={hitlCardClass(
             gccPortalMetrics
-              ? 'gcc-metric-tile border-[hsl(var(--border))]'
-              : 'bg-[hsl(var(--card))] border border-[hsl(var(--border-v))]'
-          }`}
+              ? 'gcc-metric-tile border-[hsl(var(--border))] hover:border-[hsl(var(--primary))]/35 cursor-pointer'
+              : 'bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] hover:border-[hsl(var(--primary))]/50 cursor-pointer',
+          )}
         >
           <div>
             <p className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] mb-1">
@@ -108,13 +124,15 @@ const AdminDashboardView: React.FC = () => {
           <div className="p-3 bg-blue-500/10 rounded-lg text-blue-500">
             <BarChart3 size={24} />
           </div>
-        </div>
-        <div
-          className={`rounded-xl p-4 flex items-center justify-between border ${
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate('/admin/clones')}
+          className={hitlCardClass(
             gccPortalMetrics
-              ? 'gcc-metric-tile border-[hsl(var(--border))]'
-              : 'bg-[hsl(var(--card))] border border-[hsl(var(--border-v))]'
-          }`}
+              ? 'gcc-metric-tile border-[hsl(var(--border))] hover:border-[hsl(var(--primary))]/35 cursor-pointer'
+              : 'bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] hover:border-[hsl(var(--primary))]/50 cursor-pointer',
+          )}
         >
           <div>
             <p className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] mb-1">
@@ -131,15 +149,17 @@ const AdminDashboardView: React.FC = () => {
           <div className="p-3 bg-purple-500/10 rounded-lg text-purple-500">
             <Users size={24} />
           </div>
-        </div>
+        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div
-          className={`rounded-xl p-4 border ${
+        <button
+          type="button"
+          onClick={() => navigate('/admin/analytics')}
+          className={`text-left w-full rounded-xl p-4 border transition-colors ${
             gccPortalMetrics
-              ? 'gcc-metric-tile border-[hsl(var(--border))]'
-              : 'bg-[hsl(var(--card))] border border-[hsl(var(--border-v))]'
+              ? 'gcc-metric-tile border-[hsl(var(--border))] hover:border-[hsl(var(--primary))]/35 cursor-pointer'
+              : 'bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] hover:border-[hsl(var(--primary))]/50 cursor-pointer'
           }`}
         >
           <h3
@@ -152,8 +172,8 @@ const AdminDashboardView: React.FC = () => {
           <p className="text-xs text-[hsl(var(--muted-foreground))]">
             Global monitoring of all instances and organizations.
           </p>
-          {/* Add more aggregate charts here */}
-        </div>
+          <p className="text-[10px] font-mono text-[hsl(var(--primary))] mt-3">Open compliance monitor →</p>
+        </button>
       </div>
     </div>
   );

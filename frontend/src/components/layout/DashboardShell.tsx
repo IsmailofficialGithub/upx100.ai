@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
+import { OrgScopePicker } from './OrgScopePicker';
 import { useAuth } from '@/context/AuthContext';
+import { useGccTenantScope } from '@/context/GccTenantScopeContext';
 import LiveTicker from '@/components/shared/LiveTicker';
 
 const pageTitles: Record<string, string> = {
@@ -28,7 +30,7 @@ const gccPortalAdminTitles: Record<string, string> = {
   '/admin/call-logs': 'Live Calls',
   '/admin/uploads': 'HITL — Target uploads',
   '/admin/scripts': 'HITL — Script requests',
-  '/admin/analytics': 'Compliance Monitor',
+  '/admin/analytics': 'Network Analytics & ROI',
   '/admin/user': 'Sales Partners',
   '/admin/commissions': 'Revenue & Payments',
   '/admin/agents': 'AI Agent Management',
@@ -71,6 +73,7 @@ const DashboardShell: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
+  const gccScope = useGccTenantScope();
   const path = location.pathname;
   const prefix = path.split('/')[1];
 
@@ -122,6 +125,25 @@ const DashboardShell: React.FC = () => {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className={`flex flex-col min-h-screen ${portalShell ? 'md:ml-[240px]' : 'md:ml-60'}`}>
         <Topbar title={title} onMenuClick={() => setSidebarOpen(true)} portalShell={portalShell} />
+        {isGccPortal && (
+          <div className="flex flex-col gap-2 px-4 sm:px-6 py-2.5 border-b border-[hsl(var(--border-v))] bg-[hsl(var(--card))]/60">
+            <div className="flex flex-col lg:flex-row lg:items-center gap-2 lg:gap-4 min-w-0">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-[hsl(var(--muted-foreground))] shrink-0">
+                Tenant scope
+              </span>
+              <OrgScopePicker
+                scopeOrgId={gccScope.scopeOrgId}
+                onScopeChange={gccScope.setScopeOrgId}
+                organizations={gccScope.organizations}
+                loading={gccScope.orgsLoading}
+                className={portalShell ? 'border-[hsl(var(--border))] bg-transparent' : ''}
+              />
+              <p className="text-[10px] text-[hsl(var(--muted-foreground))] lg:flex-1 lg:text-right leading-snug">
+                Filters analytics, call logs, HITL queues, agents, and Command Centre stats. Use search for large client lists.
+              </p>
+            </div>
+          </div>
+        )}
         <LiveTicker />
         <main
           className={`flex-1 min-h-0 overflow-x-hidden ${

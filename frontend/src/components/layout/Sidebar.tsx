@@ -44,7 +44,7 @@ const GCC_ADMIN_NAV: GccNavGroup[] = [
   {
     label: 'Compliance',
     items: [
-      { label: 'Compliance Monitor', path: '/admin/analytics', icon: Shield },
+      { label: 'Analytics & ROI', path: '/admin/analytics', icon: Shield },
       { label: 'Sales Partners', path: '/admin/user', icon: Users },
     ],
   },
@@ -79,7 +79,7 @@ const GCC_REVIEWER_NAV: GccNavGroup[] = [
   {
     label: 'Compliance',
     items: [
-      { label: 'Compliance Monitor', path: '/admin/analytics', icon: Shield },
+      { label: 'Analytics & ROI', path: '/admin/analytics', icon: Shield },
       { label: 'Sales Partners', path: '/admin/user', icon: Users },
     ],
   },

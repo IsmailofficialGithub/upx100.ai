@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { meetings as seedMeetings, calendarDemoOrganizations } from '@/data/mockData';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
+import { useGccTenantScope } from '@/context/GccTenantScopeContext';
 import api from '@/lib/api';
 import StatusBadge from '@/components/shared/StatusBadge';
 import AudioPlayer from '@/components/shared/AudioPlayer';
@@ -92,6 +93,7 @@ const emptyMeeting = (): Meeting => ({
 const CalendarView: React.FC = () => {
   useTheme();
   const { user, isGCC, isSP } = useAuth();
+  const gccScope = useGccTenantScope();
   const [viewMode, setViewMode] = useState<'agenda' | 'grid'>('agenda');
   const [selectedMeeting, setSelectedMeeting] = useState<string | null>(null);
   const [expandedOutcome, setExpandedOutcome] = useState<string | null>(null);
@@ -106,10 +108,19 @@ const CalendarView: React.FC = () => {
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState<Meeting>(() => emptyMeeting());
 
+  const companyFilterId = isGCC ? gccScope.scopeOrgId : selectedCompanyId;
+
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
-      if (isGCC || isSP) {
+      if (isGCC) {
+        const rows = gccScope.organizations;
+        if (!cancelled) {
+          setOrgOptions([{ id: 'all', name: 'All companies' }, ...rows.map((o) => ({ id: o.id, name: o.name }))]);
+        }
+        return;
+      }
+      if (isSP) {
         try {
           const res = await api.get<{ data: { id: string; name: string }[] }>('/admin/organizations');
           const rows = res.data?.data;
@@ -139,19 +150,19 @@ const CalendarView: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [isGCC, isSP, user?.orgId, user?.entityName]);
+  }, [isGCC, isSP, user?.orgId, user?.entityName, gccScope.organizations]);
 
   const periodMeetings = useMemo(() => {
     const ref = new Date();
-    return filterByOrganization(meetingsState, selectedCompanyId).filter((m) =>
+    return filterByOrganization(meetingsState, companyFilterId).filter((m) =>
       meetingInCalendarPeriod(m.date, period, ref)
     );
-  }, [meetingsState, selectedCompanyId, period]);
+  }, [meetingsState, companyFilterId, period]);
 
   const outcomeCounts = useMemo(() => {
     const ref = new Date();
-    return aggregateOutcomes(meetingsState, period, selectedCompanyId, ref);
-  }, [meetingsState, period, selectedCompanyId]);
+    return aggregateOutcomes(meetingsState, period, companyFilterId, ref);
+  }, [meetingsState, period, companyFilterId]);
 
   const totalOutcomes = useMemo(() => OUTCOME_KEYS.reduce((a, k) => a + outcomeCounts[k], 0), [outcomeCounts]);
 
@@ -195,14 +206,15 @@ const CalendarView: React.FC = () => {
 
   const openAddDialog = useCallback(() => {
     const m = emptyMeeting();
+    const scopeId = companyFilterId;
     const defaultOrg =
-      selectedCompanyId !== 'all'
-        ? selectedCompanyId
+      scopeId !== 'all'
+        ? scopeId
         : orgOptions.find((o) => o.id !== 'all')?.id || calendarDemoOrganizations[0]?.id || '';
     m.organizationId = defaultOrg;
     setForm(m);
     setAddOpen(true);
-  }, [selectedCompanyId, orgOptions]);
+  }, [companyFilterId, orgOptions]);
 
   const submitNewMeeting = () => {
     if (!form.company.trim() || !form.contact.trim() || !form.organizationId) {
@@ -231,17 +243,23 @@ const CalendarView: React.FC = () => {
           <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] whitespace-nowrap">
             Company
           </label>
-          <select
-            value={selectedCompanyId}
-            onChange={(e) => setSelectedCompanyId(e.target.value)}
-            className="text-xs rounded-lg border border-[hsl(var(--border-v))] bg-[hsl(var(--card))] text-[hsl(var(--foreground))] px-2 py-1.5 min-w-[160px]"
-          >
-            {orgOptions.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.name}
-              </option>
-            ))}
-          </select>
+          {isGCC ? (
+            <span className="text-xs text-[hsl(var(--muted-foreground))] max-w-md leading-snug">
+              Calendar view follows the <span className="text-[hsl(var(--foreground))] font-medium">tenant scope</span> control in the header (searchable for large directories).
+            </span>
+          ) : (
+            <select
+              value={selectedCompanyId}
+              onChange={(e) => setSelectedCompanyId(e.target.value)}
+              className="text-xs rounded-lg border border-[hsl(var(--border-v))] bg-[hsl(var(--card))] text-[hsl(var(--foreground))] px-2 py-1.5 min-w-[160px]"
+            >
+              {orgOptions.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.name}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button

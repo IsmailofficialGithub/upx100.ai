@@ -1,7 +1,9 @@
 import * as callLogService from '../services/callLog.service.js'
 import * as userService from '../services/user.service.js'
-import { createSupabaseForRequest } from '../config/supabase.js'
+import { createSupabaseForRequest, supabaseAdmin } from '../config/supabase.js'
 import { StatusCodes } from 'http-status-codes'
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 const SYSTEM_ORG_SENTINEL = '00000000-0000-4000-a000-000000000003'
 
@@ -65,6 +67,18 @@ export const handleVapiWebhook = async (req, res) => {
       started_at: callData.startedAt
     }
 
+    if (!logData.organization_id && logData.agent_id) {
+      const { data: agentRow } = await supabaseAdmin
+        .schema('inbound')
+        .from('agents')
+        .select('organization_id')
+        .eq('id', logData.agent_id)
+        .maybeSingle()
+      if (agentRow?.organization_id) {
+        logData.organization_id = agentRow.organization_id
+      }
+    }
+
     try {
       await callLogService.createCallLog(logData)
     } catch (error) {
@@ -82,8 +96,12 @@ export const getLogs = async (req, res) => {
 
   try {
     if (['gcc_admin', 'gcc_reviewer'].includes(role)) {
-      logs = await callLogService.listAllLogs()
-
+      const q = req.query?.organization_id
+      if (q && UUID_RE.test(String(q))) {
+        logs = await callLogService.listLogsByOrg(q, null)
+      } else {
+        logs = await callLogService.listAllLogs()
+      }
       if (role === 'gcc_reviewer') {
         logs = logs.map((log) => ({ ...log, cost: '***' }))
       }

@@ -1,27 +1,27 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { useTheme } from '@/context/ThemeContext';
+import { loginShowcaseCompanies } from '@/data/mockData';
 import { toast } from 'sonner';
-import { 
-  Mail, 
-  Lock, 
-  ArrowRight, 
-  Github, 
-  Chrome, 
+import {
+  Mail,
+  Lock,
+  ArrowRight,
   ChevronLeft,
   ShieldCheck,
   Zap,
-  Globe
+  Globe,
+  Building2,
 } from 'lucide-react';
 
 const Login = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
-  const { isLight } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showcaseId, setShowcaseId] = useState(loginShowcaseCompanies[0].id);
+  const activeShowcase = loginShowcaseCompanies.find((c) => c.id === showcaseId) ?? loginShowcaseCompanies[0];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,12 +105,54 @@ const Login = () => {
           </div>
 
           <div className="pt-8 border-t border-white/5">
-            <p className="text-xs font-mono text-white/30 uppercase tracking-[0.2em]">Trusted by Industry Leaders</p>
-            <div className="flex gap-6 mt-4 opacity-30 grayscale">
-              {/* Mock Logos */}
-              <div className="h-6 w-20 bg-white/20 rounded" />
-              <div className="h-6 w-24 bg-white/20 rounded" />
-              <div className="h-6 w-16 bg-white/20 rounded" />
+            <p className="text-xs font-mono text-white/30 uppercase tracking-[0.2em] mb-3">Who we run campaigns for</p>
+            <div
+              role="tablist"
+              aria-label="Client companies"
+              className="flex flex-wrap gap-2"
+            >
+              {loginShowcaseCompanies.map((c) => {
+                const selected = c.id === showcaseId;
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={selected}
+                    id={`showcase-tab-${c.id}`}
+                    aria-controls={`showcase-panel-${c.id}`}
+                    onClick={() => setShowcaseId(c.id)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all border ${
+                      selected
+                        ? 'bg-[hsl(var(--primary))]/15 border-[hsl(var(--primary))]/50 text-[hsl(var(--primary))]'
+                        : 'bg-white/5 border-white/10 text-white/50 hover:text-white/80 hover:border-white/20'
+                    }`}
+                  >
+                    {c.shortLabel}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div
+              role="tabpanel"
+              id={`showcase-panel-${activeShowcase.id}`}
+              aria-labelledby={`showcase-tab-${activeShowcase.id}`}
+              className="mt-4 p-4 rounded-2xl bg-white/[0.04] border border-white/10 backdrop-blur-sm"
+            >
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-xl bg-[hsl(var(--primary))]/15 flex items-center justify-center flex-shrink-0">
+                  <Building2 size={18} className="text-[hsl(var(--primary))]" />
+                </div>
+                <div className="min-w-0 space-y-1.5">
+                  <div className="flex flex-wrap items-baseline gap-2">
+                    <p className="text-sm font-semibold text-white">{activeShowcase.name}</p>
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-white/35">{activeShowcase.industry}</span>
+                  </div>
+                  <p className="text-sm font-display font-semibold text-[hsl(var(--primary))] leading-snug">{activeShowcase.headline}</p>
+                  <p className="text-xs text-white/55 leading-relaxed">{activeShowcase.summary}</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>

@@ -386,3 +386,45 @@ export const benchmarkLabels = {
   connection: { title: 'Connection Rate', unit: '%' },
   response: { title: 'Response Rate', unit: '%' },
 };
+
+/** Fictional client names used across demos; login page toggles between these stories. */
+export const loginShowcaseCompanies = [
+  {
+    id: 'cloudscale',
+    name: 'CloudScale Inc',
+    shortLabel: 'CloudScale',
+    industry: 'B2B SaaS',
+    headline: '18 qualified meetings in the first month',
+    summary:
+      'Full outbound stack with AI voice and compliance-gated lists. Their SDR team focuses on demos while we fill the top of funnel.',
+  },
+  {
+    id: 'datafirst',
+    name: 'DataFirst Corp',
+    shortLabel: 'DataFirst',
+    industry: 'Data infrastructure',
+    headline: '37% lift in connect rate vs. prior agency',
+    summary:
+      'Context-rich calling on funding and hiring signals. UP100X handles sourcing, scrubbing, and live dialing across two regions.',
+  },
+  {
+    id: 'meridian',
+    name: 'Meridian Injury Group',
+    shortLabel: 'Meridian',
+    industry: 'Legal / PI',
+    headline: 'Sensitive vertical, same-day lead response',
+    summary:
+      'Empathetic scripts and strict DNC screening. We route high-intent callers to intake while keeping every touch auditable.',
+  },
+  {
+    id: 'capstone',
+    name: 'Capstone Commercial Realty',
+    shortLabel: 'Capstone',
+    industry: 'Commercial real estate',
+    headline: 'Owner conversations without cold blitz fatigue',
+    summary:
+      'Targets property owners and asset managers with cap-rate-aware talk tracks. Calendar blocks sync straight to their brokerage CRM.',
+  },
+] as const;
+
+export type LoginShowcaseCompany = (typeof loginShowcaseCompanies)[number];

@@ -28,6 +28,13 @@ const AdminDataView: React.FC<AdminDataViewProps> = ({
   const [data, setData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [scopeNonce, setScopeNonce] = useState(0);
+
+  useEffect(() => {
+    const bump = () => setScopeNonce((n) => n + 1);
+    window.addEventListener('gcc-tenant-scope-changed', bump as EventListener);
+    return () => window.removeEventListener('gcc-tenant-scope-changed', bump as EventListener);
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -43,7 +50,7 @@ const AdminDataView: React.FC<AdminDataViewProps> = ({
       }
     };
     fetchData();
-  }, [endpoint, title]);
+  }, [endpoint, title, scopeNonce]);
 
   const filteredData = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();

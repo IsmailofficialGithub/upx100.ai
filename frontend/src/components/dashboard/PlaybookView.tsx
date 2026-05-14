@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { competitors, faqData } from '@/data/mockData';
 import { Check, X, Minus, ChevronDown, ChevronUp, MessageSquare, Tag } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 
 const PlaybookView: React.FC = () => {
+  const { isGCC } = useAuth();
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
   const [faqFilter, setFaqFilter] = useState<string>('all');
 
@@ -11,6 +13,13 @@ const PlaybookView: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {isGCC && (
+        <div className="rounded-lg border border-[hsl(var(--border-v))] bg-[hsl(var(--muted))]/30 px-3 py-2.5 text-[11px] text-[hsl(var(--muted-foreground))] leading-relaxed">
+          This playbook is a <span className="text-[hsl(var(--foreground))] font-medium">reference library</span> (positioning, FAQs, competitive framing). Client-specific live scripts and approvals are in{' '}
+          <span className="font-mono text-[hsl(var(--primary))]">HITL — Script requests</span> and{' '}
+          <span className="font-mono text-[hsl(var(--primary))]">AI Agent Management</span>. When those views are wired to the tenant selected in the header scope control, they reflect the selected organization.
+        </div>
+      )}
       {/* Competitive Intelligence */}
       <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-4">
         <h3 className="text-sm font-display font-semibold text-[hsl(var(--foreground))] mb-4">Competitive Intelligence</h3>

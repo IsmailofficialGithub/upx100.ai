@@ -57,7 +57,9 @@ export const pauseCampaign = async (agentId, orgId, userId, reason, { role } = {
     if (scopedOrgId) {
       query = query.eq('organization_id', scopedOrgId)
     } else if (role === 'gcc_admin') {
-      // No org on profile: do not use .eq('organization_id', null) — PostgREST sends invalid uuid "null".
+      // PostgREST rejects UPDATE with no WHERE. We cannot use .eq('organization_id', null) (invalid uuid).
+      // Scope to active rows only — same notion of "current" agents as fetchAgentRow.
+      query = query.is('deleted_at', null)
     } else {
       const err = new Error('Organization context is required to pause all campaigns for your organization.')
       err.status = StatusCodes.BAD_REQUEST
@@ -110,7 +112,7 @@ export const resumeCampaign = async (agentId, orgId, userId, reason, { role } = 
     if (scopedOrgId) {
       query = query.eq('organization_id', scopedOrgId)
     } else if (role === 'gcc_admin') {
-      // Same as pause: avoid .eq('organization_id', null).
+      query = query.is('deleted_at', null)
     } else {
       const err = new Error('Organization context is required to resume all campaigns for your organization.')
       err.status = StatusCodes.BAD_REQUEST

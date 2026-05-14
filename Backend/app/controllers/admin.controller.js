@@ -3,6 +3,22 @@ import * as userService from '../services/user.service.js';
 import { StatusCodes } from 'http-status-codes';
 import { supabaseAdmin } from '../config/supabase.js';
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/**
+ * GCC data views: optional `?organization_id=<uuid>` narrows stats/lists to one tenant.
+ * SP / client behavior unchanged (query ignored unless matrix expands).
+ */
+export const resolveScopedTargetOrgIds = async (req) => {
+  const base = await getTargetOrgIds(req);
+  const { role } = req.user;
+  const raw = req.query?.organization_id;
+  if (raw == null || raw === '' || raw === 'all') return base;
+  if (!(role === 'gcc_admin' || role === 'gcc_reviewer')) return base;
+  if (!UUID_RE.test(String(raw))) return base;
+  return [String(raw)];
+};
+
 /**
  * Org scope for admin list APIs (stats, call logs, etc.).
  * Only gcc_admin (and legacy admin) get null = all organizations.
@@ -63,13 +79,13 @@ export const getExportTargetOrgIds = async (req) => {
 };
 
 export const getStats = async (req, res) => {
-  const targetOrgIds = await getTargetOrgIds(req);
+  const targetOrgIds = await resolveScopedTargetOrgIds(req);
   const stats = await adminService.getGlobalStats(targetOrgIds);
   res.status(StatusCodes.OK).json({ data: stats });
 };
 
 export const getUsers = async (req, res) => {
-  const targetOrgIds = await getTargetOrgIds(req);
+  const targetOrgIds = await resolveScopedTargetOrgIds(req);
   if (targetOrgIds && targetOrgIds.length === 0) return res.status(StatusCodes.OK).json({ data: [] });
   
   const { data, error } = await adminService.getAllUsers(req.query.search, targetOrgIds);
@@ -102,7 +118,7 @@ export const getOrganizations = async (req, res) => {
 };
 
 export const getCallLogs = async (req, res) => {
-  const targetOrgIds = await getTargetOrgIds(req);
+  const targetOrgIds = await resolveScopedTargetOrgIds(req);
   if (targetOrgIds && targetOrgIds.length === 0) return res.status(StatusCodes.OK).json({ data: [] });
 
   const { data, error } = await adminService.getAllCallLogs(targetOrgIds);
@@ -120,7 +136,7 @@ export const getLeads = async (req, res) => {
 };
 
 export const getPhoneNumbers = async (req, res) => {
-  const targetOrgIds = await getTargetOrgIds(req);
+  const targetOrgIds = await resolveScopedTargetOrgIds(req);
   if (targetOrgIds && targetOrgIds.length === 0) return res.status(StatusCodes.OK).json({ data: [] });
 
   const { data, error } = await adminService.getAllPhoneNumbers(targetOrgIds);
@@ -138,7 +154,7 @@ export const getAgents = async (req, res) => {
 };
 
 export const getScriptRequests = async (req, res) => {
-  const targetOrgIds = await getTargetOrgIds(req);
+  const targetOrgIds = await resolveScopedTargetOrgIds(req);
   if (targetOrgIds && targetOrgIds.length === 0) return res.status(StatusCodes.OK).json({ data: [] });
 
   const { data, error } = await adminService.getAllScriptRequests(targetOrgIds);
@@ -147,7 +163,7 @@ export const getScriptRequests = async (req, res) => {
 };
 
 export const getTargetUploads = async (req, res) => {
-  const targetOrgIds = await getTargetOrgIds(req);
+  const targetOrgIds = await resolveScopedTargetOrgIds(req);
   if (targetOrgIds && targetOrgIds.length === 0) return res.status(StatusCodes.OK).json({ data: [] });
 
   const { data, error } = await adminService.getAllTargetUploads(targetOrgIds);
@@ -156,7 +172,7 @@ export const getTargetUploads = async (req, res) => {
 };
 
 export const getVoiceClones = async (req, res) => {
-  const targetOrgIds = await getTargetOrgIds(req);
+  const targetOrgIds = await resolveScopedTargetOrgIds(req);
   if (targetOrgIds && targetOrgIds.length === 0) return res.status(StatusCodes.OK).json({ data: [] });
 
   const { data, error } = await adminService.getAllVoiceClones(targetOrgIds);

@@ -1,15 +1,21 @@
 import { supabaseAdmin } from '../config/supabase.js'
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
 /**
  * Analytics Service
  */
 
 export const getClientAnalytics = async (orgId) => {
   // 1. Get Win/Loss data from leads
-  const { data: leads } = await supabaseAdmin.schema('inbound')
-    .from('leads')
-    .select('*')
-    .eq('organization_id', orgId)
+  let leadsQuery = supabaseAdmin.schema('inbound').from('leads').select('*')
+  if (orgId && UUID_RE.test(String(orgId))) {
+    leadsQuery = leadsQuery.eq('organization_id', orgId)
+  }
+
+  const { data: leadsRaw, error: leadsErr } = await leadsQuery
+  if (leadsErr) throw leadsErr
+  const leads = leadsRaw || []
 
   const wonLeads = leads?.filter(l => l.status === 'success') || []
   const lostLeads = leads?.filter(l => l.status !== 'success' && l.status !== 'new' && l.status !== 'warm') || []
