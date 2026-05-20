@@ -3,6 +3,7 @@ import * as userService from '../services/user.service.js';
 import { StatusCodes } from 'http-status-codes';
 import { supabaseAdmin } from '../config/supabase.js';
 import { sanitizePhonesForApi } from '../utils/phoneNumberCompliance.js';
+import { enrichCallLogRow } from '../utils/callLogDirection.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -124,7 +125,7 @@ export const getCallLogs = async (req, res) => {
 
   const { data, error } = await adminService.getAllCallLogs(targetOrgIds);
   if (error) return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error });
-  res.status(StatusCodes.OK).json({ data });
+  res.status(StatusCodes.OK).json({ data: (data || []).map(enrichCallLogRow) });
 };
 
 export const getLeads = async (req, res) => {

@@ -1,8 +1,9 @@
 import React, { useCallback, useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import AdminDataView from './AdminDataView';
 import CallLogDetailsDrawer from './CallLogDetailsDrawer';
 import { CallDirectionBadge } from '@/components/shared/CallDirectionBadge';
-import { ArrowRight, Play, CheckCircle2, AlertCircle, Timer, PhoneIncoming, PhoneOutgoing } from 'lucide-react';
+import { ArrowRight, CheckCircle2, AlertCircle, Timer, PhoneIncoming, PhoneOutgoing } from 'lucide-react';
 import api from '@/lib/api';
 import { toast } from 'sonner';
 import { formatNullableDate } from '@/lib/dateFormat';
@@ -13,6 +14,7 @@ import {
   type CallDirectionFilter,
 } from '@/lib/callDirection';
 import { CALL_LOGS_EMPTY_MESSAGE } from './callLogsEmptyMessage';
+import { matchCallLogSearch } from './callLogSearch';
 
 const DIRECTION_TABS: { id: CallDirectionFilter; label: string; icon?: typeof PhoneIncoming }[] = [
   { id: 'all', label: 'All Calls' },
@@ -21,6 +23,8 @@ const DIRECTION_TABS: { id: CallDirectionFilter; label: string; icon?: typeof Ph
 ];
 
 const CallLogsView: React.FC = () => {
+  const location = useLocation();
+  const callLogsEndpoint = location.pathname.startsWith('/admin') ? '/admin/call-logs' : '/call-logs';
   const [selectedLog, setSelectedLog] = useState<any>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [directionFilter, setDirectionFilter] = useState<CallDirectionFilter>('all');
@@ -158,26 +162,17 @@ const CallLogsView: React.FC = () => {
     <div className="relative">
       <AdminDataView
         title="Recent Communications"
-        endpoint="/call-logs"
+        endpoint={callLogsEndpoint}
         emptyMessage={CALL_LOGS_EMPTY_MESSAGE}
         emptyFilteredMessage={`No ${directionFilter === 'all' ? '' : directionFilter + ' '}calls match this filter. Try All Calls or check back after new activity.`}
         toolbar={directionToolbar}
         rowFilter={rowFilter}
         filtersActive={directionFilter !== 'all'}
         columns={columns}
+        matchSearch={matchCallLogSearch}
+        searchPlaceholder="Search date, transcript, result, assigned agent…"
         renderActions={(row) => (
           <div className="flex items-center gap-2">
-            {row.recording_url && (
-              <a
-                href={row.recording_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-1.5 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] transition-colors"
-                title="Play Recording"
-              >
-                <Play size={14} />
-              </a>
-            )}
             <button
               type="button"
               onClick={() => handleViewDetail(row)}

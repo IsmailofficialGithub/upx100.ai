@@ -1,38 +1,241 @@
 import { supabaseAdmin } from '../config/supabase.js';
+import { mergeCallLogDirections } from './callLog.service.js';
 import { enrichScriptRequestRows } from './scriptRequest.service.js';
 
 /**
  * Admin Service - Global access to all data
  */
 
+function startOfCurrentMonthIso() {
+  const d = new Date();
+  d.setDate(1);
+  d.setHours(0, 0, 0, 0);
+  return d.toISOString();
+}
+
+function scopeInbound(query, targetOrgIds) {
+  if (targetOrgIds?.length) {
+    return query.in('organization_id', targetOrgIds);
+  }
+  return query;
+}
+
+/**
+ * inbound.call_logs / leads have organization_id but no FK to public.organizations (see 04_call_logs_and_leads.sql).
+ * PostgREST embed organizations!*_fkey returns PGRST200 — resolve names in application code.
+ */
+async function fetchOrganizationNameMap(orgIds) {
+  const ids = [...new Set((orgIds || []).filter(Boolean))];
+  const map = {};
+  if (!ids.length) return map;
+  const { data, error } = await supabaseAdmin.from('organizations').select('id, name').in('id', ids);
+  if (error) throw error;
+  (data || []).forEach((o) => {
+    map[o.id] = o.name;
+  });
+  return map;
+}
+
+function attachOrganizationNames(rows, orgNameById) {
+  return (rows || []).map((row) => {
+    const name = row.organization_id ? orgNameById[row.organization_id] ?? null : null;
+    return {
+      ...row,
+      organization_name: row.organization_name ?? name,
+      organizations: name != null ? { name } : row.organizations ?? null,
+    };
+  });
+}
+
+function healthStatusFromScore(health) {
+  if (health >= 90) return 'Healthy';
+  if (health >= 80) return 'Stable';
+  if (health >= 70) return 'Needs Review';
+  return 'At Risk';
+}
+
+function computeHealthScore({ liveCalls, meetings, totalCalls, pendingReview }) {
+  let health = 68;
+  if (totalCalls > 0) health += 12;
+  if (liveCalls > 0) health += 6;
+  health += Math.min(14, meetings * 3);
+  health -= Math.min(24, pendingReview * 8);
+  return Math.max(50, Math.min(100, Math.round(health)));
+}
+
+/**
+ * Per-tenant portfolio row for GCC Command Center (live calls, meetings, MRR, health).
+ */
+export const getClientHealthOverview = async (targetOrgIds = null) => {
+  let orgQuery = supabaseAdmin.from('organizations').select('id, name, country_code').order('name');
+  if (targetOrgIds?.length) {
+    orgQuery = orgQuery.in('id', targetOrgIds);
+  }
+
+  const { data: orgs, error: orgError } = await orgQuery;
+  if (orgError) throw orgError;
+  if (!orgs?.length) return [];
+
+  const orgIds = orgs.map((o) => o.id);
+  const monthStartIso = startOfCurrentMonthIso();
+
+  const { data: callLogs } = await scopeInbound(
+    supabaseAdmin.schema('inbound').from('call_logs').select('organization_id, status, created_at'),
+    orgIds,
+  );
+
+  const { data: monthLeads } = await scopeInbound(
+    supabaseAdmin
+      .schema('inbound')
+      .from('leads')
+      .select('organization_id, status, created_at, meeting_time')
+      .gte('created_at', monthStartIso),
+    orgIds,
+  );
+
+  let scriptPendingQuery = supabaseAdmin
+    .schema('inbound')
+    .from('script_change_requests')
+    .select('organization_id')
+    .eq('status', 'pending');
+  let uploadPendingQuery = supabaseAdmin
+    .schema('inbound')
+    .from('target_account_uploads')
+    .select('organization_id')
+    .eq('status', 'pending_review');
+  if (targetOrgIds?.length) {
+    scriptPendingQuery = scriptPendingQuery.in('organization_id', orgIds);
+    uploadPendingQuery = uploadPendingQuery.in('organization_id', orgIds);
+  }
+  const [{ data: pendingScripts }, { data: pendingUploads }] = await Promise.all([
+    scriptPendingQuery,
+    uploadPendingQuery,
+  ]);
+
+  const { data: commissions } = await supabaseAdmin
+    .from('commissions')
+    .select('organization_id, collected_mrr, created_at')
+    .in('organization_id', orgIds)
+    .order('created_at', { ascending: false });
+
+  const mrrByOrg = {};
+  for (const row of commissions || []) {
+    if (row.organization_id && mrrByOrg[row.organization_id] == null) {
+      mrrByOrg[row.organization_id] = Number(row.collected_mrr) || 0;
+    }
+  }
+
+  return orgs.map((org) => {
+    const orgCalls = (callLogs || []).filter((c) => c.organization_id === org.id);
+    const liveCalls = orgCalls.filter((c) => c.status === 'in_progress').length;
+    const meetings = (monthLeads || []).filter(
+      (l) => l.organization_id === org.id && l.status === 'success',
+    ).length;
+    const pendingReview =
+      (pendingScripts || []).filter((p) => p.organization_id === org.id).length +
+      (pendingUploads || []).filter((p) => p.organization_id === org.id).length;
+
+    const health = computeHealthScore({
+      liveCalls,
+      meetings,
+      totalCalls: orgCalls.length,
+      pendingReview,
+    });
+
+    const mrrValue = mrrByOrg[org.id] ?? 0;
+
+    return {
+      organizationId: org.id,
+      client: org.name,
+      country_code: org.country_code,
+      liveCalls,
+      meetings,
+      mrrValue,
+      health,
+      status: healthStatusFromScore(health),
+    };
+  });
+};
+
 export const getGlobalStats = async (targetOrgIds = null) => {
-  // Aggregate stats across all organizations (or scoped ones)
+  const monthStartIso = startOfCurrentMonthIso();
+
   let orgQuery = supabaseAdmin.from('organizations').select('*', { count: 'exact', head: true });
   let userQuery = supabaseAdmin.from('profiles').select('*', { count: 'exact', head: true });
   let callQuery = supabaseAdmin.schema('inbound').from('call_logs').select('*', { count: 'exact', head: true });
+  let activeCallQuery = supabaseAdmin
+    .schema('inbound')
+    .from('call_logs')
+    .select('*', { count: 'exact', head: true })
+    .eq('status', 'in_progress');
   let leadQuery = supabaseAdmin.schema('inbound').from('leads').select('*', { count: 'exact', head: true });
+  let meetingsQuery = supabaseAdmin
+    .schema('inbound')
+    .from('leads')
+    .select('*', { count: 'exact', head: true })
+    .eq('status', 'success')
+    .gte('created_at', monthStartIso);
   let agentQuery = supabaseAdmin.schema('inbound').from('agents').select('*', { count: 'exact', head: true });
 
-  if (targetOrgIds) {
+  if (targetOrgIds?.length) {
     orgQuery = orgQuery.in('id', targetOrgIds);
     userQuery = userQuery.in('organization_id', targetOrgIds);
     callQuery = callQuery.in('organization_id', targetOrgIds);
+    activeCallQuery = activeCallQuery.in('organization_id', targetOrgIds);
     leadQuery = leadQuery.in('organization_id', targetOrgIds);
+    meetingsQuery = meetingsQuery.in('organization_id', targetOrgIds);
     agentQuery = agentQuery.in('organization_id', targetOrgIds);
   }
 
-  const { count: totalOrgs } = await orgQuery;
-  const { count: totalUsers } = await userQuery;
-  const { count: totalCalls } = await callQuery;
-  const { count: totalLeads } = await leadQuery;
-  const { count: totalAgents } = await agentQuery;
+  const [
+    { count: totalOrgs },
+    { count: totalUsers },
+    { count: totalCalls },
+    { count: activeCalls },
+    { count: totalLeads },
+    { count: meetingsThisMonth },
+    { count: totalAgents },
+  ] = await Promise.all([
+    orgQuery,
+    userQuery,
+    callQuery,
+    activeCallQuery,
+    leadQuery,
+    meetingsQuery,
+    agentQuery,
+  ]);
 
-  // Get status breakdown for calls
-  const { data: callStatusBreakdown } = await supabaseAdmin.rpc('get_call_status_breakdown'); 
+  let pendingScriptsQuery = supabaseAdmin
+    .schema('inbound')
+    .from('script_change_requests')
+    .select('*', { count: 'exact', head: true })
+    .eq('status', 'pending');
+  let pendingUploadsQuery = supabaseAdmin
+    .schema('inbound')
+    .from('target_account_uploads')
+    .select('*', { count: 'exact', head: true })
+    .eq('status', 'pending_review');
+  let pendingClonesQuery = supabaseAdmin
+    .schema('inbound')
+    .from('voice_clone_submissions')
+    .select('*', { count: 'exact', head: true })
+    .eq('status', 'submitted');
 
-  const { count: pendingScripts } = await supabaseAdmin.schema('inbound').from('script_change_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending');
-  const { count: pendingUploads } = await supabaseAdmin.schema('inbound').from('target_account_uploads').select('*', { count: 'exact', head: true }).eq('status', 'pending_review');
-  const { count: pendingClones } = await supabaseAdmin.schema('inbound').from('voice_clone_submissions').select('*', { count: 'exact', head: true }).eq('status', 'submitted');
+  if (targetOrgIds?.length) {
+    pendingScriptsQuery = pendingScriptsQuery.in('organization_id', targetOrgIds);
+    pendingUploadsQuery = pendingUploadsQuery.in('organization_id', targetOrgIds);
+    pendingClonesQuery = pendingClonesQuery.in('organization_id', targetOrgIds);
+  }
+
+  const [{ count: pendingScripts }, { count: pendingUploads }, { count: pendingClones }, clientHealth] =
+    await Promise.all([
+      pendingScriptsQuery,
+      pendingUploadsQuery,
+      pendingClonesQuery,
+      getClientHealthOverview(targetOrgIds),
+    ]);
+
+  const mrr = clientHealth.reduce((sum, row) => sum + (row.mrrValue || 0), 0);
 
   return {
     organizations: totalOrgs || 0,
@@ -40,9 +243,13 @@ export const getGlobalStats = async (targetOrgIds = null) => {
     calls: totalCalls || 0,
     leads: totalLeads || 0,
     agents: totalAgents || 0,
+    activeCalls: activeCalls || 0,
+    meetingsThisMonth: meetingsThisMonth || 0,
+    mrr,
     pendingScripts: pendingScripts || 0,
     pendingUploads: pendingUploads || 0,
-    pendingClones: pendingClones || 0
+    pendingClones: pendingClones || 0,
+    clientHealth,
   };
 };
 
@@ -104,31 +311,73 @@ export const getAllOrganizations = async (searchTerm = '', targetOrgIds = null) 
 };
 
 export const getAllCallLogs = async (targetOrgIds = null) => {
+  let viewQuery = supabaseAdmin
+    .from('view_call_logs')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (targetOrgIds?.length) {
+    viewQuery = viewQuery.in('organization_id', targetOrgIds);
+  }
+
+  const viewResult = await viewQuery;
+  if (!viewResult.error) {
+    const data = await mergeCallLogDirections(viewResult.data);
+    return { data, error: null };
+  }
+
   let query = supabaseAdmin
     .schema('inbound')
     .from('call_logs')
-    .select('*, organizations!call_logs_organization_id_fkey(name), agents(name)')
+    .select('*, agents(name)')
     .order('created_at', { ascending: false });
 
-  if (targetOrgIds) {
+  if (targetOrgIds?.length) {
     query = query.in('organization_id', targetOrgIds);
   }
 
-  return await query;
+  const { data, error } = await query;
+  if (error) return { data, error };
+
+  const rows = (data || []).map((row) => ({
+    ...row,
+    agent_name: row.agent_name ?? row.agents?.name ?? null,
+  }));
+
+  try {
+    const orgNameById = await fetchOrganizationNameMap(rows.map((r) => r.organization_id));
+    return { data: attachOrganizationNames(rows, orgNameById), error: null };
+  } catch (e) {
+    return { data: null, error: e };
+  }
 };
 
 export const getAllLeads = async (targetOrgIds = null) => {
   let query = supabaseAdmin
     .schema('inbound')
     .from('leads')
-    .select('*, organizations!leads_organization_id_fkey(name), agents(name)')
+    .select('*, agents(name)')
     .order('created_at', { ascending: false });
 
-  if (targetOrgIds) {
+  if (targetOrgIds?.length) {
     query = query.in('organization_id', targetOrgIds);
   }
 
-  return await query;
+  const { data, error } = await query;
+  if (error) return { data, error };
+
+  try {
+    const orgNameById = await fetchOrganizationNameMap((data || []).map((r) => r.organization_id));
+    const rows = (data || []).map((row) => ({
+      ...row,
+      organizations: row.organization_id
+        ? { name: orgNameById[row.organization_id] ?? null }
+        : null,
+    }));
+    return { data: rows, error: null };
+  } catch (e) {
+    return { data: null, error: e };
+  }
 };
 
 export const getAllPhoneNumbers = async (targetOrgIds = null) => {

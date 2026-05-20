@@ -24,6 +24,9 @@ interface AdminDataViewProps {
   emptyFilteredMessage?: string;
   /** Click row body to open detail (action cells use stopPropagation). */
   onRowClick?: (row: any) => void;
+  /** When set, replaces default search (visible column keys only). Query is lowercased. */
+  matchSearch?: (row: any, queryLower: string) => boolean;
+  searchPlaceholder?: string;
 }
 
 const AdminDataView: React.FC<AdminDataViewProps> = ({
@@ -41,6 +44,8 @@ const AdminDataView: React.FC<AdminDataViewProps> = ({
   filtersActive,
   emptyFilteredMessage,
   onRowClick,
+  matchSearch,
+  searchPlaceholder,
 }) => {
   const [data, setData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -78,19 +83,21 @@ const AdminDataView: React.FC<AdminDataViewProps> = ({
     const q = searchTerm.trim().toLowerCase();
     if (q) {
       rows = rows.filter((row) =>
-        columns.some((col) => {
-          const v = row[col.key];
-          if (v == null) return false;
-          if (typeof v === 'object') return JSON.stringify(v).toLowerCase().includes(q);
-          return String(v).toLowerCase().includes(q);
-        }),
+        matchSearch
+          ? matchSearch(row, q)
+          : columns.some((col) => {
+              const v = row[col.key];
+              if (v == null) return false;
+              if (typeof v === 'object') return JSON.stringify(v).toLowerCase().includes(q);
+              return String(v).toLowerCase().includes(q);
+            }),
       );
     }
     if (rowFilter) {
       rows = rows.filter(rowFilter);
     }
     return rows;
-  }, [data, searchTerm, columns, rowFilter]);
+  }, [data, searchTerm, columns, rowFilter, matchSearch]);
 
   const hasActiveFilters = Boolean(searchTerm.trim() || filtersActive);
 
@@ -133,7 +140,7 @@ const AdminDataView: React.FC<AdminDataViewProps> = ({
             />
             <input
               type="text"
-              placeholder={`Search ${title.toLowerCase()}…`}
+              placeholder={searchPlaceholder ?? `Search ${title.toLowerCase()}…`}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full min-h-[40px] bg-[hsl(var(--secondary))] border border-[hsl(var(--border-v))] rounded-[10px] py-2.5 pl-10 pr-4 text-xs text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--muted-foreground))] focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))]/40 focus:border-[hsl(var(--primary))]/50"

@@ -2,32 +2,11 @@ import * as callLogService from '../services/callLog.service.js'
 import * as userService from '../services/user.service.js'
 import { createSupabaseForRequest, supabaseAdmin } from '../config/supabase.js'
 import { StatusCodes } from 'http-status-codes'
+import { enrichCallLogRow, mapVapiCallDirection } from '../utils/callLogDirection.js'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 const SYSTEM_ORG_SENTINEL = '00000000-0000-4000-a000-000000000003'
-
-/** Map Vapi call.type to inbound | outbound. */
-const mapVapiCallDirection = (callType) => {
-  if (!callType) return null
-  const t = String(callType).toLowerCase()
-  if (t.includes('outbound')) return 'outbound'
-  if (t.includes('inbound')) return 'inbound'
-  return null
-}
-
-const normalizeStoredDirection = (value) => {
-  if (!value) return null
-  const t = String(value).toLowerCase()
-  if (t.includes('outbound')) return 'outbound'
-  if (t.includes('inbound')) return 'inbound'
-  return null
-}
-
-const enrichCallLogRow = (log) => ({
-  ...log,
-  call_direction: normalizeStoredDirection(log.call_direction) ?? null,
-})
 
 const effectiveOrgId = (orgId) =>
   orgId && orgId !== SYSTEM_ORG_SENTINEL ? orgId : null
@@ -91,6 +70,7 @@ export const handleVapiWebhook = async (req, res) => {
       called_number:
         callData.phoneNumber?.number ??
         (typeof callData.phoneNumber === 'string' ? callData.phoneNumber : null),
+      call_type: mapVapiCallDirection(callData.type),
       call_direction: mapVapiCallDirection(callData.type),
     }
 

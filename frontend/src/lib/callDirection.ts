@@ -14,11 +14,11 @@ export function normalizeCallDirection(raw: unknown): CallDirection {
 }
 
 export function getCallDirection(row: {
+  call_type?: unknown;
   call_direction?: unknown;
   direction?: unknown;
-  call_type?: unknown;
 }): CallDirection {
-  return normalizeCallDirection(row.call_direction ?? row.direction ?? row.call_type);
+  return normalizeCallDirection(row.call_type ?? row.call_direction ?? row.direction);
 }
 
 export function matchesDirectionFilter(

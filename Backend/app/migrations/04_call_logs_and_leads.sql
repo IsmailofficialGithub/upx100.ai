@@ -19,7 +19,8 @@ CREATE TABLE inbound.call_logs (
   created_at       timestamptz NOT NULL DEFAULT now(),
   ended_at         timestamptz,
   called_number    text,
-  user_id          uuid
+  user_id          uuid,
+  call_type        text
 );
 
 CREATE INDEX IF NOT EXISTS idx_call_logs_org_created ON inbound.call_logs (organization_id, created_at DESC);

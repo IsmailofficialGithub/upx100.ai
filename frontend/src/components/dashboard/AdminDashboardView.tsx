@@ -1,19 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  AlertTriangle,
-  Ban,
-  Headphones,
-  PhoneCall,
-  ShieldAlert,
-} from 'lucide-react';
-import { toast } from 'sonner';
+import { AlertTriangle, ShieldAlert } from 'lucide-react';
 import api from '@/lib/api';
 import { useGccTenantScope } from '@/context/GccTenantScopeContext';
-import { liveCalls } from '@/data/mockData';
+import { CALL_LOGS_EMPTY_MESSAGE } from '@/components/dashboard/callLogsEmptyMessage';
+import { formatCurrencyForSource } from '@/lib/currency';
 import MetricCard from '@/components/shared/MetricCard';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import {
   Table,
   TableBody,
@@ -23,22 +16,124 @@ import {
   TableRow,
 } from '@/components/ui/table';
 
+type ClientHealthRow = {
+  organizationId: string;
+  client: string;
+  country_code?: string | null;
+  liveCalls: number;
+  meetings: number;
+  mrrValue: number;
+  health: number;
+  status: string;
+};
+
 type AdminStats = {
   organizations?: number;
   activeCalls?: number;
   meetingsThisMonth?: number;
-  mrr?: number | string;
+  mrr?: number;
   pendingScripts?: number;
   pendingUploads?: number;
   pendingClones?: number;
+  clientHealth?: ClientHealthRow[];
 };
 
-const fallbackStats = {
-  organizations: 42,
-  activeCalls: liveCalls.length,
-  meetingsThisMonth: 128,
-  mrr: '$186K',
-  hitlQueue: 17,
+type CallLogRow = {
+  id: string;
+  caller_number?: string | null;
+  organization_name?: string | null;
+  organizations?: { name?: string | null } | null;
+  agent_name?: string | null;
+  agents?: { name?: string | null } | null;
+  duration_sec?: number;
+  status?: string;
+  transcript?: string | null;
+  summary?: string | null;
+};
+
+type DashboardCallCard = {
+  id: string;
+  prospect: string;
+  company: string;
+  agent: string;
+  duration: string;
+  status: string;
+  transcriptPreview: string;
+};
+
+const SAMPLE_CALL_COUNT = 5;
+
+const pickRandomItems = <T,>(items: T[], count: number): T[] => {
+  if (items.length <= count) return [...items];
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy.slice(0, count);
+};
+
+const formatDuration = (seconds?: number) => {
+  const total = Math.max(0, Math.floor(seconds ?? 0));
+  const mins = Math.floor(total / 60);
+  const secs = total % 60;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+};
+
+const formatStatusLabel = (status?: string) =>
+  (status || 'unknown').replace(/_/g, ' ');
+
+const statusBadgeClass = (status?: string) => {
+  switch (status) {
+    case 'success':
+      return 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20';
+    case 'failed':
+      return 'bg-red-500/10 text-red-500 border-red-500/20';
+    case 'follow_up':
+      return 'bg-amber-500/10 text-amber-500 border-amber-500/20';
+    case 'in_progress':
+      return 'bg-sky-500/10 text-sky-500 border-sky-500/20';
+    default:
+      return 'bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))] border-[hsl(var(--border-v))]';
+  }
+};
+
+const transcriptPreviewFromLog = (log: CallLogRow) => {
+  const lines = (log.transcript || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.includes(':'));
+
+  if (lines.length > 0) {
+    const last = lines[lines.length - 1];
+    const colon = last.indexOf(':');
+    const speaker = last.slice(0, colon).trim();
+    const text = last.slice(colon + 1).trim();
+    return `${speaker}: ${text}`;
+  }
+
+  if (log.summary?.trim()) return log.summary.trim();
+
+  return 'No transcript available for this call.';
+};
+
+const orgNameFromLog = (log: CallLogRow) =>
+  log.organization_name?.trim() || log.organizations?.name?.trim() || null;
+
+const agentNameFromLog = (log: CallLogRow) =>
+  log.agent_name?.trim() || log.agents?.name?.trim() || null;
+
+const mapCallLogToCard = (log: CallLogRow): DashboardCallCard => {
+  const agentName = agentNameFromLog(log);
+  return {
+  id: log.id,
+  prospect: log.caller_number?.trim() || 'Unknown caller',
+  company: orgNameFromLog(log) || 'Unknown organization',
+  agent: agentName ? `Agent: ${agentName}` : 'AI Agent',
+  duration: formatDuration(log.duration_sec),
+  status: log.status || 'unknown',
+  transcriptPreview: transcriptPreviewFromLog(log),
+};
 };
 
 const alerts = [
@@ -65,116 +160,108 @@ const alerts = [
   },
 ];
 
-const clientHealth = [
-  {
-    client: 'CloudScale Inc',
-    liveCalls: 3,
-    meetings: 18,
-    mrr: '$12K',
-    health: 96,
-    status: 'Healthy',
-  },
-  {
-    client: 'DataFirst Corp',
-    liveCalls: 2,
-    meetings: 14,
-    mrr: '$9K',
-    health: 84,
-    status: 'Stable',
-  },
-  {
-    client: 'Meridian Injury Group',
-    liveCalls: 1,
-    meetings: 9,
-    mrr: '$6K',
-    health: 71,
-    status: 'Needs Review',
-  },
-  {
-    client: 'Capstone Commercial Realty',
-    liveCalls: 0,
-    meetings: 7,
-    mrr: '$4K',
-    health: 68,
-    status: 'At Risk',
-  },
-];
-
-const formatCurrency = (value: AdminStats['mrr']) => {
-  if (typeof value === 'number') {
-    return Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      maximumFractionDigits: 0,
-      notation: 'compact',
-    }).format(value);
-  }
-
-  return value || fallbackStats.mrr;
+const formatPortfolioMrr = (value: number | undefined) => {
+  if (value == null || !Number.isFinite(value)) return '—';
+  return Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+    notation: 'compact',
+  }).format(value);
 };
 
 const AdminDashboardView: React.FC = () => {
   const navigate = useNavigate();
   const gccScope = useGccTenantScope();
   const [stats, setStats] = useState<AdminStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [sampledCalls, setSampledCalls] = useState<DashboardCallCard[]>([]);
+  const [callsLoading, setCallsLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
     const fetchStats = async () => {
+      setStatsLoading(true);
       try {
-        const response = await api.get('/admin/stats');
-        setStats(response.data?.data ?? null);
+        const response = await api.get<{ data: AdminStats }>('/admin/stats');
+        if (!cancelled) setStats(response.data?.data ?? null);
       } catch (error) {
-        console.log(error)
-        setStats(null);
+        console.error(error);
+        if (!cancelled) setStats(null);
+      } finally {
+        if (!cancelled) setStatsLoading(false);
       }
     };
 
     fetchStats();
+    return () => {
+      cancelled = true;
+    };
   }, [gccScope.scopeOrgId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchCallLogs = async () => {
+      setCallsLoading(true);
+      try {
+        const response = await api.get<{ data: CallLogRow[] }>('/admin/call-logs');
+        const logs = response.data?.data ?? [];
+        if (!cancelled) {
+          setSampledCalls(pickRandomItems(logs, SAMPLE_CALL_COUNT).map(mapCallLogToCard));
+        }
+      } catch (error) {
+        console.error(error);
+        if (!cancelled) setSampledCalls([]);
+      } finally {
+        if (!cancelled) setCallsLoading(false);
+      }
+    };
+
+    fetchCallLogs();
+    return () => {
+      cancelled = true;
+    };
+  }, [gccScope.scopeOrgId]);
+
+  const clientHealthRows = stats?.clientHealth ?? [];
 
   const kpis = useMemo(() => {
     const hitlQueue =
-      (stats?.pendingScripts ?? 7) +
-      (stats?.pendingUploads ?? 6) +
-      (stats?.pendingClones ?? 4);
+      (stats?.pendingScripts ?? 0) + (stats?.pendingUploads ?? 0) + (stats?.pendingClones ?? 0);
 
     return [
       {
         label: 'Total Clients',
-        value: stats?.organizations ?? fallbackStats.organizations,
+        value: statsLoading ? '…' : (stats?.organizations ?? 0),
         subtext: 'Across all tenant scopes',
         onClick: () => navigate('/admin/organizations'),
       },
       {
         label: 'Live Calls Now',
-        value: stats?.activeCalls ?? fallbackStats.activeCalls,
+        value: statsLoading ? '…' : (stats?.activeCalls ?? 0),
         subtext: 'Monitored in real time',
         onClick: () => navigate('/admin/call-logs'),
       },
       {
         label: 'Meetings/Mo',
-        value: stats?.meetingsThisMonth ?? fallbackStats.meetingsThisMonth,
-        subtext: 'Booked this month',
-        onClick: () => navigate('/admin/calendar'),
+        value: statsLoading ? '…' : (stats?.meetingsThisMonth ?? 0),
+        subtext: 'Success leads this month',
+        onClick: () => navigate('/admin/leads'),
       },
       {
         label: 'MRR',
-        value: formatCurrency(stats?.mrr),
-        subtext: 'Active recurring revenue',
+        value: statsLoading ? '…' : formatPortfolioMrr(stats?.mrr),
+        subtext: 'Latest collected MRR (portfolio)',
         onClick: () => navigate('/admin/commissions'),
       },
       {
         label: 'HITL Queue',
-        value: stats ? hitlQueue : fallbackStats.hitlQueue,
+        value: statsLoading ? '…' : hitlQueue,
         subtext: 'Scripts, uploads, clones',
         onClick: () => navigate('/admin/hitl'),
       },
     ];
-  }, [navigate, stats]);
-
-  const handleCallAction = (action: string, prospect: string) => {
-    toast.success(`${action} requested for ${prospect}`);
-  };
+  }, [navigate, stats, statsLoading]);
 
   return (
     <div className="space-y-5">
@@ -199,76 +286,44 @@ const AdminDashboardView: React.FC = () => {
             <div>
               <h2 className="text-sm font-semibold text-[hsl(var(--foreground))]">Active Live Calls</h2>
               <p className="text-[11px] text-[hsl(var(--muted-foreground))]">
-                Listen, intervene, or stop campaigns from the operations floor.
+                Random sample from your call log feed.
               </p>
             </div>
             <Badge variant="outline" className="font-mono">
-              {liveCalls.length} live
+              {callsLoading ? '…' : `${sampledCalls.length} shown`}
             </Badge>
           </div>
 
           <div className="divide-y divide-[hsl(var(--border-v))]">
-            {liveCalls.map((call) => (
-              <div key={call.id} className="p-4">
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-                  <div className="min-w-0">
+            {callsLoading ? (
+              <p className="p-6 text-center text-xs text-[hsl(var(--muted-foreground))]">Loading calls…</p>
+            ) : sampledCalls.length === 0 ? (
+              <p className="p-6 text-center text-xs text-[hsl(var(--muted-foreground))]">{CALL_LOGS_EMPTY_MESSAGE}</p>
+            ) : (
+              sampledCalls.map((call) => (
+                <button
+                  key={call.id}
+                  type="button"
+                  onClick={() => navigate('/admin/call-logs')}
+                  className="w-full text-left p-4 hover:bg-[hsl(var(--muted))]/35 transition-colors"
+                >
+                  <div className="flex flex-col gap-2">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-medium text-sm text-[hsl(var(--foreground))]">
-                        {call.prospect}
-                      </p>
-                      <Badge
-                        className="font-mono bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-                        variant="outline"
-                      >
-                        {call.status}
+                      <p className="font-medium text-sm text-[hsl(var(--foreground))]">{call.prospect}</p>
+                      <Badge className={`font-mono ${statusBadgeClass(call.status)}`} variant="outline">
+                        {formatStatusLabel(call.status)}
                       </Badge>
                     </div>
                     <p className="text-xs text-[hsl(var(--muted-foreground))]">
                       {call.company} · {call.agent} · {call.duration}
                     </p>
+                    <p className="text-xs leading-relaxed text-[hsl(var(--foreground))] line-clamp-2">
+                      {call.transcriptPreview}
+                    </p>
                   </div>
-
-                  <div className="grid grid-cols-3 gap-2 sm:flex sm:items-center">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleCallAction('Listen', call.prospect)}
-                    >
-                      <Headphones />
-                      Listen
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleCallAction('Take over', call.prospect)}
-                    >
-                      <PhoneCall />
-                      Take Over
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => handleCallAction('Kill campaign', call.prospect)}
-                    >
-                      <Ban />
-                      Kill Campaign
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="mt-3 rounded-lg border border-[hsl(var(--border-v))] bg-[hsl(var(--muted))]/25 p-3">
-                  <p className="text-[11px] font-mono uppercase tracking-wide text-[hsl(var(--muted-foreground))] mb-1">
-                    Latest transcript
-                  </p>
-                  <p className="text-xs leading-relaxed text-[hsl(var(--foreground))]">
-                    {call.transcript.at(-1)?.speaker}: {call.transcript.at(-1)?.text}
-                  </p>
-                </div>
-              </div>
-            ))}
+                </button>
+              ))
+            )}
           </div>
         </section>
 
@@ -297,9 +352,7 @@ const AdminDashboardView: React.FC = () => {
                   </div>
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm font-medium text-[hsl(var(--foreground))]">
-                        {alert.label}
-                      </p>
+                      <p className="text-sm font-medium text-[hsl(var(--foreground))]">{alert.label}</p>
                       <Badge variant="outline" className="font-mono">
                         {alert.priority}
                       </Badge>
@@ -335,41 +388,63 @@ const AdminDashboardView: React.FC = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {clientHealth.map((client) => (
-              <TableRow key={client.client}>
-                <TableCell className="font-medium text-[hsl(var(--foreground))]">{client.client}</TableCell>
-                <TableCell className="font-mono">{client.liveCalls}</TableCell>
-                <TableCell className="font-mono">{client.meetings}</TableCell>
-                <TableCell className="font-mono">{client.mrr}</TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2 min-w-[120px]">
-                    <div className="h-2 flex-1 rounded-full bg-[hsl(var(--muted))] overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-[hsl(var(--primary))]"
-                        style={{ width: `${client.health}%` }}
-                      />
-                    </div>
-                    <span className="text-xs font-mono text-[hsl(var(--muted-foreground))]">
-                      {client.health}
-                    </span>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <Badge
-                    variant="outline"
-                    className={
-                      client.status === 'At Risk'
-                        ? 'border-red-500/30 text-red-500'
-                        : client.status === 'Needs Review'
-                          ? 'border-amber-500/30 text-amber-500'
-                          : 'border-emerald-500/30 text-emerald-500'
-                    }
-                  >
-                    {client.status}
-                  </Badge>
+            {statsLoading ? (
+              <TableRow>
+                <TableCell colSpan={6} className="py-8 text-center text-xs text-[hsl(var(--muted-foreground))]">
+                  Loading portfolio health…
                 </TableCell>
               </TableRow>
-            ))}
+            ) : clientHealthRows.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="py-8 text-center text-xs text-[hsl(var(--muted-foreground))]">
+                  No clients in scope. Add organizations or adjust tenant scope in the header.
+                </TableCell>
+              </TableRow>
+            ) : (
+              clientHealthRows.map((client) => (
+                <TableRow
+                  key={client.organizationId}
+                  className="cursor-pointer hover:bg-[hsl(var(--muted))]/30"
+                  onClick={() => navigate('/admin/organizations')}
+                >
+                  <TableCell className="font-medium text-[hsl(var(--foreground))]">{client.client}</TableCell>
+                  <TableCell className="font-mono">{client.liveCalls}</TableCell>
+                  <TableCell className="font-mono">{client.meetings}</TableCell>
+                  <TableCell className="font-mono">
+                    {formatCurrencyForSource(client.mrrValue, { country_code: client.country_code }, {
+                      notation: 'compact',
+                    })}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2 min-w-[120px]">
+                      <div className="h-2 flex-1 rounded-full bg-[hsl(var(--muted))] overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-[hsl(var(--primary))]"
+                          style={{ width: `${client.health}%` }}
+                        />
+                      </div>
+                      <span className="text-xs font-mono text-[hsl(var(--muted-foreground))]">
+                        {client.health}
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant="outline"
+                      className={
+                        client.status === 'At Risk'
+                          ? 'border-red-500/30 text-red-500'
+                          : client.status === 'Needs Review'
+                            ? 'border-amber-500/30 text-amber-500'
+                            : 'border-emerald-500/30 text-emerald-500'
+                      }
+                    >
+                      {client.status}
+                    </Badge>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </section>
