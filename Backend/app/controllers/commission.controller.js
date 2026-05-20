@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '../config/supabase.js'
 import { StatusCodes } from 'http-status-codes'
 import * as userService from '../services/user.service.js'
+import { resolveScopedTargetOrgIds } from './admin.controller.js'
 
 /** PostgREST: table not exposed / not in schema cache (usually table does not exist yet). */
 function isMissingCommissionsTable(error) {
@@ -10,112 +11,68 @@ function isMissingCommissionsTable(error) {
   return /commissions/i.test(msg) && (/schema cache/i.test(msg) || /not find/i.test(msg))
 }
 
-/** Demo rows when DB migration has not been applied (same shape as public.commissions). */
-function buildDemoCommissionRows(spUserId) {
-  const orgId = '00000000-0000-4000-a000-00000000d001'
-  return [
-    {
-      id: '00000000-0000-4000-a000-00000000c001',
-      sp_user_id: spUserId,
-      organization_id: orgId,
-      period: 'June 2026',
-      collected_mrr: 18250,
-      rate: 20,
-      amount: 3650,
-      status: 'pending',
-      created_at: '2026-06-01T12:00:00.000Z',
-    },
-    {
-      id: '00000000-0000-4000-a000-00000000c002',
-      sp_user_id: spUserId,
-      organization_id: orgId,
-      period: 'May 2026',
-      collected_mrr: 15420,
-      rate: 20,
-      amount: 3084,
-      status: 'paid',
-      created_at: '2026-05-01T12:00:00.000Z',
-    },
-    {
-      id: '00000000-0000-4000-a000-00000000c003',
-      sp_user_id: spUserId,
-      organization_id: orgId,
-      period: 'April 2026',
-      collected_mrr: 12100,
-      rate: 18,
-      amount: 2178,
-      status: 'paid',
-      created_at: '2026-04-01T12:00:00.000Z',
-    },
-    {
-      id: '00000000-0000-4000-a000-00000000c004',
-      sp_user_id: spUserId,
-      organization_id: orgId,
-      period: 'March 2026',
-      collected_mrr: 9800,
-      rate: 18,
-      amount: 1764,
-      status: 'at_risk',
-      created_at: '2026-03-01T12:00:00.000Z',
-    },
-  ]
+function applyOrganizationScope(query, targetOrgIds) {
+  if (targetOrgIds == null) return query
+  if (targetOrgIds.length === 0) return null
+  if (targetOrgIds.length === 1) return query.eq('organization_id', targetOrgIds[0])
+  return query.in('organization_id', targetOrgIds)
 }
 
-const DEMO_ADMIN_ROWS = [
-  {
-    id: '00000000-0000-4000-a000-00000000b001',
-    sp_user_id: '00000000-0000-4000-a000-00000000a001',
-    organization_id: '00000000-0000-4000-a000-00000000d001',
-    period: 'June 2026',
-    collected_mrr: 18250,
-    rate: 20,
-    amount: 3650,
-    status: 'pending',
-    created_at: '2026-06-01T12:00:00.000Z',
-  },
-  {
-    id: '00000000-0000-4000-a000-00000000b002',
-    sp_user_id: '00000000-0000-4000-a000-00000000a001',
-    organization_id: '00000000-0000-4000-a000-00000000d001',
-    period: 'May 2026',
-    collected_mrr: 15420,
-    rate: 20,
-    amount: 3084,
-    status: 'paid',
-    created_at: '2026-05-01T12:00:00.000Z',
-  },
-]
-
 /**
- * Get commissions for the authenticated user (SP) or all rows for GCC admin.
+ * Get commissions for the authenticated user (SP) or scoped rows for GCC admin.
  * Rows live in public.commissions (see migrations/11_commissions.sql).
+ * GCC tenant scope: ?organization_id=<uuid> (via OrgScopePicker / api interceptor).
  */
 export const getCommissions = async (req, res) => {
   try {
     const { role, userId, orgId } = req.user
 
-    if (!['sp_primary', 'sp_sub', 'gcc_admin'].includes(role)) {
+    if (!['sp_primary', 'sp_sub', 'gcc_admin', 'gcc_reviewer'].includes(role)) {
       return res.status(StatusCodes.FORBIDDEN).json({
-        error: { message: 'Access denied to commissions' }
+        error: { message: 'Access denied to commissions' },
       })
     }
 
-    if (role === 'gcc_admin') {
-      const { data, error } = await supabaseAdmin
+    const selectWithOrg =
+      '*, organizations!commissions_organization_id_fkey(name, country_code)'
+
+    if (role === 'gcc_admin' || role === 'gcc_reviewer') {
+      const targetOrgIds = await resolveScopedTargetOrgIds(req)
+
+      if (Array.isArray(targetOrgIds) && targetOrgIds.length === 0) {
+        return res.status(StatusCodes.OK).json({ data: [] })
+      }
+
+      let query = supabaseAdmin
         .from('commissions')
-        .select('*')
+        .select(selectWithOrg)
         .order('created_at', { ascending: false })
+
+      query = applyOrganizationScope(query, targetOrgIds)
+      if (query === null) {
+        return res.status(StatusCodes.OK).json({ data: [] })
+      }
+
+      const { data, error } = await query
 
       if (error) {
         if (isMissingCommissionsTable(error)) {
           console.warn(
-            '[commissions] Table missing; returning demo rows. Run Backend/app/migrations/11_commissions.sql in the Supabase SQL editor, or: npm run db:commissions (requires DATABASE_URL).'
+            '[commissions] Table missing for scoped admin query. Run Backend/app/migrations/11_commissions.sql (npm run db:commissions). Returning empty — not demo rows.',
           )
-          return res.status(StatusCodes.OK).json({ data: DEMO_ADMIN_ROWS })
+          return res.status(StatusCodes.OK).json({
+            data: [],
+            meta: {
+              commissions_available: false,
+              message:
+                'Commission ledger not configured in this database. Apply migration 11_commissions.sql to enable per-client revenue data.',
+            },
+          })
         }
         console.error('[commissions] admin list error', error)
         return res.status(StatusCodes.OK).json({ data: [] })
       }
+
       return res.status(StatusCodes.OK).json({ data: data || [] })
     }
 
@@ -130,37 +87,39 @@ export const getCommissions = async (req, res) => {
       if (primary?.id) spId = primary.id
     }
 
-    const { data: rows, error } = await supabaseAdmin
+    const { data: assignments } = await userService.getSPClientAssignments(spId)
+    const targetOrgIds = new Set((assignments || []).map((a) => a.client_org_id))
+
+    let query = supabaseAdmin
       .from('commissions')
-      .select('*')
+      .select(selectWithOrg)
       .eq('sp_user_id', spId)
       .order('created_at', { ascending: false })
+
+    if (targetOrgIds.size > 0) {
+      query = query.in('organization_id', [...targetOrgIds])
+    }
+
+    const { data: rows, error } = await query
 
     if (error) {
       if (isMissingCommissionsTable(error)) {
         console.warn(
-          '[commissions] Table missing; returning demo rows. Run Backend/app/migrations/11_commissions.sql in the Supabase SQL editor, or: npm run db:commissions (requires DATABASE_URL).'
+          '[commissions] Table missing for SP query. Run migrations/11_commissions.sql. Returning empty.',
         )
-        return res.status(StatusCodes.OK).json({ data: buildDemoCommissionRows(spId) })
+        return res.status(StatusCodes.OK).json({
+          data: [],
+          meta: { commissions_available: false },
+        })
       }
       console.error('[commissions] sp list error', error)
       return res.status(StatusCodes.OK).json({ data: [] })
     }
 
-    const { data: assignments } = await userService.getSPClientAssignments(spId)
-    const targetOrgIds = new Set((assignments || []).map((a) => a.client_org_id))
-
-    // If the SP has explicit client assignments, only show commissions for those clients.
-    // If none (legacy / empty), show every commission row for this SP so seeded data still appears.
-    let data = rows || []
-    if (targetOrgIds.size > 0) {
-      data = data.filter((r) => targetOrgIds.has(r.organization_id))
-    }
-
-    return res.status(StatusCodes.OK).json({ data })
+    return res.status(StatusCodes.OK).json({ data: rows || [] })
   } catch (error) {
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      error: { message: error.message }
+      error: { message: error.message },
     })
   }
 }

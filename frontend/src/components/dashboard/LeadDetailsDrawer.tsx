@@ -1,10 +1,6 @@
 import React from 'react';
-import { 
-  X, Calendar, Clock, Phone, Mail, User, 
-  FileText, Activity, ExternalLink, Globe, 
-  MessageSquare, Sparkles, Building2, UserCircle
-} from 'lucide-react';
-import { format } from 'date-fns';
+import { X, Calendar, Clock, Phone, Mail, ExternalLink, MessageSquare, Sparkles, Building2, UserCircle } from 'lucide-react';
+import { formatNullableDate } from '@/lib/dateFormat';
 
 interface LeadDetailsDrawerProps {
   lead: any;
@@ -116,14 +112,14 @@ const LeadDetailsDrawer: React.FC<LeadDetailsDrawerProps> = ({ lead, isOpen, onC
                   <span className="text-[10px] text-[hsl(var(--muted-foreground))]">Meeting Scheduled</span>
                   <div className="flex items-center gap-2 text-xs font-semibold text-[hsl(var(--foreground))]">
                     <Calendar size={12} className="text-[hsl(var(--muted-foreground))]" />
-                    {lead.meeting_date || (lead.meeting_time ? format(new Date(lead.meeting_time), 'MMM d, yyyy') : 'No meeting scheduled')}
+                    {lead.meeting_date || (lead.meeting_time ? formatNullableDate(lead.meeting_time, 'MMM d, yyyy') : 'No meeting scheduled')}
                   </div>
                 </div>
                 <div className="p-4 flex flex-col gap-1">
                   <span className="text-[10px] text-[hsl(var(--muted-foreground))]">Capture Date</span>
                   <div className="flex items-center gap-2 text-xs font-semibold">
                     <Clock size={12} className="text-[hsl(var(--muted-foreground))]" />
-                    {format(new Date(lead.created_at), 'MMM d, yyyy HH:mm')}
+                    {formatNullableDate(lead.created_at, 'MMM d, yyyy HH:mm')}
                   </div>
                 </div>
               </div>

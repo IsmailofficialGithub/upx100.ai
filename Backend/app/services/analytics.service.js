@@ -7,10 +7,13 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-
  */
 
 export const getClientAnalytics = async (orgId) => {
-  // 1. Get Win/Loss data from leads
-  let leadsQuery = supabaseAdmin.schema('inbound').from('leads').select('*')
+  // 1. Get Win/Loss data from leads (status only — avoid loading full rows network-wide)
+  let leadsQuery = supabaseAdmin.schema('inbound').from('leads').select('status')
   if (orgId && UUID_RE.test(String(orgId))) {
     leadsQuery = leadsQuery.eq('organization_id', orgId)
+  } else {
+    // GCC all-tenant / missing org: cap rows so analytics cannot block the API for minutes
+    leadsQuery = leadsQuery.limit(5000)
   }
 
   const { data: leadsRaw, error: leadsErr } = await leadsQuery
@@ -41,14 +44,8 @@ export const getClientAnalytics = async (orgId) => {
     ]
   }
 
-  // 2. Projection data (Simulated for now based on actual counts)
-  const currentMonthlyRevenue = wonLeads.length * 12000
-  const labels = ['Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-  const revenueProjection = {
-    labels,
-    data: labels.map((_, i) => currentMonthlyRevenue * (1 + (i * 0.15))),
-    costs: labels.map((_, i) => 3000 + (i * 200))
-  }
+  // Legacy shape for older clients; ROI chart now builds month labels from the current date in the app.
+  const revenueProjection = { labels: [], data: [], costs: [] }
 
   // 3. Objections (Return mocks from service for consistency until table exists)
   const objectionInsights = [

@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import AdminDataView from './AdminDataView';
 import LeadDetailsDrawer from './LeadDetailsDrawer';
 import { Eye, Mail, Phone, Calendar, ArrowRight } from 'lucide-react';
-import { format } from 'date-fns';
 import api from '@/lib/api';
 import { toast } from 'sonner';
+import { formatNullableDate } from '@/lib/dateFormat';
 
 const LeadsView: React.FC = () => {
   const [selectedLead, setSelectedLead] = useState<any>(null);
@@ -75,7 +75,7 @@ const LeadsView: React.FC = () => {
           <Calendar size={12} className="text-[hsl(var(--muted-foreground))]" />
           <div className="flex flex-col">
             <span className="text-[11px] font-medium">
-              {row.meeting_date || (val ? format(new Date(val), 'MMM d, yyyy') : 'No meeting')}
+              {row.meeting_date || (val ? formatNullableDate(val, 'MMM d, yyyy') : 'No meeting')}
             </span>
             {row.meeting_timezone && <span className="text-[9px] text-[hsl(var(--muted-foreground))]">{row.meeting_timezone}</span>}
           </div>
@@ -87,7 +87,7 @@ const LeadsView: React.FC = () => {
       label: 'Captured',
       render: (val: string) => (
         <span className="text-[10px] font-mono text-[hsl(var(--muted-foreground))]">
-          {format(new Date(val), 'MMM d, HH:mm')}
+          {formatNullableDate(val, 'MMM d, HH:mm')}
         </span>
       )
     }

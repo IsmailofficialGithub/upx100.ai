@@ -2,6 +2,7 @@ import * as adminService from '../services/admin.service.js';
 import * as userService from '../services/user.service.js';
 import { StatusCodes } from 'http-status-codes';
 import { supabaseAdmin } from '../config/supabase.js';
+import { sanitizePhonesForApi } from '../utils/phoneNumberCompliance.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -141,16 +142,17 @@ export const getPhoneNumbers = async (req, res) => {
 
   const { data, error } = await adminService.getAllPhoneNumbers(targetOrgIds);
   if (error) return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error });
-  res.status(StatusCodes.OK).json({ data });
+  res.status(StatusCodes.OK).json({ data: sanitizePhonesForApi(data) });
 };
 
 export const getAgents = async (req, res) => {
-  const targetOrgIds = await getTargetOrgIds(req);
+  const targetOrgIds = await resolveScopedTargetOrgIds(req);
   if (targetOrgIds && targetOrgIds.length === 0) return res.status(StatusCodes.OK).json({ data: [] });
 
   const { data, error } = await adminService.getAllAgents(targetOrgIds);
   if (error) return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error });
-  res.status(StatusCodes.OK).json({ data });
+  const safe = (data || []).map(({ vapi_id: _v, model: _m, ...row }) => row);
+  res.status(StatusCodes.OK).json({ data: safe });
 };
 
 export const getScriptRequests = async (req, res) => {

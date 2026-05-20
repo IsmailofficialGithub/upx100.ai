@@ -1,39 +1,28 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import api from '@/lib/api';
-import { winLossData as mockWinLoss, objectionInsights as mockObjections, roiDefaults as mockRoi, revenueProjection as mockProjection } from '@/data/mockData';
-import { useTheme } from '@/context/ThemeContext';
+import { winLossData as mockWinLoss, objectionInsights as mockObjections } from '@/data/mockData';
 import { useAuth } from '@/context/AuthContext';
 import { useGccTenantScope } from '@/context/GccTenantScopeContext';
-import {
-  XAxis, YAxis, Tooltip, ResponsiveContainer, Area, AreaChart,
-} from 'recharts';
+import { formatCurrencyForSource } from '@/lib/currency';
+import RoiCalculator from '@/components/shared/RoiCalculator';
+import { normalizeCloseRatePercent } from '@/lib/roiSimulation';
 import { TrendingUp, TrendingDown, AlertTriangle, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
+/** Client & partner analytics: win/loss, objections, ROI. GCC admin uses ComplianceMonitorView at /admin/analytics. */
 const AnalyticsView: React.FC = () => {
-  const { currencySymbol } = useTheme();
-  const { canViewFinances, isGCC } = useAuth();
+  const { canViewFinances, isGCC, user } = useAuth();
   const gccScope = useGccTenantScope();
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
-
-  // ... (rest of state)
-  const [acv, setAcv] = useState(mockRoi.acv);
-  const [closeRate, setCloseRate] = useState(mockRoi.closeRate);
-  const [runway, setRunway] = useState(mockRoi.runway);
   const [expandedObj, setExpandedObj] = useState<number | null>(null);
   const [expandedLoss, setExpandedLoss] = useState<number | null>(null);
 
   useEffect(() => {
-    // ... (fetch logic remains same)
     const fetchAnalytics = async () => {
       try {
         const response = await api.get('/analytics/stats');
-        const result = response.data.data;
-        setData(result);
-        setAcv(result.roiDefaults.acv);
-        setCloseRate(result.roiDefaults.closeRate);
-        setRunway(result.roiDefaults.runway);
+        setData(response.data.data);
       } catch (err) {
         toast.error('Failed to load analytics data');
         console.error(err);
@@ -46,35 +35,20 @@ const AnalyticsView: React.FC = () => {
 
   const winLossData = data?.winLossData || mockWinLoss;
   const objectionInsights = data?.objectionInsights || mockObjections;
-  const revenueProjection = data?.revenueProjection || mockProjection;
+  const roiDefaults = data?.roiDefaults;
 
-  const MONTHLY_MEETINGS = 18;
-  const MONTHLY_COST = 3000;
+  const selectedScopeOrg =
+    gccScope.scopeOrgId === 'all' ? null : gccScope.organizations.find((org) => org.id === gccScope.scopeOrgId);
 
-  const roiCalc = useMemo(() => {
-    const projectedMeetings = MONTHLY_MEETINGS * runway;
-    const pipelineValue = projectedMeetings * acv;
-    const expectedRevenue = pipelineValue * (closeRate / 100);
-    const totalCost = runway * MONTHLY_COST;
-    const roi = (expectedRevenue - totalCost) / totalCost;
-    return { projectedMeetings, pipelineValue, expectedRevenue, totalCost, roi };
-  }, [acv, closeRate, runway]);
+  const currencySource = useMemo(() => {
+    if (selectedScopeOrg?.country_code) return { country_code: selectedScopeOrg.country_code };
+    if (user?.region === 'UK') return { country_code: 'GB' };
+    if (user?.region === 'US') return { country_code: 'US' };
+    return user;
+  }, [selectedScopeOrg, user]);
 
-  /** Cumulative expected revenue & cost by month — driven by the same sliders as ROI (not static API curve). */
-  const projectionData = useMemo(() => {
-    const labels =
-      revenueProjection.labels.length >= runway
-        ? revenueProjection.labels.slice(0, runway)
-        : Array.from({ length: runway }, (_, i) => `Month ${i + 1}`);
-    return labels.map((name, i) => {
-      const month = i + 1;
-      const meetingsCumulative = MONTHLY_MEETINGS * month;
-      const pipelineCumulative = meetingsCumulative * acv;
-      const revenueCumulative = pipelineCumulative * (closeRate / 100);
-      const costsCumulative = month * MONTHLY_COST;
-      return { name, revenue: revenueCumulative, costs: costsCumulative };
-    });
-  }, [revenueProjection.labels, runway, acv, closeRate]);
+  const compactMoney = (value: number) =>
+    formatCurrencyForSource(value, currencySource, { notation: 'compact', maximumFractionDigits: 2 });
 
   if (isLoading) {
     return (
@@ -84,22 +58,11 @@ const AnalyticsView: React.FC = () => {
     );
   }
 
-
   return (
     <div className="space-y-6">
-      {isGCC && (
-        <p className="text-[11px] text-[hsl(var(--muted-foreground))] rounded-lg border border-[hsl(var(--border-v))] bg-[hsl(var(--muted))]/30 px-3 py-2">
-          {gccScope.scopeOrgId === 'all'
-            ? 'Win/loss and ROI sliders reflect all leads in the network. Pick a company in the header scope control for account-specific analytics.'
-            : 'Figures below are scoped to the company selected in the tenant scope control in the header.'}
-        </p>
-      )}
-      {/* Win/Loss + Objections Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Win/Loss Analysis */}
         <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-4">
           <h3 className="text-sm font-display font-semibold text-[hsl(var(--foreground))] mb-4">Win/Loss Analysis</h3>
-
           <div className="grid grid-cols-2 gap-3 mb-4">
             <div className="p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-lg text-center">
               <div className="flex items-center justify-center gap-1.5 mb-2">
@@ -108,7 +71,7 @@ const AnalyticsView: React.FC = () => {
               </div>
               <p className="text-2xl font-bold font-display text-emerald-400">{winLossData.won.count}</p>
               <p className="text-[10px] font-mono text-[hsl(var(--muted-foreground))] mt-1">{winLossData.won.percentage}% of deals</p>
-              {canViewFinances && <p className="text-[10px] font-mono text-emerald-400 mt-1">Avg {currencySymbol}{(winLossData.won.avgDeal / 1000).toFixed(0)}k</p>}
+              {canViewFinances && <p className="text-[10px] font-mono text-emerald-400 mt-1">Avg {compactMoney(winLossData.won.avgDeal)}</p>}
             </div>
             <div className="p-4 bg-red-500/5 border border-red-500/20 rounded-lg text-center">
               <div className="flex items-center justify-center gap-1.5 mb-2">
@@ -117,20 +80,19 @@ const AnalyticsView: React.FC = () => {
               </div>
               <p className="text-2xl font-bold font-display text-red-400">{winLossData.lost.count}</p>
               <p className="text-[10px] font-mono text-[hsl(var(--muted-foreground))] mt-1">{winLossData.lost.percentage}% of deals</p>
-              {canViewFinances && <p className="text-[10px] font-mono text-red-400 mt-1">Avg {currencySymbol}{(winLossData.lost.avgDeal / 1000).toFixed(0)}k</p>}
+              {canViewFinances && <p className="text-[10px] font-mono text-red-400 mt-1">Avg {compactMoney(winLossData.lost.avgDeal)}</p>}
             </div>
           </div>
-
-          {/* Loss Reasons Accordion */}
           <div>
             <p className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] mb-2 tracking-wider">Loss Reasons</p>
             <div className="space-y-2">
-              {winLossData.reasons.map((reason, i) => {
+              {winLossData.reasons.map((reason: { reason: string; count: number }, i: number) => {
                 const isExpanded = expandedLoss === i;
-                const pct = (reason.count / winLossData.lost.count) * 100;
+                const pct = winLossData.lost.count ? (reason.count / winLossData.lost.count) * 100 : 0;
                 return (
                   <div key={i} className="border border-[hsl(var(--border-v))] rounded-lg overflow-hidden">
                     <button
+                      type="button"
                       className="w-full flex items-center justify-between p-3 text-left hover:bg-[hsl(var(--muted))] transition-colors"
                       onClick={() => setExpandedLoss(isExpanded ? null : i)}
                     >
@@ -148,7 +110,7 @@ const AnalyticsView: React.FC = () => {
                     {isExpanded && (
                       <div className="px-3 pb-3 border-t border-[hsl(var(--border))]">
                         <p className="text-[11px] text-[hsl(var(--muted-foreground))]">
-                          This is the #{i + 1} reason for lost deals. Consider adjusting your pitch or objection handling to address this concern earlier in the conversation.
+                          Consider adjusting pitch or objection handling to address this concern earlier in the conversation.
                         </p>
                       </div>
                     )}
@@ -159,18 +121,17 @@ const AnalyticsView: React.FC = () => {
           </div>
         </div>
 
-        {/* Objection Insights */}
         <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-4">
           <h3 className="text-sm font-display font-semibold text-[hsl(var(--foreground))] mb-4">Objection Insights</h3>
-
           <div className="space-y-3">
-            {objectionInsights.map((obj, i) => {
+            {objectionInsights.map((obj: { objection: string; frequency: number; rebuttal: string }, i: number) => {
               const isExpanded = expandedObj === i;
               const maxFreq = objectionInsights[0].frequency;
               const pct = (obj.frequency / maxFreq) * 100;
               return (
                 <div key={i} className="border border-[hsl(var(--border-v))] rounded-lg overflow-hidden">
                   <button
+                    type="button"
                     className="w-full p-3 text-left hover:bg-[hsl(var(--muted))] transition-colors"
                     onClick={() => setExpandedObj(isExpanded ? null : i)}
                   >
@@ -191,7 +152,7 @@ const AnalyticsView: React.FC = () => {
                   {isExpanded && (
                     <div className="px-3 pb-3 border-t border-[hsl(var(--border))]">
                       <p className="text-[10px] font-mono uppercase text-[hsl(var(--primary))] mb-1 tracking-wider">Recommended Rebuttal</p>
-                      <p className="text-[11px] text-[hsl(var(--foreground))] leading-relaxed italic">"{obj.rebuttal}"</p>
+                      <p className="text-[11px] text-[hsl(var(--foreground))] leading-relaxed italic">&ldquo;{obj.rebuttal}&rdquo;</p>
                     </div>
                   )}
                 </div>
@@ -201,151 +162,20 @@ const AnalyticsView: React.FC = () => {
         </div>
       </div>
 
-      {/* ROI Calculator */}
       {canViewFinances && (
         <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-4">
-          <h3 className="text-sm font-display font-semibold text-[hsl(var(--foreground))] mb-4">ROI Calculator</h3>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-            <div>
-              <label className="flex justify-between text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] mb-2 tracking-wider">
-                <span>Average ACV</span>
-                <span className="text-[hsl(var(--primary))]">{currencySymbol}{acv.toLocaleString()}</span>
-              </label>
-              <input
-                type="range"
-                min={10000}
-                max={500000}
-                step={5000}
-                value={acv}
-                onChange={e => setAcv(Number(e.target.value))}
-                className="w-full h-1.5 bg-[hsl(var(--muted))] rounded-full appearance-none cursor-pointer accent-[hsl(var(--primary))]"
-              />
-              <div className="flex justify-between mt-1">
-                <span className="text-[9px] font-mono text-[hsl(var(--muted-foreground))]">{currencySymbol}10k</span>
-                <span className="text-[9px] font-mono text-[hsl(var(--muted-foreground))]">{currencySymbol}500k</span>
-              </div>
-            </div>
-
-            <div>
-              <label className="flex justify-between text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] mb-2 tracking-wider">
-                <span>Close Rate %</span>
-                <span className="text-[hsl(var(--primary))]">{closeRate}%</span>
-              </label>
-              <input
-                type="range"
-                min={5}
-                max={50}
-                step={1}
-                value={closeRate}
-                onChange={e => setCloseRate(Number(e.target.value))}
-                className="w-full h-1.5 bg-[hsl(var(--muted))] rounded-full appearance-none cursor-pointer accent-[hsl(var(--primary))]"
-              />
-              <div className="flex justify-between mt-1">
-                <span className="text-[9px] font-mono text-[hsl(var(--muted-foreground))]">5%</span>
-                <span className="text-[9px] font-mono text-[hsl(var(--muted-foreground))]">50%</span>
-              </div>
-            </div>
-
-            <div>
-              <label className="flex justify-between text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] mb-2 tracking-wider">
-                <span>Runway (months)</span>
-                <span className="text-[hsl(var(--primary))]">{runway}mo</span>
-              </label>
-              <input
-                type="range"
-                min={3}
-                max={12}
-                step={1}
-                value={runway}
-                onChange={e => setRunway(Number(e.target.value))}
-                className="w-full h-1.5 bg-[hsl(var(--muted))] rounded-full appearance-none cursor-pointer accent-[hsl(var(--primary))]"
-              />
-              <div className="flex justify-between mt-1">
-                <span className="text-[9px] font-mono text-[hsl(var(--muted-foreground))]">3mo</span>
-                <span className="text-[9px] font-mono text-[hsl(var(--muted-foreground))]">12mo</span>
-              </div>
-            </div>
-          </div>
-
-          {/* ROI Results */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="p-3 bg-[hsl(var(--muted))] rounded-lg text-center">
-              <p className="text-[9px] font-mono uppercase text-[hsl(var(--muted-foreground))] tracking-wider">Projected Meetings</p>
-              <p className="text-lg font-bold font-display text-[hsl(var(--foreground))] mt-1">{roiCalc.projectedMeetings}</p>
-            </div>
-            <div className="p-3 bg-[hsl(var(--muted))] rounded-lg text-center">
-              <p className="text-[9px] font-mono uppercase text-[hsl(var(--muted-foreground))] tracking-wider">Pipeline Value</p>
-              <p className="text-lg font-bold font-display text-[hsl(var(--primary))] mt-1">{currencySymbol}{(roiCalc.pipelineValue / 1000000).toFixed(2)}M</p>
-            </div>
-            <div className="p-3 bg-[hsl(var(--muted))] rounded-lg text-center">
-              <p className="text-[9px] font-mono uppercase text-[hsl(var(--muted-foreground))] tracking-wider">Expected Revenue</p>
-              <p className="text-lg font-bold font-display text-emerald-400 mt-1">{currencySymbol}{(roiCalc.expectedRevenue / 1000000).toFixed(2)}M</p>
-            </div>
-            <div className="p-3 bg-[hsl(var(--muted))] rounded-lg text-center">
-              <p className="text-[9px] font-mono uppercase text-[hsl(var(--muted-foreground))] tracking-wider">ROI</p>
-              <p className={`text-lg font-bold font-display mt-1 ${roiCalc.roi >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                {(roiCalc.roi * 100).toFixed(0)}x
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Revenue Projection Chart */}
-      {canViewFinances && (
-        <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-4">
-          <h3 className="text-sm font-display font-semibold text-[hsl(var(--foreground))] mb-4">Revenue Projection</h3>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={projectionData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} key={`${acv}-${closeRate}-${runway}`}>
-                <defs>
-                  <linearGradient id="revGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                    <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="costGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0.25} />
-                    <stop offset="100%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#888' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: '#888' }} axisLine={false} tickLine={false} tickFormatter={v => `${currencySymbol}${(v / 1000).toFixed(0)}k`} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'hsl(var(--card))',
-                    border: '1px solid hsl(var(--border-v))',
-                    borderRadius: '8px',
-                    fontSize: '12px',
-                  }}
-                  formatter={(value: number, name: string) => [
-                    `${currencySymbol}${Math.round(value).toLocaleString()}`,
-                    name === 'revenue' ? 'Cumulative expected revenue' : 'Cumulative cost',
-                  ]}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="costs"
-                  stroke="hsl(var(--muted-foreground))"
-                  fill="url(#costGradient)"
-                  strokeWidth={1.5}
-                  name="costs"
-                />
-                <Area
-                  type="monotone"
-                  dataKey="revenue"
-                  stroke="hsl(var(--primary))"
-                  fill="url(#revGradient)"
-                  strokeWidth={2}
-                  name="revenue"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-          <p className="text-[10px] font-mono text-[hsl(var(--muted-foreground))] mt-2">
-            Curve uses the same assumptions as the calculator: {MONTHLY_MEETINGS} meetings/mo, ACV and close rate applied cumulatively; {currencySymbol}
-            {MONTHLY_COST.toLocaleString()}/mo cost.
-          </p>
+          <RoiCalculator
+            currencySource={currencySource}
+            initialDefaults={
+              roiDefaults
+                ? {
+                    acv: roiDefaults.acv,
+                    closeRatePercent: normalizeCloseRatePercent(roiDefaults.closeRate),
+                    runwayMonths: roiDefaults.runway,
+                  }
+                : undefined
+            }
+          />
         </div>
       )}
     </div>

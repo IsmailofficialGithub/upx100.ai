@@ -1,6 +1,14 @@
 import * as agentService from '../services/inboundAgent.service.js'
 import * as phoneService from '../services/inboundPhone.service.js'
+import * as adminService from '../services/admin.service.js'
+import { resolveScopedTargetOrgIds } from './admin.controller.js'
 import { StatusCodes } from 'http-status-codes'
+
+/** Never expose vendor model ids or internal telephony ids to GCC/client UI. */
+const stripInternalAgentFields = (rows) =>
+  (rows || []).map(({ vapi_id: _v, model: _m, ...row }) => row)
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 /**
  * Controller for Inbound Agents
@@ -8,17 +16,23 @@ import { StatusCodes } from 'http-status-codes'
 
 export const getAgents = async (req, res) => {
   const { role, orgId, userId } = req.user
-  let agents
 
-  if (role === 'gcc_admin') {
-    agents = await agentService.listAllAgents()
-  } else {
-    // Org Admin sees everything in org, Sub-user only sees own
-    const filterUserId = ['client_admin', 'sp_primary'].includes(role) ? null : userId
-    agents = await agentService.listAgentsByOrg(orgId, filterUserId)
+  if (role === 'gcc_admin' || role === 'gcc_reviewer') {
+    const targetOrgIds = await resolveScopedTargetOrgIds(req)
+    if (targetOrgIds && targetOrgIds.length === 0) {
+      return res.json({ data: [] })
+    }
+    const { data, error } = await adminService.getAllAgents(targetOrgIds)
+    if (error) {
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error })
+    }
+    return res.json({ data: stripInternalAgentFields(data) })
   }
 
-  return res.json({ data: agents })
+  // Org Admin sees everything in org, Sub-user only sees own
+  const filterUserId = ['client_admin', 'sp_primary'].includes(role) ? null : userId
+  const agents = await agentService.listAgentsByOrg(orgId, filterUserId)
+  return res.json({ data: stripInternalAgentFields(agents) })
 }
 
 export const getAgent = async (req, res) => {
@@ -31,15 +45,26 @@ export const getAgent = async (req, res) => {
     })
   }
 
-  // Org isolation check
-  if (req.user.role !== 'gcc_admin') {
+  const isGccElevated = req.user.role === 'gcc_admin' || req.user.role === 'gcc_reviewer'
+
+  if (isGccElevated) {
+    const targetOrgIds = await resolveScopedTargetOrgIds(req)
+    if (
+      targetOrgIds?.length &&
+      agent.organization_id &&
+      !targetOrgIds.includes(agent.organization_id)
+    ) {
+      return res.status(StatusCodes.FORBIDDEN).json({
+        error: { code: 'FORBIDDEN', message: 'Access denied' }
+      })
+    }
+  } else {
     const effectiveOrgId = (req.user.orgId && req.user.orgId !== '00000000-0000-4000-a000-000000000003') ? req.user.orgId : null
     if (agent.organization_id !== effectiveOrgId) {
       return res.status(StatusCodes.FORBIDDEN).json({
         error: { code: 'FORBIDDEN', message: 'Access denied' }
       })
     }
-    // Sub-users can only view their own agents
     if (!['client_admin', 'sp_primary'].includes(req.user.role) && agent.user_id !== req.user.userId) {
       return res.status(StatusCodes.FORBIDDEN).json({
         error: { code: 'FORBIDDEN', message: 'Access denied' }
@@ -47,7 +72,7 @@ export const getAgent = async (req, res) => {
     }
   }
 
-  return res.json({ data: agent })
+  return res.json({ data: stripInternalAgentFields([agent])[0] })
 }
 
 export const createAgent = async (req, res) => {
@@ -57,9 +82,24 @@ export const createAgent = async (req, res) => {
     })
   }
 
+  const orgId = req.body.organization_id
+  if (!orgId || !UUID_RE.test(String(orgId))) {
+    return res.status(StatusCodes.BAD_REQUEST).json({
+      error: { message: 'A valid client organization_id is required.' }
+    })
+  }
+
+  const industryVertical = String(req.body.industry_vertical || '').trim()
+  if (!industryVertical) {
+    return res.status(StatusCodes.BAD_REQUEST).json({
+      error: { message: 'industry_vertical is required.' }
+    })
+  }
+
   const agentData = {
     ...req.body,
-    organization_id: req.body.organization_id,
+    organization_id: orgId,
+    industry_vertical: industryVertical,
     user_id: ['gcc_admin', 'client_admin', 'sp_primary'].includes(req.user.role)
       ? (req.body.user_id || req.user.userId)
       : req.user.userId

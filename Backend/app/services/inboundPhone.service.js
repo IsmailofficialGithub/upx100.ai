@@ -1,6 +1,21 @@
 import axios from 'axios'
 import { StatusCodes } from 'http-status-codes'
 import { supabaseAdmin } from '../config/supabase.js'
+import {
+  assertAgentPhoneSameOrg,
+  assertOrgNotReassigned,
+  assertOrganizationRequired,
+  assertPhoneExclusiveToOrg,
+  normalizeLineStatus,
+  sanitizePhoneForApi,
+  sanitizePhonesForApi,
+} from '../utils/phoneNumberCompliance.js'
+
+/** PostgREST select that avoids optional/broken profile embeds. */
+const PHONE_LIST_SELECT =
+  '*, organizations:organizations!phone_numbers_organization_id_fkey(id, name), agents:agents!phone_numbers_agent_id_fkey(id, name)'
+
+const ASSIGNABLE_STATUSES = ['active', 'porting']
 
 /**
  * Inbound Phone Service
@@ -10,13 +25,18 @@ import { supabaseAdmin } from '../config/supabase.js'
 export const provisionNumber = async (numberData) => {
   const webhookUrl = `${process.env.REACT_APP_WEBHOOK_BASE_URL}${process.env.REACT_APP_WEBHOOK_IMPORT_NUMBER}`
 
+  assertOrganizationRequired(numberData.organization_id)
+  await assertPhoneExclusiveToOrg(numberData.phone_number, numberData.organization_id)
+
+  const lineStatus = numberData.status === 'porting' || numberData.port_requested ? 'porting' : 'active'
+
   // 1. Save to local database first to get unique ID
   const insertData = {
     phone_number: numberData.phone_number,
-    organization_id: numberData.organization_id || null,
+    organization_id: numberData.organization_id,
     label: numberData.label || null,
-    provider: numberData.provider || 'vapi',
-    status: 'pending',
+    provider: 'vapi',
+    status: lineStatus,
     port_requested: false,
     country_code: numberData.country_code || null,
     user_id: numberData.user_id || null,
@@ -26,13 +46,7 @@ export const provisionNumber = async (numberData) => {
     call_forwarding_number: numberData.call_forwarding_number || null,
     call_forwarding_reason: numberData.call_forwarding_reason || null,
     metadata: {
-      provider: numberData.provider || 'vapi',
       user_id: numberData.user_id || null,
-      twilio_account_sid: numberData.twilio_account_sid || null,
-      twilio_auth_token: numberData.twilio_auth_token || null,
-      vonage_api_key: numberData.vonage_api_key || null,
-      vonage_api_secret: numberData.vonage_api_secret || null,
-      telnyx_api_key: numberData.telnyx_api_key || null,
       sms_enabled: numberData.sms_enabled || false,
       country_code: numberData.country_code || null,
       tool_id: numberData.tool_id || null,
@@ -79,33 +93,73 @@ export const provisionNumber = async (numberData) => {
   const webhookResponse = await axios.post(webhookUrl, finalPayload)
   console.log("webhookResponse", webhookResponse.data)
 
-  return { db: data, webhook: webhookResponse.data }
+  return { db: sanitizePhoneForApi(data), webhook: webhookResponse.data }
+}
+
+export const unbindAllNumbersFromAgent = async (agentId) => {
+  const { error } = await supabaseAdmin
+    .schema('inbound')
+    .from('phone_numbers')
+    .update({ agent_id: null })
+    .eq('agent_id', agentId)
+
+  if (error) throw error
 }
 
 export const bindNumberToAgent = async (numberId, agentId) => {
-  const webhookUrl = `${process.env.REACT_APP_WEBHOOK_BASE_URL}${process.env.REACT_APP_WEBHOOK_UNBIND}`
+  const webhookPath =
+    process.env.REACT_APP_WEBHOOK_BIND_AGENT ||
+    process.env.REACT_APP_WEBHOOK_UNBIND
+  const webhookUrl = `${process.env.REACT_APP_WEBHOOK_BASE_URL}${webhookPath}`
 
   const existing = await getNumberById(numberId)
-  if (!existing) throw new Error('Number not found')
+  if (!existing) {
+    const err = new Error('Number not found')
+    err.status = StatusCodes.NOT_FOUND
+    throw err
+  }
 
-  // 1. Trigger external automation
-  const webhookResponse = await axios.post(webhookUrl, {
-    numberId,
-    agentId,
-    organization_id: existing.organization_id
-  })
+  const { data: agent, error: agentError } = await supabaseAdmin
+    .schema('inbound')
+    .from('agents')
+    .select('id, organization_id, name, deleted_at')
+    .eq('id', agentId)
+    .single()
 
-  // 2. Update local database
+  if (agentError || !agent || agent.deleted_at) {
+    const err = new Error('Agent not found')
+    err.status = StatusCodes.NOT_FOUND
+    throw err
+  }
+
+  assertAgentPhoneSameOrg(agent, existing)
+
+  // One inbound line per agent: release any other number currently bound to this agent.
+  await unbindAllNumbersFromAgent(agentId)
+
   const { data, error } = await supabaseAdmin
     .schema('inbound')
     .from('phone_numbers')
     .update({ agent_id: agentId })
     .eq('id', numberId)
-    .select()
+    .select(PHONE_LIST_SELECT)
     .single()
 
   if (error) throw error
-  return { db: data, webhook: webhookResponse.data }
+
+  let webhookResponse = { data: { status: 'bound' } }
+  try {
+    webhookResponse = await axios.post(webhookUrl, {
+      numberId,
+      agentId,
+      organization_id: existing.organization_id,
+      phone_number: existing.phone_number,
+    })
+  } catch (webhookError) {
+    console.error('[bindNumberToAgent] webhook failed:', webhookError.message)
+  }
+
+  return { db: sanitizePhoneForApi(data), webhook: webhookResponse.data }
 }
 
 export const deleteNumber = async (numberId) => {
@@ -147,11 +201,16 @@ export const checkNumberStatus = async (numberId) => {
 
   // 2. Update local database if needed (assuming webhook returns current status)
   if (webhookResponse.data.status) {
+    const lineStatus = normalizeLineStatus({
+      status: webhookResponse.data.status,
+      port_requested: existing.port_requested,
+    })
     await supabaseAdmin
       .schema('inbound')
       .from('phone_numbers')
-      .update({ status: webhookResponse.data.status })
+      .update({ status: lineStatus })
       .eq('id', numberId)
+    webhookResponse.data.status = lineStatus
   }
 
   return webhookResponse.data
@@ -181,14 +240,15 @@ export const submitPortRequest = async (numberId, portData, submittedByUserId) =
     .update({
       port_requested: true,
       port_status: 'submitted',
-      metadata: meta
+      status: 'porting',
+      metadata: meta,
     })
     .eq('id', numberId)
     .select()
     .single()
 
   if (error) throw error
-  return data
+  return sanitizePhoneForApi(data)
 }
 
 export const updateNumber = async (numberId, updateData) => {
@@ -202,12 +262,27 @@ export const updateNumber = async (numberId, updateData) => {
 
   if (fetchError || !existing) throw fetchError || new Error('Number not found')
 
+  const nextOrgId =
+    updateData.organization_id !== undefined ? updateData.organization_id : existing.organization_id
+  const nextPhone =
+    updateData.phone_number !== undefined ? updateData.phone_number : existing.phone_number
+
+  assertOrganizationRequired(nextOrgId)
+  assertOrgNotReassigned(existing.organization_id, nextOrgId)
+  await assertPhoneExclusiveToOrg(nextPhone, nextOrgId, numberId)
+
+  const nextStatus =
+    updateData.status !== undefined
+      ? normalizeLineStatus({ status: updateData.status, port_requested: updateData.port_requested })
+      : normalizeLineStatus(existing)
+
   const updatePayload = {
-    phone_number: updateData.phone_number !== undefined ? updateData.phone_number : existing.phone_number,
-    organization_id: updateData.organization_id !== undefined ? updateData.organization_id : existing.organization_id,
+    phone_number: nextPhone,
+    organization_id: nextOrgId,
     user_id: updateData.user_id !== undefined ? updateData.user_id : existing.user_id,
     label: updateData.label !== undefined ? updateData.label : existing.label,
-    provider: updateData.provider !== undefined ? updateData.provider : existing.provider,
+    provider: 'vapi',
+    status: nextStatus,
     tool_id: updateData.tool_id !== undefined ? updateData.tool_id : existing.tool_id,
     phone_number_id: updateData.phone_number_id !== undefined ? updateData.phone_number_id : existing.phone_number_id,
     call_forwarding_enabled: updateData.call_forwarding_enabled !== undefined ? updateData.call_forwarding_enabled : existing.call_forwarding_enabled,
@@ -216,13 +291,7 @@ export const updateNumber = async (numberId, updateData) => {
     agent_id: updateData.agent_id !== undefined ? updateData.agent_id : existing.agent_id,
     metadata: {
       ...(existing.metadata || {}),
-      provider: updateData.provider || existing.provider,
       user_id: updateData.user_id !== undefined ? updateData.user_id : existing.user_id,
-      twilio_account_sid: updateData.twilio_account_sid !== undefined ? updateData.twilio_account_sid : (existing.metadata?.twilio_account_sid || null),
-      twilio_auth_token: updateData.twilio_auth_token !== undefined ? updateData.twilio_auth_token : (existing.metadata?.twilio_auth_token || null),
-      vonage_api_key: updateData.vonage_api_key !== undefined ? updateData.vonage_api_key : (existing.metadata?.vonage_api_key || null),
-      vonage_api_secret: updateData.vonage_api_secret !== undefined ? updateData.vonage_api_secret : (existing.metadata?.vonage_api_secret || null),
-      telnyx_api_key: updateData.telnyx_api_key !== undefined ? updateData.telnyx_api_key : (existing.metadata?.telnyx_api_key || null),
       tool_id: updateData.tool_id !== undefined ? updateData.tool_id : (existing.metadata?.tool_id || null),
       phone_number_id: updateData.phone_number_id !== undefined ? updateData.phone_number_id : (existing.metadata?.phone_number_id || null),
       call_forwarding_enabled: updateData.call_forwarding_enabled !== undefined ? updateData.call_forwarding_enabled : (existing.metadata?.call_forwarding_enabled || false),
@@ -286,7 +355,47 @@ export const updateNumber = async (numberId, updateData) => {
     // We don't throw here to ensure DB update is still considered successful
   }
 
-  return data
+  return sanitizePhoneForApi(data)
+}
+
+/** GCC completes or rejects a port-in request. */
+export const reviewPortRequest = async (numberId, status, reviewerId) => {
+  const existing = await getNumberById(numberId)
+  if (!existing) {
+    const err = new Error('Number not found')
+    err.status = StatusCodes.NOT_FOUND
+    throw err
+  }
+  if (!existing.port_requested) {
+    const err = new Error('No port request on this number')
+    err.status = StatusCodes.BAD_REQUEST
+    throw err
+  }
+
+  const portStatus = status === 'approved' ? 'approved' : 'rejected'
+  const meta = {
+    ...(existing.metadata || {}),
+    port_reviewed_at: new Date().toISOString(),
+    port_reviewed_by: reviewerId,
+  }
+
+  const lineStatus = status === 'approved' ? 'active' : 'suspended'
+
+  const { data, error } = await supabaseAdmin
+    .schema('inbound')
+    .from('phone_numbers')
+    .update({
+      port_status: portStatus,
+      port_requested: status !== 'rejected',
+      status: lineStatus,
+      metadata: meta,
+    })
+    .eq('id', numberId)
+    .select()
+    .single()
+
+  if (error) throw error
+  return sanitizePhoneForApi(data)
 }
 
 export const requestPort = async (numberId, portData) => {
@@ -297,21 +406,24 @@ export const requestPort = async (numberId, portData) => {
     .update({
       port_requested: true,
       port_status: 'pending',
-      metadata: portData // Optional additional details
+      status: 'porting',
+      metadata: portData,
     })
     .eq('id', numberId)
     .select()
     .single()
 
   if (error) throw error
-  return data
+  return sanitizePhoneForApi(data)
 }
 
-export const listNumbersByOrg = async (orgId, userId = null) => {
+export const listNumbersByOrg = async (orgId, userId = null, options = {}) => {
+  const { forAgentId = null, assignableOnly = false } = options
+
   let query = supabaseAdmin
     .schema('inbound')
     .from('phone_numbers')
-    .select('*, organizations:organizations!phone_numbers_organization_id_fkey(id, name), profiles:profiles!phone_numbers_profiles_fkey(id, full_name, email)')
+    .select(PHONE_LIST_SELECT)
 
   if (orgId && orgId !== 'null' && orgId !== '00000000-0000-4000-a000-000000000003') {
     query = query.eq('organization_id', orgId)
@@ -323,17 +435,26 @@ export const listNumbersByOrg = async (orgId, userId = null) => {
     query = query.eq('user_id', userId)
   }
 
+  if (assignableOnly) {
+    query = query.in('status', ASSIGNABLE_STATUSES)
+    if (forAgentId) {
+      query = query.or(`agent_id.is.null,agent_id.eq.${forAgentId}`)
+    } else {
+      query = query.is('agent_id', null)
+    }
+  }
+
   const { data, error } = await query
 
   if (error) throw error
-  return data
+  return sanitizePhonesForApi(data)
 }
 
 export const getNumberById = async (numberId) => {
   const { data, error } = await supabaseAdmin
     .schema('inbound')
     .from('phone_numbers')
-    .select('*, organizations:organizations!phone_numbers_organization_id_fkey(id, name), profiles:profiles!phone_numbers_profiles_fkey(id, full_name, email)')
+    .select(PHONE_LIST_SELECT)
     .eq('id', numberId)
     .single()
 
@@ -341,15 +462,32 @@ export const getNumberById = async (numberId) => {
     if (error.code === 'PGRST116') return null;
     throw error;
   }
-  return data
+  return sanitizePhoneForApi(data)
 }
 
-export const listAllNumbers = async () => {
-  const { data, error } = await supabaseAdmin
+export const listAllNumbers = async (options = {}) => {
+  const { forAgentId = null, organizationId = null, assignableOnly = false } = options
+
+  if (organizationId) {
+    return listNumbersByOrg(organizationId, null, { forAgentId, assignableOnly })
+  }
+
+  let query = supabaseAdmin
     .schema('inbound')
     .from('phone_numbers')
-    .select('*, organizations:organizations!phone_numbers_organization_id_fkey(id, name), profiles:profiles!phone_numbers_profiles_fkey(id, full_name, email)')
+    .select(PHONE_LIST_SELECT)
+
+  if (assignableOnly) {
+    query = query.in('status', ASSIGNABLE_STATUSES)
+    if (forAgentId) {
+      query = query.or(`agent_id.is.null,agent_id.eq.${forAgentId}`)
+    } else {
+      query = query.is('agent_id', null)
+    }
+  }
+
+  const { data, error } = await query
 
   if (error) throw error
-  return data
+  return sanitizePhonesForApi(data)
 }

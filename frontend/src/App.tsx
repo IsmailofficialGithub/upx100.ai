@@ -1,6 +1,6 @@
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from '@/context/ThemeContext';
-import { AuthProvider, useAuth } from '@/context/AuthContext';
+import { AuthProvider } from '@/context/AuthContext';
 import { GccTenantScopeProvider } from '@/context/GccTenantScopeContext';
 import { Toaster } from 'sonner';
 import LandingPage from '@/components/landing/LandingPage';
@@ -10,10 +10,11 @@ import DashboardShell from '@/components/layout/DashboardShell';
 import DashboardView from '@/components/dashboard/DashboardView';
 import CalendarView from '@/components/dashboard/CalendarView';
 import AnalyticsView from '@/components/dashboard/AnalyticsView';
+import ComplianceMonitorView from '@/components/dashboard/ComplianceMonitorView';
 import EngineView from '@/components/dashboard/EngineView';
 import PlaybookView from '@/components/dashboard/PlaybookView';
 import AdminDashboardView from '@/components/dashboard/AdminDashboardView';
-import AdminUserView from '@/components/dashboard/AdminUserView';
+import { AdminSalesPartnersView, AdminClientUsersView } from '@/components/dashboard/AdminUserView';
 import AdminOrgView from '@/components/dashboard/AdminOrgView';
 import AdminDataView from '@/components/dashboard/AdminDataView';
 import AdminPhoneNumbersView from '@/components/dashboard/AdminPhoneNumbersView';
@@ -22,34 +23,10 @@ import LeadsView from '@/components/dashboard/LeadsView';
 import CallLogsView from '@/components/dashboard/CallLogsView';
 import TeamView from '@/components/dashboard/TeamView';
 import VoicePersonaView from '@/components/dashboard/VoicePersonaView';
-
-function AdminScriptRequestsPage() {
-  const { isGCC } = useAuth();
-  return (
-    <div className="space-y-3">
-      {isGCC && (
-        <div className="rounded-lg border border-[hsl(var(--border-v))] bg-[hsl(var(--muted))]/40 px-4 py-3 text-[11px] text-[hsl(var(--muted-foreground))] leading-relaxed max-w-[1400px] mx-auto">
-          <span className="font-mono text-[10px] uppercase tracking-wider text-[hsl(var(--foreground))]">GCC note · </span>
-          Requests are an audit trail when clients or partners propose copy changes. As GCC admin you can still edit live agent scripts directly under{' '}
-          <span className="text-[hsl(var(--foreground))] font-medium">AI Agent Management</span>
-          {' '}without waiting for a ticket. AI-assisted rewrite suggestions can be layered there in a future iteration.
-        </div>
-      )}
-      <AdminDataView
-        title="Script Change Requests"
-        endpoint="script-requests"
-        emptyMessage="No script change requests yet. When partners or clients submit copy updates, they will appear here for review."
-        columns={[
-          { key: 'organizations', label: 'Org', render: (val) => val?.name },
-          { key: 'script_text', label: 'Request' },
-          { key: 'campaign_type', label: 'Campaign' },
-          { key: 'status', label: 'Status' },
-          { key: 'created_at', label: 'Date', render: (val) => new Date(val).toLocaleDateString() },
-        ]}
-      />
-    </div>
-  );
-}
+import HitlQueueView from '@/components/dashboard/HitlQueueView';
+import CommissionsPage from '@/components/dashboard/CommissionsPage';
+import { formatNullableLocaleDate } from '@/lib/dateFormat';
+import PhoneLineStatusBadge from '@/components/shared/PhoneLineStatusBadge';
 
 function App() {
   return (
@@ -79,7 +56,8 @@ function App() {
           {/* Admin Routes */}
           <Route path="/admin" element={<DashboardShell />}>
             <Route path="dashboard" element={<AdminDashboardView />} />
-            <Route path="user" element={<AdminUserView />} />
+            <Route path="user" element={<AdminSalesPartnersView />} />
+            <Route path="client-users" element={<AdminClientUsersView />} />
             <Route path="organizations" element={<AdminOrgView />} />
 
             <Route path="phone-numbers" element={<AdminPhoneNumbersView />} />
@@ -88,41 +66,20 @@ function App() {
 
             <Route path="call-logs" element={<CallLogsView />} />
             <Route path="leads" element={<LeadsView />} />
-            <Route path="calendar" element={<CalendarView />} />
-            <Route path="engine" element={<EngineView />} />
-            <Route path="playbook" element={<PlaybookView />} />
-            <Route path="analytics" element={<AnalyticsView />} />
+            <Route path="calendar" element={<Navigate to="/admin/organizations" replace />} />
+            <Route path="engine" element={<Navigate to="/admin/organizations" replace />} />
+            <Route path="playbook" element={<Navigate to="/admin/dashboard" replace />} />
+            <Route path="analytics" element={<ComplianceMonitorView />} />
             <Route path="clones" element={<VoicePersonaView />} />
 
-            <Route path="scripts" element={<AdminScriptRequestsPage />} />
-
-            <Route path="uploads" element={
-              <AdminDataView 
-                title="Target List Uploads" 
-                endpoint="target-uploads"
-                emptyMessage="No target list uploads yet. Approved uploads from client organizations will show here with row counts and status."
-                columns={[
-                  { key: 'organizations', label: 'Org', render: (val) => val?.name },
-                  { key: 'file_url', label: 'File' },
-                  { key: 'row_count', label: 'Rows' },
-                  { key: 'status', label: 'Status' },
-                  { key: 'created_at', label: 'Date', render: (val) => new Date(val).toLocaleDateString() }
-                ]}
-              />
-            } />
+            <Route path="hitl" element={<HitlQueueView />} />
+            <Route path="scripts" element={<Navigate to="/admin/hitl?type=script" replace />} />
+            <Route path="uploads" element={<Navigate to="/admin/hitl?type=csv" replace />} />
 
             <Route path="commissions" element={
-              <AdminDataView 
-                title="Commission overview" 
-                endpoint="/commissions"
+              <CommissionsPage
+                title="Commission Overview"
                 emptyMessage="No commission records yet. Earnings populate after client payments are processed and reconciled."
-                columns={[
-                  { key: 'period', label: 'Period' },
-                  { key: 'collected_mrr', label: 'Collected MRR ($)' },
-                  { key: 'rate', label: 'Rate (%)', render: (val) => `${val}%` },
-                  { key: 'amount', label: 'Commission ($)' },
-                  { key: 'status', label: 'Status' }
-                ]}
               />
             } />
 
@@ -136,20 +93,16 @@ function App() {
             <Route path="dashboard" element={<DashboardView />} />
             <Route path="organizations" element={<AdminOrgView />} />
             <Route path="analytics" element={<AnalyticsView />} />
-            <Route path="commissions" element={
-              <AdminDataView 
-                title="Commission Earnings" 
-                endpoint="/commissions"
-                emptyMessage="No commission earnings yet. Earnings populate after Month 1 client payments are processed and reconciled."
-                columns={[
-                  { key: 'period', label: 'Period' },
-                  { key: 'collected_mrr', label: 'Collected MRR ($)' },
-                  { key: 'rate', label: 'Rate (%)', render: (val) => `${val}%` },
-                  { key: 'amount', label: 'Commission ($)' },
-                  { key: 'status', label: 'Status' }
-                ]}
-              />
-            } />
+            <Route
+              path="commissions"
+              element={
+                <CommissionsPage
+                  partnerMode
+                  title="Commission Earnings"
+                  emptyMessage="No commission earnings yet. Earnings populate after Month 1 client payments are processed and reconciled."
+                />
+              }
+            />
             <Route path="call-logs" element={<CallLogsView />} />
             <Route path="leads" element={<LeadsView />} />
             <Route path="calendar" element={<CalendarView />} />
@@ -157,13 +110,18 @@ function App() {
             <Route path="phone-numbers" element={
               <AdminDataView 
                 title="Client Phone Numbers" 
-                endpoint="/phone-numbers"
-                emptyMessage="No client phone numbers yet. When lines are provisioned for your portfolio, they will appear here with status and provider."
+                endpoint="/admin/phone-numbers"
+                emptyMessage="No client phone numbers yet. When lines are provisioned for your portfolio, they will appear here with line status."
                 columns={[
                   { key: 'phone_number', label: 'Number' },
-                  { key: 'status', label: 'Status' },
+                  {
+                    key: 'status',
+                    label: 'Status',
+                    render: (_val: string, row: Record<string, unknown>) => (
+                      <PhoneLineStatusBadge row={row} />
+                    ),
+                  },
                   { key: 'label', label: 'Label' },
-                  { key: 'provider', label: 'Provider' }
                 ]}
               />
             } />
@@ -171,12 +129,12 @@ function App() {
               <AdminDataView 
                 title="AI Agent Management" 
                 endpoint="/agents"
-                emptyMessage="No AI agents yet. When agents are deployed for your accounts, they will appear here with Vapi identifiers and status."
+                emptyMessage="No AI agents yet. When agents are deployed for your accounts, they will appear here with agent IDs and status."
                 columns={[
                   { key: 'name', label: 'Agent Name' },
                   { key: 'status', label: 'Status' },
-                  { key: 'vapi_id', label: 'Vapi ID' },
-                  { key: 'created_at', label: 'Date', render: (val) => new Date(val).toLocaleDateString() }
+                  { key: 'id', label: 'Agent ID' },
+                  { key: 'created_at', label: 'Date', render: (val) => formatNullableLocaleDate(val) }
                 ]}
               />
             } />

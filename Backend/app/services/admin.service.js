@@ -150,6 +150,7 @@ export const getAllAgents = async (targetOrgIds = null) => {
     .schema('inbound')
     .from('agents')
     .select('*, organizations!agents_organization_id_fkey(name)')
+    .is('deleted_at', null)
     .order('created_at', { ascending: false });
 
   if (targetOrgIds) {

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
+import { useGccTenantScope } from '@/context/GccTenantScopeContext';
 import api from '@/lib/api';
 import {
   LayoutDashboard,
@@ -34,18 +35,18 @@ const GCC_ADMIN_NAV: GccNavGroup[] = [
   {
     label: 'Operations',
     items: [
-      { label: 'Command Centre', path: '/admin/dashboard', icon: LayoutDashboard },
+      { label: 'Command Center', path: '/admin/dashboard', icon: LayoutDashboard },
       { label: 'All Clients', path: '/admin/organizations', icon: Building2 },
       { label: 'Live Calls', path: '/admin/call-logs', icon: Phone },
-      { label: 'HITL — Uploads', path: '/admin/uploads', icon: BarChart3 },
-      { label: 'HITL — Scripts', path: '/admin/scripts', icon: BookOpen },
+      { label: 'HITL Queue', path: '/admin/hitl', icon: BarChart3 },
     ],
   },
   {
     label: 'Compliance',
     items: [
-      { label: 'Analytics & ROI', path: '/admin/analytics', icon: Shield },
+      { label: 'Compliance Monitor', path: '/admin/analytics', icon: Shield },
       { label: 'Sales Partners', path: '/admin/user', icon: Users },
+      { label: 'Client Users', path: '/admin/client-users', icon: Users },
     ],
   },
   {
@@ -58,9 +59,6 @@ const GCC_ADMIN_NAV: GccNavGroup[] = [
       { label: 'AI Agent Management', path: '/admin/agents', icon: Cpu },
       { label: 'Phone Numbers', path: '/admin/phone-numbers', icon: Phone },
       { label: 'Leads', path: '/admin/leads', icon: FileText },
-      { label: 'Calendar & Meetings', path: '/admin/calendar', icon: CalendarDays },
-      { label: 'AI Engine', path: '/admin/engine', icon: Zap },
-      { label: 'Sales Playbook', path: '/admin/playbook', icon: BookOpen },
     ],
   },
 ];
@@ -69,18 +67,18 @@ const GCC_REVIEWER_NAV: GccNavGroup[] = [
   {
     label: 'Operations',
     items: [
-      { label: 'Command Centre', path: '/admin/dashboard', icon: LayoutDashboard },
+      { label: 'Command Center', path: '/admin/dashboard', icon: LayoutDashboard },
       { label: 'All Clients', path: '/admin/organizations', icon: Building2 },
       { label: 'Live Calls', path: '/admin/call-logs', icon: Phone },
-      { label: 'HITL — Uploads', path: '/admin/uploads', icon: BarChart3 },
-      { label: 'HITL — Scripts', path: '/admin/scripts', icon: BookOpen },
+      { label: 'HITL Queue', path: '/admin/hitl', icon: BarChart3 },
     ],
   },
   {
     label: 'Compliance',
     items: [
-      { label: 'Analytics & ROI', path: '/admin/analytics', icon: Shield },
+      { label: 'Compliance Monitor', path: '/admin/analytics', icon: Shield },
       { label: 'Sales Partners', path: '/admin/user', icon: Users },
+      { label: 'Client Users', path: '/admin/client-users', icon: Users },
     ],
   },
   {
@@ -89,9 +87,6 @@ const GCC_REVIEWER_NAV: GccNavGroup[] = [
       { label: 'AI Agent Management', path: '/admin/agents', icon: Cpu },
       { label: 'Phone Numbers', path: '/admin/phone-numbers', icon: Phone },
       { label: 'Leads', path: '/admin/leads', icon: FileText },
-      { label: 'Calendar & Meetings', path: '/admin/calendar', icon: CalendarDays },
-      { label: 'AI Engine', path: '/admin/engine', icon: Zap },
-      { label: 'Sales Playbook', path: '/admin/playbook', icon: BookOpen },
     ],
   },
 ];
@@ -162,7 +157,7 @@ const CLIENT_ADMIN_PORTAL_NAV: GccNavGroup[] = [
   {
     label: 'Intelligence',
     items: [
-      { label: 'AI Engine', path: '/client/engine', icon: Cpu },
+      { label: 'Script & target uploads', path: '/client/engine', icon: Cpu },
       { label: 'Sales Playbook', path: '/client/playbook', icon: BookOpen },
     ],
   },
@@ -233,18 +228,7 @@ function PortalSidebarChrome({
       >
         <div className="flex items-center justify-between px-5 py-[18px] border-b border-[hsl(var(--border))]">
           <div className="flex items-center gap-2.5 text-[hsl(var(--foreground))]">
-            <svg
-              className="w-6 h-6 shrink-0"
-              viewBox="0 0 32 32"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              aria-hidden
-            >
-              <rect x="4" y="6" width="18" height="4" rx="1" fill="currentColor" opacity="0.4" />
-              <rect x="6" y="12" width="20" height="4" rx="1" fill="currentColor" opacity="0.6" />
-              <rect x="8" y="18" width="20" height="4" rx="1" fill="currentColor" opacity="0.8" />
-              <rect x="10" y="24" width="18" height="4" rx="1" fill="#FF3333" opacity="0.92" />
-            </svg>
+            <img src="/logo.png" alt="UP100X.AI" className="h-12 w-12 object-contain" />
             <span className="font-mono font-bold text-sm tracking-tight">UP100X.AI</span>
           </div>
           <button type="button" onClick={onClose} className="md:hidden text-[hsl(var(--muted-foreground))] p-1">
@@ -301,6 +285,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const navigate = useNavigate();
   const { isUK, currencySymbol } = useTheme();
   const { user, isGCC, isGCCAdmin, isGCCReviewer, isSP, isSPPrimary, isClient, isClientAdmin } = useAuth();
+  const gccScope = useGccTenantScope();
   const rolePrefix = isGCC ? 'admin' : isSP ? 'partner' : 'client';
   const portalSubtitle = isGCCAdmin
     ? 'GCC Admin console'
@@ -313,24 +298,40 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const [hitlBadge, setHitlBadge] = useState<number | undefined>(undefined);
 
   useEffect(() => {
-    if (!isGCCAdmin && !isGCCReviewer) return;
+    if (!isGCCAdmin && !isGCCReviewer) {
+      setHitlBadge(undefined);
+      return;
+    }
+
     let cancelled = false;
-    api
-      .get('/admin/stats')
-      .then((res) => {
-        const d = res.data?.data;
-        if (!cancelled && d) {
-          const n = (Number(d.pendingScripts) || 0) + (Number(d.pendingUploads) || 0);
-          setHitlBadge(n > 0 ? n : undefined);
-        }
+    setHitlBadge(undefined);
+
+    import('@/lib/hitlQueueFetch')
+      .then(({ fetchPendingHitlCount }) => fetchPendingHitlCount())
+      .then((n) => {
+        if (!cancelled) setHitlBadge(n > 0 ? n : undefined);
       })
       .catch(() => {
         if (!cancelled) setHitlBadge(undefined);
       });
+    const onQueueChange = () => {
+      if (!cancelled) {
+        import('@/lib/hitlQueueFetch')
+          .then(({ fetchPendingHitlCount }) => fetchPendingHitlCount())
+          .then((n) => {
+            if (!cancelled) setHitlBadge(n > 0 ? n : undefined);
+          })
+          .catch(() => {
+            if (!cancelled) setHitlBadge(undefined);
+          });
+      }
+    };
+    window.addEventListener('gcc-hitl-queue-changed', onQueueChange);
     return () => {
       cancelled = true;
+      window.removeEventListener('gcc-hitl-queue-changed', onQueueChange);
     };
-  }, [isGCCAdmin, isGCCReviewer]);
+  }, [isGCCAdmin, isGCCReviewer, gccScope.scopeOrgId]);
 
   const handleNav = (path: string) => {
     navigate(path);
@@ -342,7 +343,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     return GCC_ADMIN_NAV.map((g) => ({
       ...g,
       items: g.items.map((item) =>
-        item.path === '/admin/uploads' ? { ...item, badge: hitlBadge } : item
+        item.path === '/admin/hitl' ? { ...item, badge: hitlBadge } : item
       ),
     }));
   }, [isGCCAdmin, hitlBadge]);
@@ -352,7 +353,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     return GCC_REVIEWER_NAV.map((g) => ({
       ...g,
       items: g.items.map((item) =>
-        item.path === '/admin/uploads' ? { ...item, badge: hitlBadge } : item
+        item.path === '/admin/hitl' ? { ...item, badge: hitlBadge } : item
       ),
     }));
   }, [isGCCReviewer, hitlBadge]);
@@ -506,46 +507,32 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       roles: ['gcc_admin', 'gcc_reviewer', 'sp_primary', 'sp_sub', 'client_admin', 'client_sub'],
     },
     {
-      label: 'Review Scripts',
-      path: `/${rolePrefix}/scripts`,
-      icon: BookOpen,
-      group: 'MANAGEMENT',
-      roles: ['gcc_admin', 'gcc_reviewer'],
-    },
-    {
-      label: 'Review Uploads',
-      path: `/${rolePrefix}/uploads`,
-      icon: BarChart3,
-      group: 'MANAGEMENT',
-      roles: ['gcc_admin', 'gcc_reviewer'],
-    },
-    {
       label: 'Calendar & Meetings',
       path: `/${rolePrefix}/calendar`,
       icon: CalendarDays,
       group: 'CAMPAIGN',
-      roles: ['gcc_admin', 'gcc_reviewer', 'sp_primary', 'sp_sub', 'client_admin', 'client_sub'],
+      roles: ['sp_primary', 'sp_sub', 'client_admin', 'client_sub'],
     },
     {
       label: 'Analytics & Insights',
       path: `/${rolePrefix}/analytics`,
       icon: BarChart3,
       group: 'CAMPAIGN',
-      roles: ['gcc_admin', 'gcc_reviewer', 'sp_primary', 'sp_sub', 'client_admin', 'client_sub'],
+      roles: ['sp_primary', 'sp_sub', 'client_admin', 'client_sub'],
     },
     {
-      label: 'AI Engine',
+      label: 'Script & target uploads',
       path: `/${rolePrefix}/engine`,
       icon: Cpu,
       group: 'INTELLIGENCE',
-      roles: ['gcc_admin', 'gcc_reviewer', 'client_admin'],
+      roles: ['client_admin'],
     },
     {
       label: 'Sales Playbook',
       path: `/${rolePrefix}/playbook`,
       icon: BookOpen,
       group: 'INTELLIGENCE',
-      roles: ['gcc_admin', 'gcc_reviewer', 'sp_primary', 'sp_sub', 'client_admin', 'client_sub'],
+      roles: ['sp_primary', 'sp_sub', 'client_admin', 'client_sub'],
     },
     {
       label: 'Commissions',

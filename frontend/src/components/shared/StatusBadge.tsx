@@ -1,6 +1,6 @@
 import React from 'react';
 
-type StatusType = 'approved' | 'active' | 'paid' | 'contacted' | 'pending' | 'rejected' | 'deployed' | 'qualified' | 'proposal' | 'negotiation' | 'closedWon' | 'noShow' | 'unqualified' | 'confirmed' | 'upcoming' | 'completed' | 'rescheduled';
+type StatusType = 'approved' | 'active' | 'paid' | 'contacted' | 'pending' | 'rejected' | 'deployed' | 'qualified' | 'proposal' | 'negotiation' | 'closedWon' | 'noShow' | 'unqualified' | 'confirmed' | 'upcoming' | 'completed' | 'rescheduled' | 'at_risk';
 
 const statusStyles: Record<string, string> = {
   approved: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
@@ -8,6 +8,8 @@ const statusStyles: Record<string, string> = {
   paid: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
   contacted: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
   pending: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30',
+  pending_review: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
+  processing: 'bg-sky-500/15 text-sky-400 border-sky-500/30',
   rejected: 'bg-red-500/15 text-red-400 border-red-500/30',
   deployed: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
   qualified: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
@@ -20,6 +22,7 @@ const statusStyles: Record<string, string> = {
   upcoming: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
   completed: 'bg-gray-500/15 text-gray-400 border-gray-500/30',
   rescheduled: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30',
+  at_risk: 'bg-orange-500/15 text-orange-400 border-orange-500/30',
 };
 
 interface StatusBadgeProps {

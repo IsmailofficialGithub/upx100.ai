@@ -58,7 +58,8 @@ export const submitRequest = async (requestData) => {
     .from('script_change_requests')
     .insert([{
       ...requestData,
-      status: 'pending'
+      status: 'pending',
+      created_at: requestData.created_at || new Date().toISOString()
     }])
     .select()
     .single()

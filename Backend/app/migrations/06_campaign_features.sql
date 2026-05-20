@@ -23,7 +23,7 @@ CREATE TABLE inbound.script_change_requests (
   submitted_at    timestamptz NOT NULL DEFAULT now(),
   reviewed_at     timestamptz,
   campaign_type   text NOT NULL DEFAULT 'inbound'::text,
-  created_at      timestamptz
+  created_at      timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE TABLE inbound.target_account_uploads (
@@ -37,7 +37,7 @@ CREATE TABLE inbound.target_account_uploads (
   rejection_note  text,
   uploaded_at     timestamptz NOT NULL DEFAULT now(),
   reviewed_at     timestamptz,
-  created_at      timestamptz
+  created_at      timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE TABLE inbound.voice_clone_submissions (
@@ -52,7 +52,8 @@ CREATE TABLE inbound.voice_clone_submissions (
   rejection_note  text,
   submitted_at    timestamptz NOT NULL DEFAULT now(),
   reviewed_at     timestamptz,
-  deployed_at     timestamptz
+  deployed_at     timestamptz,
+  created_at      timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_target_account_uploads_org ON inbound.target_account_uploads (organization_id);

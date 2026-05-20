@@ -26,12 +26,18 @@ describe('Inbound Phone API', () => {
     expect(res.body.data).toHaveLength(1)
   })
 
-  it('POST /api/phone-numbers (Provision) should be forbidden for Client Admin', async () => {
+  it('POST /api/phone-numbers (Provision) should be allowed for Client Admin', async () => {
+    phoneService.provisionNumber.mockResolvedValue({
+      db: { id: 'p1', phone_number: '+123', organization_id: 'org123', status: 'active' },
+      webhook: { status: 'provisioning' },
+    })
+
     const res = await request(app)
       .post('/api/phone-numbers')
-      .send({ phone_number: '+123' })
-    
-    expect(res.statusCode).toEqual(403)
+      .send({ phone_number: '+1234567890', organization_id: 'org123' })
+
+    expect(res.statusCode).toEqual(201)
+    expect(phoneService.provisionNumber).toHaveBeenCalled()
   })
 
   it('POST /api/phone-numbers/:id/port-request should be allowed for Client Admin', async () => {

@@ -139,11 +139,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Specific Capability Flags (based on Matrix)
   const canCreateAgents = user?.role === 'gcc_admin';
   const canPauseCampaigns = user?.role === 'gcc_admin' || user?.role === 'client_admin';
-  const canSubmitScripts = ['gcc_admin', 'sp_primary', 'client_admin'].includes(user?.role || '');
+  const canSubmitScripts = ['sp_primary', 'client_admin'].includes(user?.role || '');
   const canApproveScripts = ['gcc_admin', 'gcc_reviewer'].includes(user?.role || '');
   const canManageUsers = ['gcc_admin', 'sp_primary', 'client_admin'].includes(user?.role || '');
   const canViewFinances = ['gcc_admin', 'sp_primary'].includes(user?.role || '');
-  const canUploadTargets = ['gcc_admin', 'gcc_reviewer', 'client_admin'].includes(user?.role || '');
+  const canUploadTargets = user?.role === 'client_admin';
   const canExportMonthly = user?.role === 'gcc_admin' || user?.role === 'client_admin';
 
   return (

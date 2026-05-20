@@ -3,7 +3,7 @@ import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { readGccTenantScopeFromStorage, writeGccTenantScopeToStorage, type GccTenantScopeValue } from '@/lib/gccTenantScope';
 
-export type GccOrgOption = { id: string; name: string };
+export type GccOrgOption = { id: string; name: string; country_code?: string | null };
 
 type GccTenantScopeContextType = {
   /** `all` = network-wide (no org filter on supported APIs). */
@@ -29,6 +29,7 @@ export const GccTenantScopeProvider: React.FC<{ children: React.ReactNode }> = (
   );
   const [organizations, setOrganizations] = useState<GccOrgOption[]>([]);
   const [orgsLoading, setOrgsLoading] = useState(false);
+  const [orgRefreshNonce, setOrgRefreshNonce] = useState(0);
 
   const setScopeOrgId = useCallback((id: GccTenantScopeValue) => {
     setScopeState(id);
@@ -49,15 +50,30 @@ export const GccTenantScopeProvider: React.FC<{ children: React.ReactNode }> = (
   }, [isGCC, isAuthenticated]);
 
   useEffect(() => {
+    const refresh = () => setOrgRefreshNonce((n) => n + 1);
+    const useLoadedRows = (event: Event) => {
+      const rows = (event as CustomEvent<{ rows?: GccOrgOption[] }>).detail?.rows || [];
+      setOrganizations(rows.map((o) => ({ id: o.id, name: o.name, country_code: o.country_code })));
+    };
+
+    window.addEventListener('gcc-organizations-changed', refresh as EventListener);
+    window.addEventListener('gcc-organizations-loaded', useLoadedRows as EventListener);
+    return () => {
+      window.removeEventListener('gcc-organizations-changed', refresh as EventListener);
+      window.removeEventListener('gcc-organizations-loaded', useLoadedRows as EventListener);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!isGCC || !isAuthenticated) return;
     let cancelled = false;
     setOrgsLoading(true);
     api
-      .get<{ data: { id: string; name: string }[] }>('/admin/organizations')
+      .get<{ data: { id: string; name: string; country_code?: string | null }[] }>('/admin/organizations')
       .then((res) => {
         const rows = res.data?.data || [];
         if (!cancelled) {
-          setOrganizations(rows.map((o) => ({ id: o.id, name: o.name })));
+          setOrganizations(rows.map((o) => ({ id: o.id, name: o.name, country_code: o.country_code })));
         }
       })
       .catch(() => {
@@ -69,7 +85,15 @@ export const GccTenantScopeProvider: React.FC<{ children: React.ReactNode }> = (
     return () => {
       cancelled = true;
     };
-  }, [isGCC, isAuthenticated]);
+  }, [isGCC, isAuthenticated, orgRefreshNonce]);
+
+  useEffect(() => {
+    if (!isGCC || !isAuthenticated || scopeOrgId === 'all') return;
+    if (organizations.length === 0) return;
+    if (!organizations.some((o) => o.id === scopeOrgId)) {
+      setScopeOrgId('all');
+    }
+  }, [isGCC, isAuthenticated, scopeOrgId, organizations, setScopeOrgId]);
 
   const value = useMemo(
     () =>

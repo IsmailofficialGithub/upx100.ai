@@ -19,7 +19,7 @@ export function OrgScopePicker({ scopeOrgId, onScopeChange, organizations, loadi
   const [q, setQ] = useState('');
 
   const displayLabel = useMemo(() => {
-    if (scopeOrgId === 'all') return 'All companies';
+    if (scopeOrgId === 'all') return 'All clients';
     const row = organizations.find((o) => o.id === scopeOrgId);
     return row?.name || 'Select company';
   }, [scopeOrgId, organizations]);
@@ -78,7 +78,7 @@ export function OrgScopePicker({ scopeOrgId, onScopeChange, organizations, loadi
             )}
           >
             <Check className={cn('h-3.5 w-3.5', scopeOrgId === 'all' ? 'opacity-100' : 'opacity-0')} />
-            <span className="font-medium">All companies</span>
+            <span className="font-medium">All clients</span>
           </button>
           {filtered.length === 0 && (
             <p className="px-2 py-4 text-center text-[11px] text-[hsl(var(--muted-foreground))]">No matches.</p>

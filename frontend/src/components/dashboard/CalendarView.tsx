@@ -90,7 +90,13 @@ const emptyMeeting = (): Meeting => ({
   transcript: [],
 });
 
-const CalendarView: React.FC = () => {
+type CalendarViewProps = {
+  /** When set (e.g. GCC client drill-down), calendar is locked to this organization. */
+  lockedOrganizationId?: string;
+  embedded?: boolean;
+};
+
+const CalendarView: React.FC<CalendarViewProps> = ({ lockedOrganizationId, embedded = false }) => {
   useTheme();
   const { user, isGCC, isSP } = useAuth();
   const gccScope = useGccTenantScope();
@@ -108,7 +114,13 @@ const CalendarView: React.FC = () => {
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState<Meeting>(() => emptyMeeting());
 
-  const companyFilterId = isGCC ? gccScope.scopeOrgId : selectedCompanyId;
+  const companyFilterId = lockedOrganizationId
+    ? lockedOrganizationId
+    : isGCC
+      ? gccScope.scopeOrgId === 'all'
+        ? 'all'
+        : gccScope.scopeOrgId
+      : selectedCompanyId;
 
   useEffect(() => {
     let cancelled = false;
@@ -236,16 +248,33 @@ const CalendarView: React.FC = () => {
     toast.success('Calendar file downloaded');
   };
 
+  const lockedOrgName =
+    lockedOrganizationId &&
+    (orgOptions.find((o) => o.id === lockedOrganizationId)?.name ||
+      gccScope.organizations.find((o) => o.id === lockedOrganizationId)?.name);
+
   return (
-    <div className="space-y-6">
+    <div className={embedded ? 'space-y-4' : 'space-y-6'}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-2 min-w-0">
-          <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] whitespace-nowrap shrink-0">
-            {isSP ? 'Strategic sales partners' : 'Company'}
-          </label>
-          {isGCC ? (
+          {!lockedOrganizationId && (
+            <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] whitespace-nowrap shrink-0">
+              {isSP ? 'Strategic sales partners' : 'Company'}
+            </label>
+          )}
+          {lockedOrganizationId ? (
             <span className="text-xs text-[hsl(var(--muted-foreground))] max-w-md leading-snug">
-              Calendar follows the <span className="text-[hsl(var(--foreground))] font-medium">tenant scope</span> control in the header (searchable for large directories).
+              Meetings for{' '}
+              <span className="text-[hsl(var(--foreground))] font-medium">{lockedOrgName || 'this client'}</span> only.
+            </span>
+          ) : isGCC ? (
+            <span className="text-xs text-[hsl(var(--muted-foreground))] max-w-md leading-snug">
+              Scope:{' '}
+              <span className="text-[hsl(var(--foreground))] font-medium">
+                {gccScope.scopeOrgId === 'all'
+                  ? 'All clients'
+                  : gccScope.organizations.find((o) => o.id === gccScope.scopeOrgId)?.name || 'Selected client'}
+              </span>
             </span>
           ) : (
             <select

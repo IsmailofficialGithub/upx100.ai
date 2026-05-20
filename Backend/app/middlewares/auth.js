@@ -7,6 +7,22 @@ const normalizeOptionalUuid = (value) => {
   return value
 }
 
+function isSupabaseReachabilityError(err) {
+  if (!err) return false
+  const msg = String(err.message || err).toLowerCase()
+  const cause = err.cause
+  const causeCode = cause?.code || cause?.errno
+  return (
+    msg.includes('fetch failed') ||
+    msg.includes('econnrefused') ||
+    msg.includes('enotfound') ||
+    msg.includes('enetunreach') ||
+    causeCode === 'ENOENT' ||
+    causeCode === 'ENOTFOUND' ||
+    causeCode === 'ECONNREFUSED'
+  )
+}
+
 /**
  * Middleware to authenticate requests using Supabase JWT
  * Attaches user profile and context to the request object
@@ -26,8 +42,18 @@ export const auth = async (req, res, next) => {
     const { data: { user }, error: authError } = await authService.getUserFromToken(token)
 
     if (authError || !user) {
+      if (isSupabaseReachabilityError(authError)) {
+        console.error('[auth] Supabase Auth unreachable:', authError?.message || authError)
+        return res.status(StatusCodes.SERVICE_UNAVAILABLE).json({
+          error: {
+            code: 'SUPABASE_UNAVAILABLE',
+            message:
+              'Cannot reach Supabase Auth right now (network/DNS). Check your connection and SUPABASE_URL, then retry.',
+          },
+        })
+      }
       return res.status(StatusCodes.UNAUTHORIZED).json({
-        error: { code: 'UNAUTHORIZED', message: 'Invalid or expired session' }
+        error: { code: 'UNAUTHORIZED', message: 'Invalid or expired session' },
       })
     }
 
@@ -59,8 +85,17 @@ export const auth = async (req, res, next) => {
     next()
   } catch (error) {
     console.error('Auth Middleware Error:', error)
+    if (isSupabaseReachabilityError(error)) {
+      return res.status(StatusCodes.SERVICE_UNAVAILABLE).json({
+        error: {
+          code: 'SUPABASE_UNAVAILABLE',
+          message:
+            'Cannot reach Supabase Auth right now (network/DNS). Check your connection and SUPABASE_URL, then retry.',
+        },
+      })
+    }
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      error: { code: 'INTERNAL_SERVER_ERROR', message: 'An unexpected error occurred during authentication' }
+      error: { code: 'INTERNAL_SERVER_ERROR', message: 'An unexpected error occurred during authentication' },
     })
   }
 }

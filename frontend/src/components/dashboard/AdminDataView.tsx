@@ -8,11 +8,22 @@ interface AdminDataViewProps {
   title: string;
   columns: { key: string; label: string; render?: (val: any, row: any) => React.ReactNode }[];
   onAdd?: () => void;
+  /** Label for the add button (default: "Add New"). */
+  addLabel?: string;
   onEdit?: (row: any) => void;
   onDelete?: (id: string) => void;
   renderActions?: (row: any) => React.ReactNode;
   /** Shown when the API returns no rows (not when search filters everything). */
   emptyMessage?: string;
+  /** Extra controls rendered below the title row (e.g. inbound/outbound toggle). */
+  toolbar?: React.ReactNode;
+  /** Applied after search filtering. */
+  rowFilter?: (row: any) => boolean;
+  /** True when toolbar filters (e.g. direction) are narrowing results. */
+  filtersActive?: boolean;
+  emptyFilteredMessage?: string;
+  /** Click row body to open detail (action cells use stopPropagation). */
+  onRowClick?: (row: any) => void;
 }
 
 const AdminDataView: React.FC<AdminDataViewProps> = ({
@@ -20,10 +31,16 @@ const AdminDataView: React.FC<AdminDataViewProps> = ({
   title,
   columns,
   onAdd,
+  addLabel = 'Add New',
   onEdit,
   onDelete,
   renderActions,
   emptyMessage,
+  toolbar,
+  rowFilter,
+  filtersActive,
+  emptyFilteredMessage,
+  onRowClick,
 }) => {
   const [data, setData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -42,7 +59,11 @@ const AdminDataView: React.FC<AdminDataViewProps> = ({
       try {
         const fullPath = endpoint.startsWith('/') ? endpoint : `/admin/${endpoint}`;
         const response = await api.get(fullPath);
-        setData(response.data.data ?? []);
+        const rows = response.data.data ?? [];
+        setData(rows);
+        if (fullPath === '/admin/organizations') {
+          window.dispatchEvent(new CustomEvent('gcc-organizations-loaded', { detail: { rows } }));
+        }
       } catch (error) {
         toast.error(`Failed to fetch ${title}`);
       } finally {
@@ -53,17 +74,40 @@ const AdminDataView: React.FC<AdminDataViewProps> = ({
   }, [endpoint, title, scopeNonce]);
 
   const filteredData = useMemo(() => {
+    let rows = data;
     const q = searchTerm.trim().toLowerCase();
-    if (!q) return data;
-    return data.filter((row) =>
-      columns.some((col) => {
-        const v = row[col.key];
-        if (v == null) return false;
-        if (typeof v === 'object') return JSON.stringify(v).toLowerCase().includes(q);
-        return String(v).toLowerCase().includes(q);
-      })
-    );
-  }, [data, searchTerm, columns]);
+    if (q) {
+      rows = rows.filter((row) =>
+        columns.some((col) => {
+          const v = row[col.key];
+          if (v == null) return false;
+          if (typeof v === 'object') return JSON.stringify(v).toLowerCase().includes(q);
+          return String(v).toLowerCase().includes(q);
+        }),
+      );
+    }
+    if (rowFilter) {
+      rows = rows.filter(rowFilter);
+    }
+    return rows;
+  }, [data, searchTerm, columns, rowFilter]);
+
+  const hasActiveFilters = Boolean(searchTerm.trim() || filtersActive);
+
+  const tableEmptyMessage = useMemo(() => {
+    const fallback =
+      'No records yet. When data is available for this view, it will appear in this table.';
+    if (searchTerm.trim()) {
+      return 'No rows match your search. Try different keywords or clear the search box.';
+    }
+    if (data.length === 0) {
+      return emptyMessage || fallback;
+    }
+    if (hasActiveFilters && emptyFilteredMessage) {
+      return emptyFilteredMessage;
+    }
+    return emptyMessage || fallback;
+  }, [data.length, searchTerm, hasActiveFilters, emptyMessage, emptyFilteredMessage]);
 
   const colSpan = columns.length + (onEdit || onDelete || renderActions ? 1 : 0);
 
@@ -101,11 +145,13 @@ const AdminDataView: React.FC<AdminDataViewProps> = ({
               onClick={onAdd}
               className="shrink-0 px-4 py-2.5 min-h-[40px] bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] rounded-[10px] text-xs font-semibold hover:opacity-90 transition-opacity whitespace-nowrap"
             >
-              Add New
+              {addLabel}
             </button>
           )}
         </div>
       </div>
+
+      {toolbar && data.length > 0 && <div className="w-full min-w-0">{toolbar}</div>}
 
       <div className="admin-data-panel bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-[10px] sm:rounded-xl overflow-hidden shadow-sm">
         <table className="admin-data-table w-full text-xs text-left">
@@ -130,11 +176,8 @@ const AdminDataView: React.FC<AdminDataViewProps> = ({
             {filteredData.length === 0 ? (
               <tr>
                 <td colSpan={colSpan} className="px-5 py-14 text-center align-middle border-b-0">
-                  <p className="text-sm text-[hsl(var(--foreground))] max-w-md mx-auto leading-relaxed">
-                    {searchTerm.trim()
-                      ? 'No rows match your search. Try different keywords or clear the search box.'
-                      : emptyMessage ||
-                        'No records yet. When data is available for this view, it will appear in this table.'}
+                  <p className="text-sm text-[hsl(var(--foreground))] max-w-xl mx-auto leading-relaxed text-center">
+                    {tableEmptyMessage}
                   </p>
                 </td>
               </tr>
@@ -142,7 +185,8 @@ const AdminDataView: React.FC<AdminDataViewProps> = ({
               filteredData.map((row, idx) => (
                 <tr
                   key={row.id || idx}
-                  className="border-b border-[hsl(var(--border))] last:border-b-0 hover:bg-[hsl(var(--muted))]/40 transition-colors"
+                  onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  className={`border-b border-[hsl(var(--border))] last:border-b-0 hover:bg-[hsl(var(--muted))]/40 transition-colors ${onRowClick ? 'cursor-pointer' : ''}`}
                 >
                   {columns.map((col) => (
                     <td

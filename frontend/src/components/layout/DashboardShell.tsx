@@ -2,43 +2,37 @@ import React, { useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
-import { OrgScopePicker } from './OrgScopePicker';
 import { useAuth } from '@/context/AuthContext';
-import { useGccTenantScope } from '@/context/GccTenantScopeContext';
 import LiveTicker from '@/components/shared/LiveTicker';
 
 const pageTitles: Record<string, string> = {
   '/client/dashboard': 'Campaign Dashboard',
   '/client/calendar': 'Calendar & Meetings',
   '/client/analytics': 'Analytics & Insights',
-  '/client/engine': 'AI Engine',
+  '/client/engine': 'Script & target uploads',
   '/client/playbook': 'Sales Playbook',
   '/admin/dashboard': 'Global Operations',
-  '/admin/analytics': 'Network Analytics',
-  '/admin/scripts': 'Review Script Requests',
-  '/admin/uploads': 'Review Target Uploads',
-  '/admin/clones': 'Review Voice Clones',
-  '/admin/commissions': 'Commission overview',
+  '/admin/analytics': 'Compliance Monitor',
+  '/admin/hitl': 'HITL Queue',
+  '/admin/clones': 'Voice Personas',
+  '/admin/commissions': 'Commission Overview',
   '/partner/dashboard': 'Partner Portal',
   '/partner/analytics': 'Sales Performance',
 };
 
 /** GCC admin & reviewer: top bar titles aligned with reference nav. */
 const gccPortalAdminTitles: Record<string, string> = {
-  '/admin/dashboard': 'Command Centre',
+  '/admin/dashboard': 'Command Center',
   '/admin/organizations': 'All Clients',
   '/admin/call-logs': 'Live Calls',
-  '/admin/uploads': 'HITL — Target uploads',
-  '/admin/scripts': 'HITL — Script requests',
-  '/admin/analytics': 'Network Analytics & ROI',
+  '/admin/hitl': 'HITL Queue',
+  '/admin/analytics': 'Compliance Monitor',
   '/admin/user': 'Sales Partners',
+  '/admin/client-users': 'Client Users',
   '/admin/commissions': 'Revenue & Payments',
   '/admin/agents': 'AI Agent Management',
   '/admin/phone-numbers': 'Phone Numbers',
   '/admin/leads': 'Leads',
-  '/admin/calendar': 'Calendar & Meetings',
-  '/admin/engine': 'AI Engine',
-  '/admin/playbook': 'Sales Playbook',
 };
 
 const partnerPortalTitles: Record<string, string> = {
@@ -55,13 +49,26 @@ const partnerPortalTitles: Record<string, string> = {
   '/partner/team': 'Team',
 };
 
+/** GCC routes where the top-bar org picker filters list APIs below. */
+const GCC_TENANT_SCOPE_PATHS = new Set([
+  '/admin/dashboard',
+  '/admin/call-logs',
+  '/admin/leads',
+  '/admin/phone-numbers',
+  '/admin/agents',
+  '/admin/hitl',
+  '/admin/analytics',
+  '/admin/client-users',
+  '/admin/commissions',
+]);
+
 const clientPortalTitles: Record<string, string> = {
   '/client/dashboard': 'Dashboard',
   '/client/calendar': 'Calendar & Meetings',
   '/client/analytics': 'Analytics & Insights',
   '/client/call-logs': 'Call Logs',
   '/client/leads': 'Leads',
-  '/client/engine': 'AI Engine',
+  '/client/engine': 'Script & target uploads',
   '/client/playbook': 'Sales Playbook',
   '/client/phone-numbers': 'Phone Numbers',
   '/client/agents': 'AI Agent Management',
@@ -73,7 +80,6 @@ const DashboardShell: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
-  const gccScope = useGccTenantScope();
   const path = location.pathname;
   const prefix = path.split('/')[1];
 
@@ -124,26 +130,12 @@ const DashboardShell: React.FC = () => {
     <div className={`min-h-screen bg-[hsl(var(--background))] ${portalShell ? 'upx-portal-shell' : ''}`}>
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className={`flex flex-col min-h-screen ${portalShell ? 'md:ml-[240px]' : 'md:ml-60'}`}>
-        <Topbar title={title} onMenuClick={() => setSidebarOpen(true)} portalShell={portalShell} />
-        {isGccPortal && (
-          <div className="flex flex-col gap-2 px-4 sm:px-6 py-2.5 border-b border-[hsl(var(--border-v))] bg-[hsl(var(--card))]/60">
-            <div className="flex flex-col lg:flex-row lg:items-center gap-2 lg:gap-4 min-w-0">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-[hsl(var(--muted-foreground))] shrink-0">
-                Tenant scope
-              </span>
-              <OrgScopePicker
-                scopeOrgId={gccScope.scopeOrgId}
-                onScopeChange={gccScope.setScopeOrgId}
-                organizations={gccScope.organizations}
-                loading={gccScope.orgsLoading}
-                className={portalShell ? 'border-[hsl(var(--border))] bg-transparent' : ''}
-              />
-              <p className="text-[10px] text-[hsl(var(--muted-foreground))] lg:flex-1 lg:text-right leading-snug">
-                Filters analytics, call logs, HITL queues, agents, and Command Centre stats. Use search for large client lists.
-              </p>
-            </div>
-          </div>
-        )}
+        <Topbar
+          title={title}
+          onMenuClick={() => setSidebarOpen(true)}
+          portalShell={portalShell}
+          showTenantScope={isGccPortal && GCC_TENANT_SCOPE_PATHS.has(path)}
+        />
         <LiveTicker />
         <main
           className={`flex-1 min-h-0 overflow-x-hidden ${

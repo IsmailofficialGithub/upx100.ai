@@ -1,5 +1,6 @@
 import express from 'express';
 import * as adminController from '../controllers/admin.controller.js';
+import * as orgScriptController from '../controllers/orgScript.controller.js';
 import { auth, isAdmin } from '../middlewares/auth.js';
 import { requireRole } from '../middlewares/rbac.js'
 
@@ -35,6 +36,19 @@ router.get('/organizations', requireRole(readElevated), adminController.getOrgan
 router.post('/organizations', requireRole(['gcc_admin']), adminController.createOrganization);
 router.patch('/organizations/:id', requireRole(['gcc_admin']), adminController.updateOrganization);
 router.delete('/organizations/:id', requireRole(['gcc_admin']), adminController.deleteOrganization);
+
+const gccScriptEditors = ['gcc_admin', 'gcc_reviewer'];
+router.get('/organizations/:orgId/agents', requireRole(gccScriptEditors), orgScriptController.getOrgAgentsForScript);
+router.patch(
+  '/organizations/:orgId/agents/:agentId/script',
+  requireRole(gccScriptEditors),
+  orgScriptController.patchAgentScript,
+);
+router.get(
+  '/organizations/:orgId/script-audit-log',
+  requireRole(gccScriptEditors),
+  orgScriptController.getScriptAuditLog,
+);
 
 router.get('/call-logs', requireRole(readElevated), adminController.getCallLogs);
 router.get('/leads', requireRole(readElevated), adminController.getLeads);

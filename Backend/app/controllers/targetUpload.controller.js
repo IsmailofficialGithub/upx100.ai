@@ -40,10 +40,15 @@ export const submit = async (req, res) => {
 
 export const getUploads = async (req, res) => {
   const { role, orgId } = req.user
+  const requestedOrgId = req.query.organization_id || null
   let uploads
 
   if (['gcc_admin', 'gcc_reviewer'].includes(role)) {
-    uploads = await uploadService.listAllUploads()
+    if (requestedOrgId) {
+      uploads = await uploadService.listUploadsByOrg(requestedOrgId)
+    } else {
+      uploads = await uploadService.listAllUploads()
+    }
   } else if (!orgId) {
     return res.status(StatusCodes.BAD_REQUEST).json({
       error: {
@@ -53,6 +58,11 @@ export const getUploads = async (req, res) => {
       },
     })
   } else {
+    if (requestedOrgId && requestedOrgId !== orgId) {
+      return res.status(StatusCodes.FORBIDDEN).json({
+        error: { code: 'FORBIDDEN', message: 'Cannot list uploads for another organization' },
+      })
+    }
     uploads = await uploadService.listUploadsByOrg(orgId)
   }
 
@@ -61,8 +71,14 @@ export const getUploads = async (req, res) => {
 
 export const review = async (req, res) => {
   const { uploadId } = req.params
-  const { status } = req.body
-  const { userId } = req.user
+  const { status, rejection_note: rejectionNote } = req.body
+  const { userId, role } = req.user
+
+  if (!['gcc_admin', 'gcc_reviewer'].includes(role)) {
+    return res.status(StatusCodes.FORBIDDEN).json({
+      error: { code: 'FORBIDDEN', message: 'Only GCC staff can review uploads' },
+    })
+  }
 
   if (!['approved', 'rejected', 'processing'].includes(status)) {
     return res.status(StatusCodes.BAD_REQUEST).json({
@@ -70,7 +86,12 @@ export const review = async (req, res) => {
     })
   }
 
-  const result = await uploadService.updateUploadStatus(uploadId, status, userId)
+  const result = await uploadService.updateUploadStatus(
+    uploadId,
+    status,
+    userId,
+    rejectionNote,
+  )
 
   return res.json({
     message: `Upload status updated to ${status}`,

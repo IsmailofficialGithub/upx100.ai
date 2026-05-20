@@ -5,15 +5,43 @@ import {
   Loader2, Search, Plus, Trash2, Edit2, 
   Building2, Bot, MessageSquare, Mic2, Phone,
   X, Check, AlertCircle, Info, Target, Heart,
-  BookOpen, Zap, Cpu, Globe, Users, Terminal, User,
+  BookOpen, Zap, Globe, Users, Terminal, User,
   RotateCw,
   Link2,
   Volume2,
-  Square
+  Square,
+  Layers,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
+import { useGccTenantScope } from '@/context/GccTenantScopeContext';
+import { formatNullableLocaleDate } from '@/lib/dateFormat';
+import VoicePicker, { type ApprovedVoiceClone } from '@/components/shared/VoicePicker';
+import { findVoiceById } from '@/lib/voiceCatalog';
+import { clonePersonaId, isCloneVoicePersona, parseClonePersonaId } from '@/lib/voiceCloneAudio';
+import {
+  buildAgentScriptTemplate,
+  stripAgentConfigHeader,
+  TONE_PREVIEW_PITCH,
+  TONE_PREVIEW_RATE,
+} from '@/lib/agentPrompt';
 
+const INDUSTRY_VERTICALS = [
+  'B2B SaaS',
+  'Data infrastructure',
+  'Legal / PI',
+  'Commercial real estate',
+  'Healthcare',
+  'Financial services',
+  'Insurance',
+  'Home services',
+  'E-commerce / Retail',
+  'Manufacturing',
+  'Professional services',
+  'Other',
+] as const;
+
+// Legacy inline list removed — see @/lib/voiceCatalog + agentvoices.json
 // const VOICE_OPTIONS = [
 //   { name: "Elliot", value: "elliot", provider: "ElevenLabs", status: "Active" },
 //   { name: "Kylie", value: "kylie", provider: "ElevenLabs", status: "Active" },
@@ -50,245 +78,6 @@ import { useAuth } from '@/context/AuthContext';
 //   },
 // ];
 
-const VOICE_OPTIONS=[
-
-  {
-    "id": 1,
-    "name": "Elliot",
-    "provider": "vapi",
-    "status": "active"
-  },
-  {
-    "id": 2,
-    "name": "Rohan",
-    "provider": "vapi",
-    "status": "active"
-  },
-  {
-    "id": 3,
-    "name": "Lily",
-    "provider": "vapi",
-    "status": "active"
-  },
-  {
-    "id": 4,
-    "name": "Hana",
-    "provider": "vapi",
-    "status": "active"
-  },
-  {
-    "id": 5,
-    "name": "Harry",
-    "provider": "vapi",
-    "status": "active"
-  },
-  {
-    "id":   6,
-    "name": "Paige",
-    "provider": "vapi",
-    "status": "active"
-  },
-  {
-    "id": 7,
-    "name": "Spencer",
-    "provider": "vapi",
-    "status": "active"
-  },
-  {
-    "id": 8,
-    "name": "Leah",
-    "provider": "vapi",
-    "status": "active"
-  },
-  {
-    "id": 13,
-    "name": "Tara",
-    "provider": "vapi",
-    "status": "active"
-  },
-  {
-    "id": 14,
-    "name": "Jess",
-    "provider": "vapi",
-    "status": "active"
-  },
-  {
-    "id": 15,
-    "name": "Leo",
-    "provider": "vapi",
-    "status": "active"
-  },
-  {
-    "id": 16,
-    "name": "Dan",
-    "provider": "vapi",
-    "status": "active"
-  },
-  {
-    "id": 17,
-    "name": "Mia",
-    "provider": "vapi",
-    "status": "active"
-  },
-  {
-    "id": 18,
-    "name": "Zac",
-    "provider": "vapi",
-    "status": "active"
-  },
-  {
-    "id": 19,
-    "name": "Zoe",
-    "provider": "vapi",
-    "status": "active"
-  },
-  {
-    "id": 20,
-    "name": "Amalthea",
-    "provider": "deepgram",
-    "status": "active"
-  },
-  {
-    "id": 21,
-    "name": "Andromeda",
-    "provider": "deepgram",
-    "status": "active"
-  },
-  {
-    "id": 22,
-    "name": "Asteria",
-    "provider": "deepgram",
-    "status": "active"
-  },
-  {
-    "id": 23,
-    "name": "Athena",
-    "provider": "deepgram",
-    "status": "active"
-  },
-  {
-    "id": 24,
-    "name": "Aurora",
-    "provider": "deepgram",
-    "status": "active"
-  },
-  {
-    "id": 25,
-    "name": "Callista",
-    "provider": "deepgram",
-    "status": "active"
-  },
-  {
-    "id": 26,
-    "name": "Cora",
-    "provider": "deepgram",
-    "status": "active"
-  },
-  {
-    "id": 27,
-    "name": "Cordelia",
-    "provider": "deepgram",
-    "status": "active"
-  },
-  {
-    "id": 28,
-    "name": "Delia",
-    "provider": "deepgram",
-    "status": "active"
-  },
-  {
-    "id": 29,
-    "name": "Electra",
-    "provider": "deepgram",
-    "status": "active"
-  },
-  {
-    "id": 30,
-    "name": "Harmonia",
-    "provider": "deepgram",
-    "status": "active"
-  },
-  {
-    "id": 31,
-    "name": "Helena",
-    "provider": "deepgram",
-    "status": "active"
-  },
-  {
-    "id": 32,
-    "name": "Hera",
-    "provider": "deepgram",
-    "status": "active"
-  },
-  {
-    "id": 33,
-    "name": "Iris",
-    "provider": "deepgram",
-    "status": "active"
-  },
-  {
-    "id": 34,
-    "name": "Juno",
-    "provider": "deepgram",
-    "status": "active"
-  },
-  {
-    "id": 35,
-    "name": "Luna",
-    "provider": "deepgram",
-    "status": "active"
-  },
-  {
-    "id": 36,
-    "name": "Minerva",
-    "provider": "deepgram",
-    "status": "active"
-  },
-  {
-    "id": 37,
-    "name": "Ophelia",
-    "provider": "deepgram",
-    "status": "active"
-  },
-  {
-    "id": 38,
-    "name": "Pandora",
-    "provider": "deepgram",
-    "status": "active"
-  },
-  {
-    "id": 39,
-    "name": "Phoebe",
-    "provider": "deepgram",
-    "status": "active"
-  },
-  {
-    "id": 40,
-    "name": "Selene",
-    "provider": "deepgram",
-    "status": "active"
-  },
-  {
-    "id": 41,
-    "name": "Thalia",
-    "provider": "deepgram",
-    "status": "active"
-  },
-  {
-    "id": 42,
-    "name": "Theia",
-    "provider": "deepgram",
-    "status": "active"
-  },
-  {
-    "id": 43,
-    "name": "Vesta",
-    "provider": "deepgram",
-    "status": "active"
-  }
-]
-
-
 interface Organization {
   id: string;
   name: string;
@@ -299,13 +88,12 @@ interface Agent {
   name: string;
   organization_id: string;
   user_id: string;
-  vapi_id: string;
   status: string;
-  created_at: string;
+  created_at: string | null;
   voice_persona?: string;
   script?: string;
   phone_number_id?: string;
-  company_name?: string;
+  industry_vertical?: string;
   website_url?: string;
   goal?: string;
   background?: string;
@@ -314,7 +102,6 @@ interface Agent {
   language?: string;
   agent_type?: string;
   tone?: string;
-  model?: string;
   organizations?: Organization | Organization[];
   fallback_number?: string;
   fallback_enabled?: boolean;
@@ -324,6 +111,7 @@ interface Agent {
 
 const AdminAgentsView: React.FC = () => {
   const { user, isGCC, isSP, isClient, isGCCAdmin, isClientAdmin } = useAuth();
+  const gccScope = useGccTenantScope();
   const isAdminView = isGCC || isSP;
   const navigate = useNavigate();
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -342,6 +130,7 @@ const AdminAgentsView: React.FC = () => {
   const [isSearchingOrgs, setIsSearchingOrgs] = useState(false);
   const [isSearchingUsers, setIsSearchingUsers] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [scopeNonce, setScopeNonce] = useState(0);
   
   // Phone numbers for selection
   const [availableNumbers, setAvailableNumbers] = useState<any[]>([]);
@@ -352,11 +141,10 @@ const AdminAgentsView: React.FC = () => {
     name: '',
     organization_id: '',
     user_id: '',
-    vapi_id: '',
     voice_persona: '',
     script: '',
     phone_number_id: '',
-    company_name: '',
+    industry_vertical: '',
     website_url: '',
     goal: '',
     background: '',
@@ -365,7 +153,6 @@ const AdminAgentsView: React.FC = () => {
     language: 'english',
     agent_type: 'sales',
     tone: 'professional',
-    model: 'gpt-4o',
     fallback_number: '',
     fallback_enabled: false,
     conversation_agent_link: ''
@@ -373,19 +160,8 @@ const AdminAgentsView: React.FC = () => {
 
   const [currentStep, setCurrentStep] = useState(1);
 
-  const defaultVoices = [
-    ...VOICE_OPTIONS.map(v => ({
-      id: String(v.id).toLowerCase(),
-      name: v.provider.toLowerCase() === 'deepgram' 
-        ? v.name.toLowerCase() 
-        : v.name.charAt(0).toUpperCase() + v.name.slice(1).toLowerCase(),
-      provider: v.provider.charAt(0).toUpperCase() + v.provider.slice(1).toLowerCase(),
-      status: v.status.charAt(0).toUpperCase() + v.status.slice(1).toLowerCase()
-    })),
-    { id: 'custom', name: 'Other / Custom...', provider: 'Custom', status: 'Active' }
-  ];
-
-  const [isCustomVoice, setIsCustomVoice] = useState(false);
+  const [approvedClones, setApprovedClones] = useState<ApprovedVoiceClone[]>([]);
+  const [previewPhrase, setPreviewPhrase] = useState('');
   const [previewSpeaking, setPreviewSpeaking] = useState(false);
 
   useEffect(() => {
@@ -438,10 +214,20 @@ const AdminAgentsView: React.FC = () => {
     setPreviewSpeaking(false);
   };
 
+  const fetchApprovedClones = async () => {
+    try {
+      const res = await api.get('/voice-clones');
+      const rows = (res.data.data ?? []) as ApprovedVoiceClone[];
+      setApprovedClones(rows.filter((r) => String(r.status).toLowerCase() === 'approved'));
+    } catch {
+      setApprovedClones([]);
+    }
+  };
+
   const playVoicePreview = () => {
     const personaId = formData.voice_persona?.trim();
     if (!personaId) {
-      toast.error('Select or enter a voice first.');
+      toast.error('Select a catalog voice or an approved custom clone first.');
       return;
     }
     if (typeof window === 'undefined' || !window.speechSynthesis) {
@@ -449,12 +235,16 @@ const AdminAgentsView: React.FC = () => {
       return;
     }
 
-    const selectedMeta = defaultVoices.find((v) => v.id === personaId);
-    const displayName = selectedMeta?.name || personaId;
+    const selectedMeta = findVoiceById(personaId);
+    const cloneId = parseClonePersonaId(personaId);
+    const cloneMeta = cloneId ? approvedClones.find((c) => c.id === cloneId) : undefined;
+    const displayName = selectedMeta?.name || cloneMeta?.voice_name || 'your agent';
 
     window.speechSynthesis.cancel();
 
+    const customLine = previewPhrase.trim();
     const text =
+      customLine ||
       formData.welcome_message?.trim() ||
       `Hi — this is a quick browser preview for the ${displayName} persona. On live calls your agent uses the cloud voice you selected, not this device voice. How can I help you today?`;
 
@@ -466,8 +256,10 @@ const AdminAgentsView: React.FC = () => {
     }
 
     const prov = selectedMeta?.provider?.toLowerCase() || '';
-    u.rate = prov === 'deepgram' ? 0.96 : 0.94;
-    u.pitch = 1;
+    const toneRate = TONE_PREVIEW_RATE[formData.tone] ?? TONE_PREVIEW_RATE.professional;
+    const providerScale = prov === 'deepgram' ? 0.96 : 0.94;
+    u.rate = toneRate * providerScale;
+    u.pitch = TONE_PREVIEW_PITCH[formData.tone] ?? TONE_PREVIEW_PITCH.professional;
 
     u.onend = () => setPreviewSpeaking(false);
     u.onerror = () => setPreviewSpeaking(false);
@@ -479,15 +271,16 @@ const AdminAgentsView: React.FC = () => {
   useEffect(() => {
     fetchAgents();
     fetchInitialUsers();
+    fetchApprovedClones();
     if (isAdminView) {
       fetchInitialOrgs();
     }
-  }, [isAdminView, refreshKey]);
+  }, [isAdminView, isGCC, refreshKey, gccScope.scopeOrgId]);
 
   const fetchAgents = async () => {
     setIsLoading(true);
     try {
-      const endpoint = '/agents';
+      const endpoint = isGCC ? '/admin/agents' : '/agents';
       const response = await api.get(endpoint);
       setAgents(response.data.data);
     } catch (error) {
@@ -566,26 +359,34 @@ const AdminAgentsView: React.FC = () => {
     return () => clearTimeout(delayDebounceFn);
   }, [userSearch, isUserSearchOpen]);
 
-  // Fetch phone numbers when organization changes
+  // Fetch assignable phone lines for the selected client org (one line per agent; many per client).
   useEffect(() => {
     const fetchNumbers = async () => {
-      setFormData(prev => ({ ...prev, phone_number_id: '' }));
-      if (!formData.organization_id) return;
+      const orgId =
+        formData.organization_id ||
+        (isGCC && gccScope.scopeOrgId !== 'all' ? gccScope.scopeOrgId : '');
+      if (!orgId || orgId === '00000000-0000-4000-a000-000000000003') {
+        setAvailableNumbers([]);
+        return;
+      }
       setIsLoadingNumbers(true);
       try {
-        const endpoint = '/phone-numbers';
-        const response = await api.get(`${endpoint}?organization_id=${formData.organization_id}`);
-        // Filter for active numbers only
-        const activeNums = response.data.data.filter((n: any) => n.status === 'active');
-        setAvailableNumbers(activeNums);
+        const params = new URLSearchParams({
+          organization_id: orgId,
+          assignable: 'true',
+        });
+        if (editingAgent?.id) params.set('for_agent_id', editingAgent.id);
+        const response = await api.get(`/phone-numbers?${params.toString()}`);
+        setAvailableNumbers(response.data.data ?? []);
       } catch (error) {
         console.error('Failed to fetch numbers', error);
+        setAvailableNumbers([]);
       } finally {
         setIsLoadingNumbers(false);
       }
     };
     fetchNumbers();
-  }, [formData.organization_id]);
+  }, [formData.organization_id, editingAgent?.id, isGCC, gccScope.scopeOrgId]);
 
   // Click outside to close search dropdown
   useEffect(() => {
@@ -602,13 +403,24 @@ const AdminAgentsView: React.FC = () => {
   }, [isOrgSearchOpen, isUserSearchOpen]);
 
   const selectedNumberDetails = availableNumbers.find(n => n.id === formData.phone_number_id);
-  const isNumberAlreadyAssigned = selectedNumberDetails && selectedNumberDetails.agent_id;
+  const isNumberAssignedToOtherAgent =
+    selectedNumberDetails?.agent_id &&
+    selectedNumberDetails.agent_id !== editingAgent?.id;
 
   const isStepValid = () => {
     if (currentStep === 1) {
-      // For solo clients (not in an org), organization_id will be empty, which is fine
-      const isSoloClient = !isGCCAdmin && (!user?.orgId || user?.orgId === '00000000-0000-4000-a000-000000000003');
-      return (isSoloClient || !!formData.organization_id) && !!formData.name;
+      const isSoloClient =
+        !isGCC &&
+        !isAdminView &&
+        (!user?.orgId || user?.orgId === '00000000-0000-4000-a000-000000000003');
+      const orgOk = isSoloClient || !!formData.organization_id;
+      const gccOrgOk = !isGCC || !!formData.organization_id;
+      return (
+        orgOk &&
+        gccOrgOk &&
+        !!formData.name?.trim() &&
+        !!formData.industry_vertical
+      );
     }
     if (currentStep === 2) {
       return !!formData.voice_persona;
@@ -644,15 +456,46 @@ const AdminAgentsView: React.FC = () => {
 
     try {
       // Enrich payload with voice details
-      const selectedVoice = defaultVoices.find(v => v.id === formData.voice_persona);
+      const personaRaw = formData.voice_persona?.trim() || '';
+      const selectedVoice = findVoiceById(personaRaw);
+      const cloneUuid = parseClonePersonaId(personaRaw);
+      const selectedClone = cloneUuid ? approvedClones.find((c) => c.id === cloneUuid) : undefined;
+      const organizationId = isGCC
+        ? (formData.organization_id && formData.organization_id !== 'null'
+            ? formData.organization_id
+            : gccScope.scopeOrgId !== 'all'
+              ? gccScope.scopeOrgId
+              : null)
+        : isAdminView
+          ? (formData.organization_id && formData.organization_id !== 'null' ? formData.organization_id : null)
+          : (user?.orgId && user.orgId !== 'null' && user.orgId !== '00000000-0000-4000-a000-000000000003'
+              ? user.orgId
+              : null);
+
+      if (isGCC && !organizationId) {
+        toast.error('Select a client organization for this agent.', { id: loadingToast });
+        return;
+      }
+      if (!formData.industry_vertical) {
+        toast.error('Select an industry vertical.', { id: loadingToast });
+        return;
+      }
+      if (!formData.phone_number_id) {
+        toast.error('Assign a phone number before saving.', { id: loadingToast });
+        return;
+      }
+
       const enrichedPayload = {
         ...formData,
-        voice_persona: formData.voice_persona.toLowerCase(),
-        voice_name: selectedVoice ? selectedVoice.name : formData.voice_persona,
-        voice_provider: selectedVoice ? selectedVoice.provider : 'Custom',
-        organization_id: isAdminView 
-          ? (formData.organization_id && formData.organization_id !== 'null' ? formData.organization_id : null)
-          : (user?.orgId && user.orgId !== 'null' && user.orgId !== '00000000-0000-4000-a000-000000000003' ? user.orgId : null)
+        voice_persona: isCloneVoicePersona(personaRaw)
+          ? clonePersonaId(cloneUuid!)
+          : personaRaw.toLowerCase(),
+        voice_name: selectedVoice
+          ? selectedVoice.name
+          : selectedClone?.voice_name || 'Custom clone',
+        voice_provider: selectedVoice ? selectedVoice.provider : 'Cloned',
+        organization_id: organizationId,
+        industry_vertical: formData.industry_vertical,
       };
 
       const endpoint = '/agents';
@@ -708,11 +551,11 @@ const AdminAgentsView: React.FC = () => {
         name: agent.name,
         organization_id: agent.organization_id,
         user_id: agent.user_id,
-        vapi_id: agent.vapi_id || '',
         voice_persona: agent.voice_persona?.toLowerCase() || '',
-        script: agent.script || '',
+        script: stripAgentConfigHeader(agent.script) || '',
         phone_number_id: agent.phone_number_id || '',
-        company_name: agent.company_name || '',
+        industry_vertical:
+          agent.industry_vertical || agent.metadata?.industry_vertical || '',
         website_url: agent.website_url || '',
         goal: agent.goal || '',
         background: agent.background || '',
@@ -721,7 +564,6 @@ const AdminAgentsView: React.FC = () => {
         language: agent.language || 'english',
         agent_type: agent.agent_type || 'sales',
         tone: agent.tone || 'professional',
-        model: agent.model || 'gpt-4o',
         fallback_number: agent.fallback_number || agent.metadata?.fallback_config?.number || '',
         fallback_enabled: agent.fallback_enabled ?? agent.metadata?.fallback_config?.enabled ?? false,
         conversation_agent_link: agent.conversation_agent_link || ''
@@ -731,20 +573,29 @@ const AdminAgentsView: React.FC = () => {
       const currentUser = users.find(u => u.id === agent.user_id);
       setUserSearch(currentUser?.full_name || currentUser?.email || '');
       
-      // Check if current voice is in defaults
-      const isDefault = defaultVoices.some(v => v.id === agent.voice_persona?.toLowerCase());
-      setIsCustomVoice(!isDefault && !!agent.voice_persona);
+      setPreviewPhrase('');
     } else {
       setEditingAgent(null);
+      setPreviewPhrase('');
+      const scopedOrg =
+        isGCC && gccScope.scopeOrgId !== 'all'
+          ? gccScope.organizations.find((o) => o.id === gccScope.scopeOrgId) ||
+            orgs.find((o) => o.id === gccScope.scopeOrgId)
+          : null;
       setFormData({
         name: '',
-        organization_id: isAdminView ? '' : (user?.orgId && user.orgId !== 'null' && user.orgId !== '00000000-0000-4000-a000-000000000003' ? user.orgId : ''),
+        organization_id: isGCC
+          ? scopedOrg?.id || ''
+          : isAdminView
+            ? ''
+            : (user?.orgId && user.orgId !== 'null' && user.orgId !== '00000000-0000-4000-a000-000000000003'
+                ? user.orgId
+                : ''),
         user_id: '',
-        vapi_id: '',
         voice_persona: '',
         script: '',
         phone_number_id: '',
-        company_name: '',
+        industry_vertical: '',
         website_url: '',
         goal: '',
         background: '',
@@ -753,12 +604,13 @@ const AdminAgentsView: React.FC = () => {
         language: 'english',
         agent_type: 'sales',
         tone: 'professional',
-        model: 'gpt-4o',
         fallback_number: '',
         fallback_enabled: false,
         conversation_agent_link: ''
       });
-      setOrgSearch(isAdminView ? '' : (user?.entityName || ''));
+      setOrgSearch(
+        isGCC ? scopedOrg?.name || '' : isAdminView ? '' : (user?.entityName || ''),
+      );
       setUserSearch('');
       setIsCustomVoice(false);
       setCurrentStep(1);
@@ -769,7 +621,7 @@ const AdminAgentsView: React.FC = () => {
   const filteredAgents = agents.filter(a => 
     a.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (Array.isArray(a.organizations) ? a.organizations[0]?.name : a.organizations?.name)?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    a.vapi_id?.toLowerCase().includes(searchTerm.toLowerCase())
+    a.id.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (isLoading) {
@@ -820,7 +672,7 @@ const AdminAgentsView: React.FC = () => {
             <tr>
               <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Agent</th>
               {isAdminView && <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Organization</th>}
-              <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Vapi ID</th>
+              <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Agent ID</th>
               <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Status</th>
               <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Created</th>
               <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Actions</th>
@@ -848,8 +700,8 @@ const AdminAgentsView: React.FC = () => {
                         </div>
                     </td>
                 )}
-                <td className="px-4 py-4 font-mono text-[10px] text-[hsl(var(--muted-foreground))]">
-                  {agent.vapi_id || 'Pending...'}
+                <td className="px-4 py-4 font-mono text-[10px] text-[hsl(var(--muted-foreground))]" title={agent.id}>
+                  {agent.id}
                 </td>
                 <td className="px-4 py-4">
                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
@@ -861,7 +713,7 @@ const AdminAgentsView: React.FC = () => {
                   </span>
                 </td>
                 <td className="px-4 py-4 text-[hsl(var(--muted-foreground))]">
-                  {new Date(agent.created_at).toLocaleDateString()}
+                  {formatNullableLocaleDate(agent.created_at)}
                 </td>
                 <td className="px-4 py-4">
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -954,22 +806,31 @@ const AdminAgentsView: React.FC = () => {
                     <div className={`grid ${isClient ? 'grid-cols-1' : 'grid-cols-2'} gap-4`}>
                       <div className="space-y-2 relative org-search-container">
                         <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
-                          <Building2 size={12} /> Organization
+                          <Building2 size={12} /> Organization{isGCC ? ' *' : ''}
                         </label>
                         
                         {isAdminView ? (
                           <>
                             <input 
                               type="text"
-                              placeholder="Search organization..."
+                              placeholder={isGCC && gccScope.scopeOrgId === 'all' ? 'Search and select a client…' : 'Search organization...'}
                               value={orgSearch}
                               onChange={(e) => {
                                 setOrgSearch(e.target.value);
+                                if (isGCC) {
+                                  setFormData((prev) => ({ ...prev, organization_id: '' }));
+                                }
                                 setIsOrgSearchOpen(true);
                               }}
                               onFocus={() => setIsOrgSearchOpen(true)}
+                              required
                               className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))] transition-all"
                             />
+                            {isGCC && gccScope.scopeOrgId !== 'all' && formData.organization_id === gccScope.scopeOrgId && (
+                              <p className="text-[10px] text-[hsl(var(--muted-foreground))]">
+                                Pre-filled from tenant scope. Change only if this agent belongs to another client.
+                              </p>
+                            )}
                             
                             {isOrgSearchOpen && (
                               <div className="absolute z-50 w-full mt-1 bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-lg shadow-xl max-h-48 overflow-y-auto overflow-x-hidden backdrop-blur-md">
@@ -1013,7 +874,7 @@ const AdminAgentsView: React.FC = () => {
 
                       <div className="space-y-2">
                         <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
-                          <Bot size={12} /> Agent Name
+                          <Bot size={12} /> Agent Name *
                         </label>
                         <input 
                           type="text"
@@ -1100,75 +961,52 @@ const AdminAgentsView: React.FC = () => {
 
                       <div className="space-y-2">
                         <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
-                          <Building2 size={12} /> Company Name
+                          <Layers size={12} /> Industry Vertical *
                         </label>
-                        <input 
-                          type="text"
-                          placeholder="e.g. VestAuth"
-                          value={formData.company_name}
-                          onChange={e => setFormData({ ...formData, company_name: e.target.value })}
-                          className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))] transition-all"
-                        />
+                        <select
+                          value={formData.industry_vertical}
+                          onChange={(e) =>
+                            setFormData({ ...formData, industry_vertical: e.target.value })
+                          }
+                          required
+                          className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))] transition-all appearance-none"
+                        >
+                          <option value="" disabled>
+                            Select industry…
+                          </option>
+                          {INDUSTRY_VERTICALS.map((v) => (
+                            <option key={v} value={v}>
+                              {v}
+                            </option>
+                          ))}
+                        </select>
                       </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
-                        <Globe size={12} /> Website URL
-                      </label>
-                      <input 
-                        type="url"
-                        placeholder="https://example.com"
-                        value={formData.website_url}
-                        onChange={e => setFormData({ ...formData, website_url: e.target.value })}
-                        className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))] transition-all"
-                      />
                     </div>
                   </div>
                 )}
 
                 {currentStep === 2 && (
                   <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
-                          <Mic2 size={12} /> Voice Selection
-                        </label>
-                        <div className="space-y-2">
-                          <select 
-                            value={isCustomVoice ? 'custom' : formData.voice_persona}
-                            onChange={e => {
-                              const val = e.target.value;
-                              if (val === 'custom') {
-                                setIsCustomVoice(true);
-                                setFormData({ ...formData, voice_persona: '' });
-                              } else {
-                                setIsCustomVoice(false);
-                                setFormData({ ...formData, voice_persona: val });
-                              }
-                            }}
-                            className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))] transition-all appearance-none"
-                          >
-                            <option value="">Select a voice...</option>
-                            {defaultVoices.map(voice => (
-                              <option key={voice.id} value={voice.id}>
-                                {voice.name} {voice.provider !== 'Custom' ? `(${voice.provider})` : ''} {voice.status === 'Coming Soon' ? '- Coming Soon' : ''}
-                              </option>
-                            ))}
-                          </select>
-                          {isCustomVoice && (
-                            <input 
-                              type="text"
-                              placeholder="Enter custom voice ID"
-                              value={formData.voice_persona}
-                              onChange={e => setFormData({ ...formData, voice_persona: e.target.value })}
-                              className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))] transition-all"
-                            />
-                          )}
-                        </div>
-                      </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
+                        <Mic2 size={12} /> Voice selection
+                      </label>
+                      <VoicePicker
+                        value={formData.voice_persona}
+                        onChange={(id) => setFormData({ ...formData, voice_persona: id })}
+                        organizationId={
+                          formData.organization_id ||
+                          (gccScope.scopeOrgId !== 'all' ? gccScope.scopeOrgId : undefined) ||
+                          user?.orgId
+                        }
+                        approvedClones={approvedClones}
+                        onCloneSubmitted={fetchApprovedClones}
+                        className="rounded-xl border border-[hsl(var(--border-v))] bg-[hsl(var(--card))]/40 p-3"
+                      />
+                    </div>
 
-                      <div className="space-y-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2 sm:max-w-xs">
                         <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
                           <MessageSquare size={12} /> Language
                         </label>
@@ -1193,7 +1031,7 @@ const AdminAgentsView: React.FC = () => {
                             <Volume2 size={12} className="shrink-0" /> Quick voice preview
                           </p>
                           <p className="text-[10px] text-[hsl(var(--muted-foreground))] mt-1 leading-snug">
-                            Plays instantly using your browser&apos;s speech engine. Live calls use the Vapi or Deepgram voice you selected above.
+                            Type what you want to hear (company name, industry phrases). Browser preview approximates tone only.
                           </p>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
@@ -1217,14 +1055,24 @@ const AdminAgentsView: React.FC = () => {
                           </button>
                         </div>
                       </div>
-                      {formData.welcome_message?.trim() ? (
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))]">
+                          Preview script
+                        </label>
+                        <textarea
+                          value={previewPhrase}
+                          onChange={(e) => setPreviewPhrase(e.target.value)}
+                          rows={2}
+                          placeholder="e.g. Thank you for calling Acme Corp — how can we help you today?"
+                          className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs resize-none focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))]/40"
+                        />
                         <p className="text-[10px] text-[hsl(var(--muted-foreground))]">
-                          Preview uses your welcome message. Clear it to hear the default sample line instead.
+                          Leave blank to use the welcome message from step 3, or a default sample line.
                         </p>
-                      ) : null}
+                      </div>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
                           <Users size={12} /> Agent Type
@@ -1254,20 +1102,9 @@ const AdminAgentsView: React.FC = () => {
                           <option value="energetic">Energetic</option>
                           <option value="calm">Calm</option>
                         </select>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
-                          <Cpu size={12} /> AI Model
-                        </label>
-                        <select 
-                          value={formData.model}
-                          onChange={e => setFormData({ ...formData, model: e.target.value })}
-                          className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))] transition-all appearance-none"
-                        >
-                          <option value="gpt-4o">GPT-4o</option>
-                          <option value="gpt-4-turbo">GPT-4 Turbo</option>
-                          <option value="claude-3-5-sonnet">Claude 3.5 Sonnet</option>
-                        </select>
+                        <p className="text-[10px] text-[hsl(var(--muted-foreground))]">
+                          Shapes the system prompt and voice pacing on save. Use Play preview to hear tone differences.
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -1275,6 +1112,22 @@ const AdminAgentsView: React.FC = () => {
 
                 {currentStep === 3 && (
                   <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300 max-h-[60vh] overflow-y-auto px-1 custom-scrollbar">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
+                        <Globe size={12} /> Website URL <span className="normal-case font-normal">(optional)</span>
+                      </label>
+                      <input
+                        type="url"
+                        placeholder="https://example.com"
+                        value={formData.website_url}
+                        onChange={(e) => setFormData({ ...formData, website_url: e.target.value })}
+                        className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))] transition-all"
+                      />
+                      <p className="text-[10px] text-[hsl(var(--muted-foreground))]">
+                        Optional. Used by the URL scraper to pre-fill company context for this step.
+                      </p>
+                    </div>
+
                     <div className="p-3 bg-blue-500/5 border border-blue-500/10 rounded-lg mb-4">
                       <p className="text-[10px] text-blue-600 font-medium">
                         The Step-by-Step Script is the core logic for your AI. Define exactly how it should handle calls.
@@ -1289,9 +1142,9 @@ const AdminAgentsView: React.FC = () => {
                         <button 
                           type="button"
                           onClick={() => {
-                            const template = `IDENTITY AND MISSION\n\nName: ${formData.name}\nRole: ${formData.agent_type} Agent\nGoal: ${formData.goal}\nBackground: ${formData.background}\n\nINSTRUCTIONS\n${formData.instruction_voice}\n\nWELCOME MESSAGE\n"${formData.welcome_message}"`;
-                            setFormData({...formData, script: template});
-                            toast.info("Base template generated!");
+                            const template = buildAgentScriptTemplate(formData);
+                            setFormData({ ...formData, script: template });
+                            toast.info('Base template generated!');
                           }}
                           className="text-[9px] bg-[hsl(var(--primary)/10)] text-[hsl(var(--primary))] px-2 py-1 rounded hover:bg-[hsl(var(--primary)/20)] transition-colors font-semibold"
                         >
@@ -1370,7 +1223,7 @@ const AdminAgentsView: React.FC = () => {
                         <div className="space-y-1">
                           <p className="text-xs font-semibold text-[hsl(var(--foreground))]">Telephony Assignment</p>
                           <p className="text-[10px] text-[hsl(var(--muted-foreground))] leading-relaxed">
-                            Select a phone number to link with this agent. This number will be used for both inbound and outbound AI interactions.
+                            Each agent uses exactly one line. A client may have multiple lines; pick an unassigned line or one already on this agent.
                           </p>
                         </div>
                       </div>
@@ -1388,16 +1241,37 @@ const AdminAgentsView: React.FC = () => {
                         className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))] transition-all appearance-none disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <option value="" disabled>Select a number...</option>
-                        {availableNumbers.map(num => (
-                          <option key={num.id} value={num.id}>
-                            {num.phone_number} {num.label ? `(${num.label})` : ''} {num.agent_id ? '• Currently Assigned' : ''}
+                        {availableNumbers.length === 0 ? (
+                          <option value="" disabled>
+                            No assignable lines for this client — add one under Phone Numbers
                           </option>
-                        ))}
+                        ) : (
+                          availableNumbers.map((num: { id: string; phone_number: string; label?: string; agent_id?: string; agents?: { name?: string } | { name?: string }[] }) => {
+                            const agentName = Array.isArray(num.agents)
+                              ? num.agents[0]?.name
+                              : num.agents?.name;
+                            const assignedLabel = num.agent_id
+                              ? num.agent_id === editingAgent?.id
+                                ? '• This agent'
+                                : agentName
+                                  ? `• ${agentName}`
+                                  : '• Other agent'
+                              : '• Available';
+                            return (
+                              <option key={num.id} value={num.id}>
+                                {num.phone_number}
+                                {num.label ? ` (${num.label})` : ''} {assignedLabel}
+                              </option>
+                            );
+                          })
+                        )}
                       </select>
-                      {isNumberAlreadyAssigned && (
+                      {isNumberAssignedToOtherAgent && (
                         <div className="flex items-center gap-1.5 p-2 bg-blue-500/5 rounded-lg border border-blue-500/10 mt-2">
                           <AlertCircle size={12} className="text-blue-500" />
-                          <p className="text-[10px] text-blue-500 italic">This number is bound to another agent and will be reassigned.</p>
+                          <p className="text-[10px] text-blue-500 italic">
+                            This line is on another agent today; saving moves it to this agent.
+                          </p>
                         </div>
                       )}
                     </div>

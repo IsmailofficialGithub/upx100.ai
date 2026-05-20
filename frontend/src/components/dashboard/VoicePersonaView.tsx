@@ -4,13 +4,16 @@ import api from '@/lib/api';
 import { toast } from 'sonner';
 import { Loader2, Mic, Check, X, Play, Plus, Trash2 } from 'lucide-react';
 import StatusBadge from '../shared/StatusBadge';
+import { formatNullableLocaleDate } from '@/lib/dateFormat';
+import VoiceCloneUploadPanel from '@/components/shared/VoiceCloneUploadPanel';
+import { useGccTenantScope } from '@/context/GccTenantScopeContext';
 
 interface VoiceClone {
   id: string;
-  voice_name: string;
+  voice_name?: string | null;
   sample_url: string;
-  status: 'submitted' | 'approved' | 'rejected';
-  created_at: string;
+  status: 'submitted' | 'approved' | 'rejected' | 'deployed';
+  created_at: string | null;
   organization_id: string;
   user_id: string;
   organizations?: { name: string };
@@ -18,17 +21,15 @@ interface VoiceClone {
 }
 
 const VoicePersonaView: React.FC = () => {
-  const { user, isGCCAdmin, isClientAdmin } = useAuth();
+  const { isGCCAdmin, isClientAdmin, user } = useAuth();
+  const gccScope = useGccTenantScope();
   const [clones, setClones] = useState<VoiceClone[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isUploading, setIsUploading] = useState(false);
-  
-  // Form state
-  const [newName, setNewName] = useState('');
-  const [sampleUrl, setSampleUrl] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const canReview = isGCCAdmin || isClientAdmin;
+  const submitOrgId =
+    gccScope.scopeOrgId !== 'all' ? gccScope.scopeOrgId : user?.orgId;
 
   useEffect(() => {
     fetchClones();
@@ -38,32 +39,10 @@ const VoicePersonaView: React.FC = () => {
     try {
       const response = await api.get('/voice-clones');
       setClones(response.data.data);
-    } catch (error) {
+    } catch {
       toast.error('Failed to fetch voice personas');
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newName || !sampleUrl) return;
-
-    setIsUploading(true);
-    try {
-      await api.post('/voice-clones', {
-        voice_name: newName,
-        sample_url: sampleUrl
-      });
-      toast.success('Voice sample submitted for review');
-      setNewName('');
-      setSampleUrl('');
-      setIsModalOpen(false);
-      fetchClones();
-    } catch (error) {
-      toast.error('Failed to submit voice sample');
-    } finally {
-      setIsUploading(false);
     }
   };
 
@@ -72,7 +51,7 @@ const VoicePersonaView: React.FC = () => {
       await api.patch(`/voice-clones/${id}/review`, { status });
       toast.success(`Voice persona ${status}`);
       fetchClones();
-    } catch (error) {
+    } catch {
       toast.error('Failed to update status');
     }
   };
@@ -91,10 +70,11 @@ const VoicePersonaView: React.FC = () => {
         <div>
           <h2 className="text-lg font-display font-semibold text-[hsl(var(--foreground))]">Voice Personas</h2>
           <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
-            Manage AI voice clones and approved personas for your campaigns.
+            Submit a ~60 second recording for AI voice cloning. Samples enter the GCC HITL queue for approval before use on agents.
           </p>
         </div>
-        <button 
+        <button
+          type="button"
           onClick={() => setIsModalOpen(true)}
           className="flex items-center gap-2 px-4 py-2 bg-[hsl(var(--primary))] text-black rounded-lg text-xs font-semibold hover:opacity-90 transition-opacity"
         >
@@ -111,9 +91,11 @@ const VoicePersonaView: React.FC = () => {
                   <Mic size={18} className="text-[hsl(var(--primary))]" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-semibold text-[hsl(var(--foreground))]">{clone.voice_name}</h4>
+                  <h4 className="text-sm font-semibold text-[hsl(var(--foreground))]">
+                    {clone.voice_name || 'Voice clone'}
+                  </h4>
                   <p className="text-[10px] font-mono text-[hsl(var(--muted-foreground))] uppercase">
-                    {clone.profiles?.full_name || 'System'} · {new Date(clone.created_at).toLocaleDateString()}
+                    {clone.profiles?.full_name || 'System'} · {formatNullableLocaleDate(clone.created_at)}
                   </p>
                 </div>
               </div>
@@ -121,24 +103,29 @@ const VoicePersonaView: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-2 p-2 bg-[hsl(var(--muted))] rounded-lg">
-              <button className="p-1.5 bg-[hsl(var(--primary))] text-black rounded-full hover:opacity-80 transition-opacity">
+              <a
+                href={clone.sample_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-1.5 bg-[hsl(var(--primary))] text-black rounded-full hover:opacity-80 transition-opacity"
+                title="Play sample"
+              >
                 <Play size={12} fill="currentColor" />
-              </button>
-              <div className="flex-1 h-1 bg-[hsl(var(--border-v))] rounded-full overflow-hidden">
-                <div className="h-full w-1/3 bg-[hsl(var(--primary))]" />
-              </div>
-              <span className="text-[10px] font-mono text-[hsl(var(--muted-foreground))]">0:15</span>
+              </a>
+              <span className="text-[10px] text-[hsl(var(--muted-foreground))] truncate flex-1">Sample audio</span>
             </div>
 
             {canReview && clone.status === 'submitted' && (
               <div className="flex gap-2 pt-2 border-t border-[hsl(var(--border-v))]">
-                <button 
+                <button
+                  type="button"
                   onClick={() => handleReview(clone.id, 'approved')}
                   className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-emerald-500/40 text-emerald-400 text-[10px] font-medium hover:bg-emerald-500/10 transition-colors"
                 >
                   <Check size={12} /> Approve
                 </button>
-                <button 
+                <button
+                  type="button"
                   onClick={() => handleReview(clone.id, 'rejected')}
                   className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-red-500/40 text-red-400 text-[10px] font-medium hover:bg-red-500/10 transition-colors"
                 >
@@ -149,7 +136,7 @@ const VoicePersonaView: React.FC = () => {
 
             {isGCCAdmin && (
               <div className="flex justify-end pt-2">
-                <button className="p-1.5 text-[hsl(var(--muted-foreground))] hover:text-red-500 transition-colors">
+                <button type="button" className="p-1.5 text-[hsl(var(--muted-foreground))] hover:text-red-500 transition-colors">
                   <Trash2 size={14} />
                 </button>
               </div>
@@ -165,53 +152,28 @@ const VoicePersonaView: React.FC = () => {
         )}
       </div>
 
-      {/* Upload Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-2xl w-full max-w-md overflow-hidden">
             <div className="p-6 border-b border-[hsl(var(--border-v))] flex items-center justify-between">
-              <h3 className="text-lg font-display font-semibold text-[hsl(var(--foreground))]">Submit Voice Sample</h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]">
+              <h3 className="text-lg font-display font-semibold text-[hsl(var(--foreground))]">Submit voice clone</h3>
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
+              >
                 <X size={20} />
               </button>
             </div>
-            
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-mono font-bold text-[hsl(var(--muted-foreground))] uppercase tracking-wider">Voice Name</label>
-                <input 
-                  type="text"
-                  required
-                  value={newName}
-                  onChange={e => setNewName(e.target.value)}
-                  placeholder="e.g. Professional British Male"
-                  className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs text-[hsl(var(--foreground))] focus:outline-none focus:border-[hsl(var(--primary))]/50"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-mono font-bold text-[hsl(var(--muted-foreground))] uppercase tracking-wider">Sample URL (mp3/wav)</label>
-                <input 
-                  type="url"
-                  required
-                  value={sampleUrl}
-                  onChange={e => setSampleUrl(e.target.value)}
-                  placeholder="https://example.com/sample.mp3"
-                  className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs text-[hsl(var(--foreground))] focus:outline-none focus:border-[hsl(var(--primary))]/50"
-                />
-              </div>
-
-              <div className="pt-2">
-                <button 
-                  type="submit"
-                  disabled={isUploading}
-                  className="w-full py-2.5 bg-[hsl(var(--primary))] text-black rounded-xl text-xs font-bold hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
-                >
-                  {isUploading ? <Loader2 size={16} className="animate-spin" /> : <Mic size={16} />}
-                  Submit for Approval
-                </button>
-              </div>
-            </form>
+            <div className="p-6">
+              <VoiceCloneUploadPanel
+                organizationId={submitOrgId}
+                onSubmitted={() => {
+                  setIsModalOpen(false);
+                  fetchClones();
+                }}
+              />
+            </div>
           </div>
         </div>
       )}

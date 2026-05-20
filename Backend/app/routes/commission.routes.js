@@ -5,6 +5,11 @@ import { requireRole } from '../middlewares/rbac.js'
 
 const router = express.Router()
 
-router.get('/', auth, requireRole(['gcc_admin', 'sp_primary', 'sp_sub']), commissionController.getCommissions)
+router.get(
+  '/',
+  auth,
+  requireRole(['gcc_admin', 'gcc_reviewer', 'sp_primary', 'sp_sub']),
+  commissionController.getCommissions,
+)
 
 export default router

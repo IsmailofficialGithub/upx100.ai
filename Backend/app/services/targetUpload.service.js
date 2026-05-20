@@ -29,7 +29,8 @@ export const submitUpload = async (uploadData) => {
     .from('target_account_uploads')
     .insert([{
       ...uploadData,
-      status: 'pending_review'
+      status: 'pending_review',
+      created_at: uploadData.created_at || new Date().toISOString()
     }])
     .select()
     .single()
@@ -61,15 +62,23 @@ export const listAllUploads = async () => {
   return enrichUploadRowsWithProfiles(data || [])
 }
 
-export const updateUploadStatus = async (uploadId, status, reviewerId) => {
+export const updateUploadStatus = async (uploadId, status, reviewerId, rejectionNote = null) => {
+  const patch = {
+    status,
+    reviewed_by: reviewerId,
+    reviewed_at: new Date().toISOString(),
+  }
+  if (status === 'rejected' && rejectionNote) {
+    patch.rejection_note = rejectionNote
+  }
+  if (status === 'approved') {
+    patch.rejection_note = null
+  }
+
   const { data, error } = await supabaseAdmin
     .schema('inbound')
     .from('target_account_uploads')
-    .update({
-      status,
-      reviewed_by: reviewerId,
-      reviewed_at: new Date().toISOString()
-    })
+    .update(patch)
     .eq('id', uploadId)
     .select()
     .single()

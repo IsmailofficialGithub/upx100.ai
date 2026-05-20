@@ -15,7 +15,7 @@ const app = express()
 // Security & Logging Middlewares
 app.use(helmet())
 app.use(cors({ origin: ['http://localhost:3000'], credentials: true }))
-app.use(express.json())
+app.use(express.json({ limit: '8mb' }))
 
 // Conditionally use morgan to avoid noise in tests
 if (process.env.NODE_ENV !== 'test') {

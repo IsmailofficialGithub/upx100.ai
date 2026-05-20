@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { supabaseAdmin } from '../config/supabase.js'
+import { enrichAgentPayload } from '../lib/agentPrompt.js'
 
 /**
  * Inbound Agent Service
@@ -9,8 +10,10 @@ import { supabaseAdmin } from '../config/supabase.js'
 export const createAgent = async (agentData) => {
   const webhookUrl = `${process.env.REACT_APP_WEBHOOK_BASE_URL}${process.env.REACT_APP_WEBHOOK_CREATE_AGENT}`
 
+  const enriched = enrichAgentPayload(agentData)
+
   const metadata = {
-    ...(agentData.metadata || {}),
+    ...(enriched.metadata || {}),
     voice_name: agentData.voice_name || null,
     voice_provider: agentData.voice_provider ? agentData.voice_provider.toLowerCase() : null,
     fallback_config: {
@@ -22,7 +25,7 @@ export const createAgent = async (agentData) => {
   // 1. Synchronize with local database first to get unique ID
   const validColumns = [
     'organization_id', 'name', 'vapi_id', 'voice_persona', 'script', 
-    'status', 'is_paused', 'company_name', 'website_url', 'goal', 
+    'status', 'is_paused', 'company_name', 'website_url', 'industry_vertical', 'goal', 
     'background', 'welcome_message', 'instruction_voice', 'language', 
     'agent_type', 'tone', 'model', 'conversation_agent_link', 'user_id'
   ]
@@ -33,8 +36,8 @@ export const createAgent = async (agentData) => {
   }
 
   validColumns.forEach(col => {
-    if (agentData[col] !== undefined) {
-      insertData[col] = agentData[col]
+    if (enriched[col] !== undefined) {
+      insertData[col] = enriched[col]
     }
   })
 
@@ -49,12 +52,14 @@ export const createAgent = async (agentData) => {
 
   // 2. Trigger external automation (n8n/vapi etc) WITH the DB ID
   const finalPayload = {
-    ...agentData,
-    organization_id: agentData.organization_id || null,
+    ...enriched,
+    organization_id: enriched.organization_id || null,
     id: data.id,
     fallback_number: metadata.fallback_config.number,
     fallback_enabled: metadata.fallback_config.enabled,
-    metadata
+    metadata,
+    system_prompt: insertData.script,
+    welcome_ssml: metadata.welcome_ssml,
   }
 
   const webhookResponse = await axios.post(webhookUrl, finalPayload)
@@ -84,10 +89,11 @@ export const updateAgent = async (agentId, updateData) => {
 
   const webhookUrl = `${process.env.REACT_APP_WEBHOOK_BASE_URL}${process.env.REACT_APP_WEBHOOK_EDIT_AGENT}`
 
+  const enriched = enrichAgentPayload(updateData, existing)
+
   // Construct metadata with fallback_config
   const newMetadata = {
-    ...(existing.metadata || {}),
-    ...(updateData.metadata || {}),
+    ...(enriched.metadata || {}),
     voice_name: updateData.voice_name !== undefined ? updateData.voice_name : (existing.metadata?.voice_name || null),
     voice_provider: updateData.voice_provider ? updateData.voice_provider.toLowerCase() : (existing.metadata?.voice_provider || null),
     fallback_config: {
@@ -99,17 +105,19 @@ export const updateAgent = async (agentId, updateData) => {
   // 2. Trigger external automation
   const webhookResponse = await axios.post(webhookUrl, {
     agentId,
-    ...updateData,
-    organization_id: updateData.organization_id || existing.organization_id || null,
+    ...enriched,
+    organization_id: enriched.organization_id || existing.organization_id || null,
     fallback_number: newMetadata.fallback_config.number,
     fallback_enabled: newMetadata.fallback_config.enabled,
-    metadata: newMetadata
+    metadata: newMetadata,
+    system_prompt: enriched.script,
+    welcome_ssml: newMetadata.welcome_ssml,
   })
 
   // 3. Update local database
   const validColumns = [
     'organization_id', 'name', 'vapi_id', 'voice_persona', 'script', 
-    'status', 'is_paused', 'company_name', 'website_url', 'goal', 
+    'status', 'is_paused', 'company_name', 'website_url', 'industry_vertical', 'goal', 
     'background', 'welcome_message', 'instruction_voice', 'language', 
     'agent_type', 'tone', 'model', 'conversation_agent_link', 'user_id'
   ]
@@ -120,8 +128,8 @@ export const updateAgent = async (agentId, updateData) => {
   }
 
   validColumns.forEach(col => {
-    if (updateData[col] !== undefined) {
-      updatePayload[col] = updateData[col]
+    if (enriched[col] !== undefined) {
+      updatePayload[col] = enriched[col]
     }
   })
 
@@ -173,7 +181,7 @@ export const getAgentById = async (agentId) => {
   const { data, error } = await supabaseAdmin
     .schema('inbound')
     .from('agents')
-    .select('*, organizations:organizations!agents_organization_id_fkey(name), phone_numbers(id)')
+    .select('*, organizations:organizations!agents_organization_id_fkey(name), phone_numbers:phone_numbers!phone_numbers_agent_id_fkey(id, phone_number, agent_id)')
     .eq('id', agentId)
     .single()
 
@@ -183,15 +191,21 @@ export const getAgentById = async (agentId) => {
   }
   return {
     ...data,
-    phone_number_id: data.phone_numbers?.[0]?.id || null
+    phone_number_id: resolveAgentPhoneNumberId(data.phone_numbers),
   }
+}
+
+function resolveAgentPhoneNumberId(phoneNumbers) {
+  if (!phoneNumbers) return null
+  if (Array.isArray(phoneNumbers)) return phoneNumbers[0]?.id || null
+  return phoneNumbers.id || null
 }
 
 export const listAgentsByOrg = async (orgId, userId = null) => {
   let query = supabaseAdmin
     .schema('inbound')
     .from('agents')
-    .select('*, organizations:organizations!agents_organization_id_fkey(name), phone_numbers(id)')
+    .select('*, organizations:organizations!agents_organization_id_fkey(name), phone_numbers:phone_numbers!phone_numbers_agent_id_fkey(id, phone_number, agent_id)')
     .is('deleted_at', null)
 
   if (orgId && orgId !== 'null' && orgId !== '00000000-0000-4000-a000-000000000003') {
@@ -207,9 +221,9 @@ export const listAgentsByOrg = async (orgId, userId = null) => {
   const { data, error } = await query
 
   if (error) throw error
-  return data.map(agent => ({
+  return data.map((agent) => ({
     ...agent,
-    phone_number_id: agent.phone_numbers?.[0]?.id || null
+    phone_number_id: resolveAgentPhoneNumberId(agent.phone_numbers),
   }))
 }
 
@@ -217,12 +231,12 @@ export const listAllAgents = async () => {
   const { data, error } = await supabaseAdmin
     .schema('inbound')
     .from('agents')
-    .select('*, organizations:organizations!agents_organization_id_fkey(name), phone_numbers(id)')
+    .select('*, organizations:organizations!agents_organization_id_fkey(name), phone_numbers:phone_numbers!phone_numbers_agent_id_fkey(id, phone_number, agent_id)')
     .is('deleted_at', null)
 
   if (error) throw error
-  return data.map(agent => ({
+  return data.map((agent) => ({
     ...agent,
-    phone_number_id: agent.phone_numbers?.[0]?.id || null
+    phone_number_id: resolveAgentPhoneNumberId(agent.phone_numbers),
   }))
 }

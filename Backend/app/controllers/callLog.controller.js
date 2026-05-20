@@ -7,6 +7,28 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-
 
 const SYSTEM_ORG_SENTINEL = '00000000-0000-4000-a000-000000000003'
 
+/** Map Vapi call.type to inbound | outbound. */
+const mapVapiCallDirection = (callType) => {
+  if (!callType) return null
+  const t = String(callType).toLowerCase()
+  if (t.includes('outbound')) return 'outbound'
+  if (t.includes('inbound')) return 'inbound'
+  return null
+}
+
+const normalizeStoredDirection = (value) => {
+  if (!value) return null
+  const t = String(value).toLowerCase()
+  if (t.includes('outbound')) return 'outbound'
+  if (t.includes('inbound')) return 'inbound'
+  return null
+}
+
+const enrichCallLogRow = (log) => ({
+  ...log,
+  call_direction: normalizeStoredDirection(log.call_direction) ?? null,
+})
+
 const effectiveOrgId = (orgId) =>
   orgId && orgId !== SYSTEM_ORG_SENTINEL ? orgId : null
 
@@ -64,7 +86,12 @@ export const handleVapiWebhook = async (req, res) => {
       transcript: callData.transcript,
       summary: callData.summary,
       is_lead: callData.analysis?.isLead || false,
-      started_at: callData.startedAt
+      started_at: callData.startedAt,
+      ended_at: callData.endedAt,
+      called_number:
+        callData.phoneNumber?.number ??
+        (typeof callData.phoneNumber === 'string' ? callData.phoneNumber : null),
+      call_direction: mapVapiCallDirection(callData.type),
     }
 
     if (!logData.organization_id && logData.agent_id) {
@@ -129,14 +156,15 @@ export const getLogs = async (req, res) => {
       }
     }
 
-    return res.json({ data: logs })
+    const enriched = (logs || []).map(enrichCallLogRow)
+    return res.json({ data: enriched })
   } catch (e) {
     if (['client_admin', 'client_sub'].includes(role)) {
       console.warn('[call-logs] user-client failed, falling back to service role path', e?.message)
       const eff = effectiveOrgId(orgId)
       const filterUserId = role === 'client_admin' ? null : userId
       const logs = await callLogService.listLogsByOrg(eff, filterUserId)
-      return res.json({ data: logs })
+      return res.json({ data: (logs || []).map(enrichCallLogRow) })
     }
     throw e
   }
@@ -190,5 +218,5 @@ export const getLog = async (req, res) => {
     }
   }
 
-  return res.json({ data: log })
+  return res.json({ data: enrichCallLogRow(log) })
 }

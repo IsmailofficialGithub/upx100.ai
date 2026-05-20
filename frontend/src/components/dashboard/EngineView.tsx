@@ -1,45 +1,54 @@
-import { Upload, Download, Play, FileText, Loader2 } from 'lucide-react';
+import { Upload, Download, Play, FileText, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
 import api from '@/lib/api';
+import { formatNullableLocaleDate } from '@/lib/dateFormat';
 
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useMemo } from 'react';
 import StatusBadge from '../shared/StatusBadge';
-import { scripts } from '@/data/mockData';
 
-type ScriptTag = 'DISCLOSURE' | 'PITCH' | 'QUALIFY' | 'VALUE' | 'CLOSE';
+const SUBMISSION_PREVIEW_ROWS = 10;
+const CSV_PREVIEW_ROWS = 10;
 
-const tagColors: Record<ScriptTag, string> = {
-  DISCLOSURE: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
-  PITCH: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
-  QUALIFY: 'bg-purple-500/15 text-purple-400 border-purple-500/30',
-  VALUE: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30',
-  CLOSE: 'bg-red-500/15 text-red-400 border-red-500/30',
+type TargetUploadRow = {
+  id: string;
+  file_url: string;
+  row_count: number;
+  status: string;
+  created_at: string;
+  organization_id?: string;
 };
 
 const EngineView: React.FC = () => {
-  const [scriptTab, setScriptTab] = useState<'outbound' | 'inbound'>('outbound');
+  const [campaignType, setCampaignType] = useState<'outbound' | 'inbound'>('outbound');
   const [scriptChange, setScriptChange] = useState('');
   const [csvData, setCsvData] = useState<Array<{ name: string; company: string; title: string; email: string }> | null>(null);
   const [csvFileName, setCsvFileName] = useState('');
   const [dragOver, setDragOver] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploads, setUploads] = useState<any[]>([]);
+  const [uploads, setUploads] = useState<TargetUploadRow[]>([]);
   const [isLoadingUploads, setIsLoadingUploads] = useState(true);
-  
+  const [showAllSubmissions, setShowAllSubmissions] = useState(false);
+  const [showAllCsvRows, setShowAllCsvRows] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { canSubmitScripts, canUploadTargets, user, isGCC, isSP } = useAuth();
+  const { canSubmitScripts, canUploadTargets, user, isSP } = useAuth();
   const [orgChoices, setOrgChoices] = useState<{ id: string; name: string }[]>([]);
   const [uploadOrgId, setUploadOrgId] = useState('');
 
-  const currentScript = scripts[scriptTab];
+  const organizationId = user?.orgId || uploadOrgId;
+  const organizationLabel = useMemo(() => {
+    if (user?.orgId) return user.entityName || 'Your organization';
+    const row = orgChoices.find((o) => o.id === uploadOrgId);
+    return row?.name || '';
+  }, [user?.orgId, user?.entityName, orgChoices, uploadOrgId]);
 
   useEffect(() => {
     if (user?.orgId) {
       setUploadOrgId(user.orgId);
       return;
     }
-    if (!user || (!isGCC && !isSP)) return;
+    if (!user || !isSP) return;
     let cancelled = false;
     (async () => {
       try {
@@ -56,22 +65,43 @@ const EngineView: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [user?.orgId, user?.role, isGCC, isSP]);
+  }, [user?.orgId, user?.role, isSP]);
+
+  const scopedUploads = useMemo(() => {
+    if (!organizationId) return [];
+    return uploads.filter((u) => u.organization_id === organizationId);
+  }, [uploads, organizationId]);
+
+  const visibleSubmissions = showAllSubmissions
+    ? scopedUploads
+    : scopedUploads.slice(0, SUBMISSION_PREVIEW_ROWS);
+
+  const visibleCsvRows = showAllCsvRows ? csvData : csvData?.slice(0, CSV_PREVIEW_ROWS);
 
   const fetchUploads = async () => {
+    if (!organizationId) {
+      setUploads([]);
+      setIsLoadingUploads(false);
+      return;
+    }
+    setIsLoadingUploads(true);
     try {
-      const response = await api.get('/target-uploads');
-      setUploads(response.data.data);
-    } catch (err) {
+      const response = await api.get<{ data: TargetUploadRow[] }>('/target-uploads', {
+        params: { organization_id: organizationId },
+      });
+      setUploads(response.data?.data ?? []);
+    } catch {
       console.error('Failed to fetch uploads');
+      setUploads([]);
     } finally {
       setIsLoadingUploads(false);
     }
   };
 
   useEffect(() => {
+    setShowAllSubmissions(false);
     fetchUploads();
-  }, []);
+  }, [organizationId]);
 
   const handleFileDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -92,26 +122,29 @@ const EngineView: React.FC = () => {
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = e.target?.result as string;
-      const lines = text.split('\n').filter(l => l.trim());
-      const parsed = lines.slice(1).map(line => {
-        const cols = line.split(',');
-        return {
-          name: cols[0]?.trim() || '',
-          company: cols[1]?.trim() || '',
-          title: cols[2]?.trim() || '',
-          email: cols[3]?.trim() || '',
-        };
-      }).filter(r => r.name);
+      const lines = text.split('\n').filter((l) => l.trim());
+      const parsed = lines
+        .slice(1)
+        .map((line) => {
+          const cols = line.split(',');
+          return {
+            name: cols[0]?.trim() || '',
+            company: cols[1]?.trim() || '',
+            title: cols[2]?.trim() || '',
+            email: cols[3]?.trim() || '',
+          };
+        })
+        .filter((r) => r.name);
       setCsvData(parsed);
+      setShowAllCsvRows(false);
     };
     reader.readAsText(file);
   };
 
   const handleUpload = async () => {
     if (!csvData) return;
-    const organizationId = user?.orgId || uploadOrgId;
     if (!organizationId) {
-      toast.error('Select an organization (or sign in with a user that has an org).');
+      toast.error('Select a client organization before uploading.');
       return;
     }
     setIsUploading(true);
@@ -125,7 +158,7 @@ const EngineView: React.FC = () => {
       setCsvData(null);
       setCsvFileName('');
       fetchUploads();
-    } catch (err) {
+    } catch {
       toast.error('Failed to upload target list');
     } finally {
       setIsUploading(false);
@@ -146,120 +179,73 @@ const EngineView: React.FC = () => {
     toast.success('Template downloaded');
   };
 
+  const submitScriptRequest = async () => {
+    if (!organizationId) {
+      toast.error('Select a client organization before submitting.');
+      return;
+    }
+    try {
+      await api.post('/script-requests', {
+        script_text: scriptChange,
+        campaign_type: campaignType,
+        organization_id: organizationId,
+      });
+      setScriptChange('');
+      toast.success('Script change request submitted');
+    } catch {
+      toast.error('Failed to submit request');
+    }
+  };
+
+  const showOrgPicker = !user?.orgId && orgChoices.length > 0 && isSP;
+
   return (
-    <div className="space-y-6">
-      {!user?.orgId && orgChoices.length > 0 && (canSubmitScripts || canUploadTargets) && (
-        <div className="bg-[hsl(var(--card))] border border-amber-500/25 rounded-xl p-4">
-          <label className="block text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] mb-1.5 tracking-wider">
-            Organization for scripts &amp; uploads
-          </label>
-          <select
-            value={uploadOrgId}
-            onChange={(e) => setUploadOrgId(e.target.value)}
-            className="w-full max-w-md text-xs rounded-lg border border-[hsl(var(--border-v))] bg-[hsl(var(--card))] text-[hsl(var(--foreground))] px-2 py-2"
-          >
-            {orgChoices.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.name}
-              </option>
-            ))}
-          </select>
-          <p className="text-[10px] text-[hsl(var(--muted-foreground))] mt-2">
-            Your profile has no default organization. Requests and CSV uploads are stored under the org you select here.
-          </p>
+    <div className="space-y-6 max-w-3xl">
+      <p className="text-[11px] text-[hsl(var(--muted-foreground))] leading-relaxed">
+        Submit script changes and target-account CSVs for GCC review in the{' '}
+        <span className="font-mono text-[hsl(var(--primary))]">HITL Queue</span>.
+      </p>
+
+      {(user?.orgId || showOrgPicker) && (
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="text-[hsl(var(--muted-foreground))]">Organization</span>
+          {showOrgPicker ? (
+            <select
+              value={uploadOrgId}
+              onChange={(e) => setUploadOrgId(e.target.value)}
+              className="rounded-lg border border-[hsl(var(--border-v))] bg-[hsl(var(--card))] text-[hsl(var(--foreground))] px-2 py-1.5 text-xs min-w-[12rem]"
+            >
+              {orgChoices.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span className="font-medium text-[hsl(var(--foreground))]">{organizationLabel}</span>
+          )}
         </div>
       )}
-
-      {/* Campaign Scripts */}
-      <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-4">
-        <h3 className="text-sm font-display font-semibold text-[hsl(var(--foreground))] mb-4">Campaign Scripts</h3>
-
-        <div className="flex bg-[hsl(var(--muted))] rounded-lg p-0.5 w-fit mb-4">
-          {(['outbound', 'inbound'] as const).map(tab => (
-            <button
-              key={tab}
-              onClick={() => setScriptTab(tab)}
-              className={`px-4 py-1.5 rounded-md text-[11px] font-mono font-semibold uppercase transition-colors ${
-                scriptTab === tab
-                  ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]'
-                  : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
-              }`}
-            >
-              {tab === 'outbound' ? 'Outbound Cold' : 'Inbound Triage'}
-            </button>
-          ))}
-        </div>
-
-        <div className="space-y-3">
-          {currentScript.map((line:any) => (
-            <div key={line.id} className="flex gap-3 p-3 bg-[hsl(var(--muted))] rounded-lg border border-[hsl(var(--border-v))]">
-              <span className={`flex-shrink-0 px-2 py-0.5 rounded-full text-[9px] font-mono font-semibold border h-fit ${tagColors[line.tag as ScriptTag]}`}>
-                {line.tag}
-              </span>
-              <p className="text-xs text-[hsl(var(--foreground))] leading-relaxed">{line.text}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Script Change Request */}
-        {canSubmitScripts && (
-          <div className="mt-4 p-4 border border-[hsl(var(--border-v))] rounded-lg bg-[hsl(var(--muted))]/30">
-            <p className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] mb-2 tracking-wider">Request Script Change</p>
-            <textarea
-              value={scriptChange}
-              onChange={e => setScriptChange(e.target.value)}
-              placeholder="Describe the change you'd like to make to the script..."
-              className="w-full h-20 px-3 py-2 bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-lg text-xs text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--muted-foreground))]/50 focus:outline-none focus:border-[hsl(var(--primary))]/50 resize-none"
-            />
-            <div className="flex justify-end mt-2">
-              <button
-                onClick={async () => {
-                  const organizationId = user?.orgId || uploadOrgId;
-                  if (!organizationId) {
-                    toast.error('Select an organization above, or sign in with a user that has an org.');
-                    return;
-                  }
-                  try {
-                    await api.post('/script-requests', {
-                      script_text: scriptChange,
-                      campaign_type: scriptTab,
-                      organization_id: organizationId,
-                    });
-                    setScriptChange('');
-                    toast.success('Script change request submitted!');
-                  } catch (err) {
-                    toast.error('Failed to submit request');
-                  }
-                }}
-                disabled={!scriptChange.trim()}
-                className="px-4 py-1.5 rounded-lg text-xs font-medium bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed transition-opacity"
-              >
-                Submit Request
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
 
       {/* Target Accounts CSV Upload */}
       <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-4">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-display font-semibold text-[hsl(var(--foreground))]">Target Accounts</h3>
+          <h3 className="text-sm font-display font-semibold text-[hsl(var(--foreground))]">Target accounts</h3>
           <button
             type="button"
             onClick={downloadCsvTemplate}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]/80 transition-colors"
           >
-            <Download size={14} /> Download Template
+            <Download size={14} /> Download template
           </button>
         </div>
 
-        {/* Upload Zone */}
         {canUploadTargets ? (
-          <div className="space-y-3">
           <div
-            onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragOver(true);
+            }}
             onDragLeave={() => setDragOver(false)}
             onDrop={handleFileDrop}
             onClick={() => fileInputRef.current?.click()}
@@ -274,15 +260,14 @@ const EngineView: React.FC = () => {
             <p className="text-sm text-[hsl(var(--foreground))]">Drop CSV file here or click to browse</p>
             <p className="text-[11px] text-[hsl(var(--muted-foreground))] mt-1">Name, Company, Title, Email columns required</p>
           </div>
-          </div>
         ) : (
           <div className="border-2 border-dashed border-[hsl(var(--border-v))] rounded-xl p-8 text-center bg-[hsl(var(--muted))]/30">
-            <p className="text-sm text-[hsl(var(--muted-foreground))] italic">Target account upload restricted to Client Admins only.</p>
+            <p className="text-sm text-[hsl(var(--muted-foreground))] italic">
+              Target account upload is restricted to client admins.
+            </p>
           </div>
         )}
 
-
-        {/* Preview Table */}
         {csvData && (
           <div className="mt-4">
             <div className="flex items-center justify-between mb-2">
@@ -294,10 +279,10 @@ const EngineView: React.FC = () => {
               <button
                 onClick={handleUpload}
                 disabled={isUploading}
-                className="px-4 py-1.5 bg-[hsl(var(--primary))] text-black rounded-lg text-xs font-semibold hover:opacity-90 transition-opacity flex items-center gap-2"
+                className="px-4 py-1.5 bg-[hsl(var(--primary))] text-black rounded-lg text-xs font-semibold hover:opacity-90 transition-opacity flex items-center gap-2 disabled:opacity-50"
               >
                 {isUploading ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
-                Confirm & Upload
+                Confirm & upload
               </button>
             </div>
             <div className="overflow-x-auto max-h-60">
@@ -311,7 +296,7 @@ const EngineView: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {csvData.slice(0, 10).map((row, idx) => (
+                  {visibleCsvRows?.map((row, idx) => (
                     <tr key={idx} className="border-b border-[hsl(var(--border))] hover:bg-[hsl(var(--muted))] transition-colors">
                       <td className="py-2 px-2 text-[hsl(var(--foreground))]">{row.name}</td>
                       <td className="py-2 px-2 text-[hsl(var(--foreground))]">{row.company}</td>
@@ -319,47 +304,125 @@ const EngineView: React.FC = () => {
                       <td className="py-2 px-2 text-[hsl(var(--foreground))]">{row.email}</td>
                     </tr>
                   ))}
-                  {csvData.length > 10 && (
-                    <tr>
-                      <td colSpan={4} className="py-2 text-center text-[10px] text-[hsl(var(--muted-foreground))] italic">
-                        + {csvData.length - 10} more rows
-                      </td>
-                    </tr>
-                  )}
                 </tbody>
               </table>
             </div>
+            {csvData.length > CSV_PREVIEW_ROWS && (
+              <button
+                type="button"
+                onClick={() => setShowAllCsvRows((v) => !v)}
+                className="mt-2 flex items-center gap-1 text-[10px] font-mono text-[hsl(var(--primary))] hover:underline"
+              >
+                {showAllCsvRows ? (
+                  <>
+                    <ChevronUp size={12} /> Show fewer rows
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown size={12} /> Show all {csvData.length} rows
+                  </>
+                )}
+              </button>
+            )}
           </div>
         )}
 
-        {/* Recent Submissions */}
         <div className="mt-4">
-          <p className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] mb-2 tracking-wider">Recent Submissions</p>
+          <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2">
+            <p className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] tracking-wider">
+              Recent submissions
+            </p>
+            {organizationLabel && (
+              <span className="text-[10px] text-[hsl(var(--muted-foreground))]">
+                for <span className="font-medium text-[hsl(var(--foreground))]">{organizationLabel}</span>
+              </span>
+            )}
+          </div>
           <div className="space-y-2">
             {isLoadingUploads ? (
-              <div className="flex justify-center p-4"><Loader2 className="animate-spin text-[hsl(var(--primary))]" size={20} /></div>
-            ) : uploads.length > 0 ? (
-              uploads.map((sub) => (
-                <div key={sub.id} className="flex items-center justify-between p-2.5 bg-[hsl(var(--muted))] rounded-lg">
+              <div className="flex justify-center p-4">
+                <Loader2 className="animate-spin text-[hsl(var(--primary))]" size={20} />
+              </div>
+            ) : scopedUploads.length > 0 ? (
+              <>
+                {visibleSubmissions.map((sub) => (
+                  <div key={sub.id} className="flex items-center justify-between p-2.5 bg-[hsl(var(--muted))] rounded-lg">
                   <div className="flex items-center gap-2">
                     <FileText size={14} className="text-[hsl(var(--muted-foreground))]" />
                     <div>
                       <p className="text-xs text-[hsl(var(--foreground))]">{sub.file_url}</p>
                       <p className="text-[10px] font-mono text-[hsl(var(--muted-foreground))]">
-                        {new Date(sub.created_at).toLocaleDateString()} · {sub.row_count} accounts
+                        {formatNullableLocaleDate(sub.created_at)} · {sub.row_count} accounts
                       </p>
                     </div>
                   </div>
-                  <StatusBadge status={sub.status} />
-                </div>
-              ))
+                    <StatusBadge status={sub.status} />
+                  </div>
+                ))}
+                {scopedUploads.length > SUBMISSION_PREVIEW_ROWS && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllSubmissions((v) => !v)}
+                    className="w-full flex items-center justify-center gap-1 py-2 text-[10px] font-mono text-[hsl(var(--primary))] hover:bg-[hsl(var(--muted))]/50 rounded-lg transition-colors"
+                  >
+                    {showAllSubmissions ? (
+                      <>
+                        <ChevronUp size={12} /> Show fewer
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown size={12} /> Show all {scopedUploads.length} submissions
+                      </>
+                    )}
+                  </button>
+                )}
+              </>
             ) : (
-              <p className="text-center py-4 text-xs text-[hsl(var(--muted-foreground))]">No submissions found.</p>
+              <p className="text-center py-4 text-xs text-[hsl(var(--muted-foreground))]">
+                {organizationId ? 'No submissions for this organization yet.' : 'Select an organization to view submissions.'}
+              </p>
             )}
           </div>
         </div>
       </div>
 
+      {/* Script change request */}
+      {canSubmitScripts && (
+        <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-4">
+          <h3 className="text-sm font-display font-semibold text-[hsl(var(--foreground))] mb-1">Request script change</h3>
+          <p className="text-[11px] text-[hsl(var(--muted-foreground))] mb-4">
+            Describe what should change. GCC approves in HITL; live scripts are not edited here.
+          </p>
+
+          <label className="block text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] mb-1.5 tracking-wider">
+            Campaign type
+          </label>
+          <select
+            value={campaignType}
+            onChange={(e) => setCampaignType(e.target.value as 'outbound' | 'inbound')}
+            className="w-full max-w-xs mb-3 rounded-lg border border-[hsl(var(--border-v))] bg-[hsl(var(--card))] text-[hsl(var(--foreground))] px-2 py-2 text-xs"
+          >
+            <option value="outbound">Outbound cold</option>
+            <option value="inbound">Inbound triage</option>
+          </select>
+
+          <textarea
+            value={scriptChange}
+            onChange={(e) => setScriptChange(e.target.value)}
+            placeholder="Describe the change you'd like to make to the script…"
+            className="w-full h-24 px-3 py-2 bg-[hsl(var(--muted))]/30 border border-[hsl(var(--border-v))] rounded-lg text-xs text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--muted-foreground))]/50 focus:outline-none focus:border-[hsl(var(--primary))]/50 resize-none"
+          />
+          <div className="flex justify-end mt-2">
+            <button
+              onClick={submitScriptRequest}
+              disabled={!scriptChange.trim()}
+              className="px-4 py-1.5 rounded-lg text-xs font-medium bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed transition-opacity"
+            >
+              Submit request
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

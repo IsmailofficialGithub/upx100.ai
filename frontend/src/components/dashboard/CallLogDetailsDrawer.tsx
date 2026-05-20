@@ -1,11 +1,13 @@
 import React from 'react';
-import { 
-  X, Calendar, Clock, Phone, 
-  FileText, Activity, ExternalLink, 
-  MessageSquare, Sparkles, Building2, 
-  PhoneIncoming, PhoneOutgoing, DollarSign, Timer
+import {
+  X,
+  ExternalLink,
+  DollarSign,
+  Timer,
 } from 'lucide-react';
-import { format } from 'date-fns';
+import AudioPlayer from '@/components/shared/AudioPlayer';
+import { CallDirectionBadge } from '@/components/shared/CallDirectionBadge';
+import { CALL_DIRECTION_META, getCallDirection } from '@/lib/callDirection';
 
 interface CallLogDetailsDrawerProps {
   log: any;
@@ -15,6 +17,10 @@ interface CallLogDetailsDrawerProps {
 
 const CallLogDetailsDrawer: React.FC<CallLogDetailsDrawerProps> = ({ log, isOpen, onClose }) => {
   if (!log) return null;
+
+  const direction = getCallDirection(log);
+  const directionMeta = CALL_DIRECTION_META[direction];
+  const HeaderIcon = directionMeta.Icon;
 
   const statusColors: Record<string, string> = {
     success: 'bg-green-500/10 text-green-500 border-green-500/20',
@@ -38,12 +44,19 @@ const CallLogDetailsDrawer: React.FC<CallLogDetailsDrawerProps> = ({ log, isOpen
         {/* Header */}
         <div className="p-6 border-b border-[hsl(var(--border-v))] flex items-center justify-between bg-[hsl(var(--muted))]/30">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-[hsl(var(--primary))]/10 flex items-center justify-center text-[hsl(var(--primary))] border border-[hsl(var(--primary))]/20">
-              <PhoneIncoming size={24} />
+            <div
+              className={`w-12 h-12 rounded-xl flex items-center justify-center border ${directionMeta.badgeClass}`}
+            >
+              <HeaderIcon size={24} strokeWidth={2.25} className={directionMeta.iconClass} />
             </div>
             <div>
               <h2 className="text-xl font-display font-bold text-[hsl(var(--foreground))]">Call Details</h2>
-              <div className="flex items-center gap-2 mt-1">
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <span
+                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider ${directionMeta.badgeClass}`}
+                >
+                  {directionMeta.label}
+                </span>
                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${statusColors[log.status] || 'bg-slate-500/10 text-slate-500 border-slate-500/20'} uppercase tracking-wider`}>
                   {log.status}
                 </span>
@@ -100,10 +113,15 @@ const CallLogDetailsDrawer: React.FC<CallLogDetailsDrawerProps> = ({ log, isOpen
               <div className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--primary))]" />
               <h3 className="text-xs font-mono font-bold uppercase tracking-widest text-[hsl(var(--muted-foreground))]">Connection</h3>
             </div>
-            <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-4 flex items-center justify-between">
-              <div className="flex flex-col gap-1">
-                <span className="text-[10px] text-[hsl(var(--muted-foreground))]">From (Customer)</span>
-                <span className="text-sm font-mono font-bold">{log.caller_number || 'Unknown'}</span>
+            <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-4 flex items-center justify-between gap-3">
+              <div className="flex items-start gap-3 min-w-0">
+                <CallDirectionBadge direction={direction} size={22} />
+                <div className="flex flex-col gap-1 min-w-0">
+                  <span className="text-[10px] text-[hsl(var(--muted-foreground))]">
+                    {direction === 'outbound' ? 'Called (participant)' : 'From (customer)'}
+                  </span>
+                  <span className="text-sm font-mono font-bold truncate">{log.caller_number || 'Unknown'}</span>
+                </div>
               </div>
               <div className="flex flex-col items-center">
                 <div className="w-24 h-px bg-gradient-to-r from-transparent via-[hsl(var(--border-v))] to-transparent relative">
@@ -153,23 +171,15 @@ const CallLogDetailsDrawer: React.FC<CallLogDetailsDrawerProps> = ({ log, isOpen
                 <div className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--primary))]" />
                 <h3 className="text-xs font-mono font-bold uppercase tracking-widest text-[hsl(var(--muted-foreground))]">Audio Recording</h3>
               </div>
-              <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-4 flex items-center justify-between bg-[hsl(var(--primary))]/5">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-[hsl(var(--primary))] flex items-center justify-center text-black shadow-lg">
-                    <Activity size={20} />
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-xs font-bold text-[hsl(var(--foreground))]">Call Recording Available</span>
-                    <span className="text-[10px] text-[hsl(var(--muted-foreground))] font-mono">Format: MP3/WAV (Mono)</span>
-                  </div>
-                </div>
-                <a 
-                  href={log.recording_url} 
-                  target="_blank" 
+              <div className="border border-[hsl(var(--border-v))] rounded-xl p-4 space-y-3 bg-[hsl(var(--primary))]/5">
+                <AudioPlayer src={log.recording_url} className="w-full bg-[hsl(var(--background))]/60 border border-[hsl(var(--border-v))]" />
+                <a
+                  href={log.recording_url}
+                  target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-lg text-xs font-bold hover:bg-black/80 transition-colors"
+                  className="inline-flex items-center gap-1 text-[10px] font-mono text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors"
                 >
-                  PLAY RECORDING <ExternalLink size={12} />
+                  Open in new tab <ExternalLink size={10} />
                 </a>
               </div>
             </section>

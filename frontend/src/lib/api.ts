@@ -17,10 +17,12 @@ const GCC_SCOPE_QUERY_PATHS = [
   '/admin/leads',
   '/admin/agents',
   '/admin/phone-numbers',
+  '/phone-numbers',
   '/admin/script-requests',
   '/admin/target-uploads',
   '/admin/voice-clones',
-  '/admin/users',
+  '/commissions',
+  '/agents',
 ];
 
 function mergeGccTenantScopeParam(config: import('axios').InternalAxiosRequestConfig) {

@@ -1,9 +1,12 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect, useMemo } from 'react';
 import api from '@/lib/api';
 import { Loader2, Building2, User, Hash, Tag, Globe, RefreshCw, Search, ChevronDown, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
+import { useGccTenantScope } from '@/context/GccTenantScopeContext';
 import AdminDataView from './AdminDataView';
+import PhoneLineStatusBadge from '@/components/shared/PhoneLineStatusBadge';
+import { resolvePhoneLineStatus, type PhoneLineStatus } from '@/lib/phoneNumberStatus';
 
 const countries = [
   { code: 'US', name: 'United States / Canada', dial_code: '+1' },
@@ -34,7 +37,19 @@ const AdminPhoneNumbersView: React.FC = () => {
   const [refreshKey, setRefreshKey] = useState(0);
   const [countrySearch, setCountrySearch] = useState('');
   const { user, isGCC, isSP, isClient, isGCCAdmin, isClientAdmin } = useAuth();
+  const gccScope = useGccTenantScope();
   const isAdminView = isGCC || isSP;
+  const listEndpoint = isAdminView ? '/admin/phone-numbers' : '/phone-numbers';
+
+  const scopedOrgId = isGCC && gccScope.scopeOrgId !== 'all' ? gccScope.scopeOrgId : null;
+  const scopedOrgName = scopedOrgId
+    ? gccScope.organizations.find((o) => o.id === scopedOrgId)?.name
+    : null;
+
+  const rowFilter = useMemo(() => {
+    if (!scopedOrgId) return undefined;
+    return (row: { organization_id?: string }) => row.organization_id === scopedOrgId;
+  }, [scopedOrgId]);
 
   const [selectedCountry, setSelectedCountry] = useState(countries[0]);
   const [isCountryDropdownOpen, setIsCountryDropdownOpen] = useState(false);
@@ -55,20 +70,11 @@ const AdminPhoneNumbersView: React.FC = () => {
     organization_id: '',
     user_id: '',
     label: '',
-    provider: 'twilio',
-    // Twilio
-    twilio_account_sid: '',
-    twilio_auth_token: '',
-    // Vonage
-    vonage_api_key: '',
-    vonage_api_secret: '',
-    // Telnyx
-    telnyx_api_key: '',
+    status: 'active' as PhoneLineStatus,
     sms_enabled: false,
-    // New fields
     call_forwarding_enabled: false,
     call_forwarding_number: '',
-    call_forwarding_reason: 'busy'
+    call_forwarding_reason: 'busy',
   });
 
   useEffect(() => {
@@ -168,6 +174,13 @@ const AdminPhoneNumbersView: React.FC = () => {
   }, [userSearch, isAdminView]);
 
   useEffect(() => {
+    if (!isModalOpen || editingId || !scopedOrgId) return;
+    const org = gccScope.organizations.find((o) => o.id === scopedOrgId);
+    setFormData((prev) => ({ ...prev, organization_id: scopedOrgId }));
+    if (org?.name) setOrgSearch(org.name);
+  }, [isModalOpen, editingId, scopedOrgId, gccScope.organizations]);
+
+  useEffect(() => {
     if (selectedCountry.code === 'US' && localPhone.length > 10) {
       setLocalPhone(localPhone.slice(0, 10));
     }
@@ -184,40 +197,34 @@ const AdminPhoneNumbersView: React.FC = () => {
     const finalPhoneNumber = `${selectedCountry.dial_code}${localPhone.replace(/\D/g, '')}`;
     
     // Build payload according to user requirements
-    const submissionData: any = {
-      provider: formData.provider,
+    if (isAdminView && !formData.organization_id) {
+      toast.error('Select the client organization this number belongs to.');
+      setIsSubmitting(false);
+      return;
+    }
+
+    const submissionData: Record<string, unknown> = {
       phone_number: finalPhoneNumber,
       country_code: selectedCountry.dial_code,
       label: formData.label,
-      user_id: isAdminView ? formData.user_id : (formData.user_id || user?.id),
+      status: formData.status,
+      user_id: isAdminView ? formData.user_id : formData.user_id || user?.id,
       sms_enabled: formData.sms_enabled || false,
       call_forwarding_enabled: formData.call_forwarding_enabled,
-      call_forwarding_number: formData.call_forwarding_enabled ? `${forwardingSelectedCountry.dial_code}${forwardingLocalPhone.replace(/\D/g, '')}` : '',
-      call_forwarding_reason: formData.call_forwarding_reason
+      call_forwarding_number: formData.call_forwarding_enabled
+        ? `${forwardingSelectedCountry.dial_code}${forwardingLocalPhone.replace(/\D/g, '')}`
+        : '',
+      call_forwarding_reason: formData.call_forwarding_reason,
     };
 
     if (editingId) submissionData.id = editingId;
-    if (formData.organization_id) submissionData.organization_id = formData.organization_id;
-
-    // Add provider-specific fields at the top level
-    if (formData.provider === 'twilio') {
-      submissionData.twilio_account_sid = formData.twilio_account_sid;
-      submissionData.twilio_auth_token = formData.twilio_auth_token;
-    } else if (formData.provider === 'vonage') {
-      submissionData.vonage_api_key = formData.vonage_api_key;
-      submissionData.vonage_api_secret = formData.vonage_api_secret;
-    } else if (formData.provider === 'telnyx') {
-      submissionData.telnyx_api_key = formData.telnyx_api_key;
-    }
-    if (editingId) submissionData.id = editingId;
     if (isAdminView) {
-      if (formData.organization_id && formData.organization_id !== 'null') {
-        submissionData.organization_id = formData.organization_id;
-      } else {
-        submissionData.organization_id = null;
-      }
+      submissionData.organization_id = formData.organization_id;
     } else {
-      submissionData.organization_id = (user?.orgId && user.orgId !== 'null' && user.orgId !== '00000000-0000-4000-a000-000000000003') ? user.orgId : null;
+      submissionData.organization_id =
+        user?.orgId && user.orgId !== 'null' && user.orgId !== '00000000-0000-4000-a000-000000000003'
+          ? user.orgId
+          : formData.organization_id;
     }
 
     try {
@@ -234,28 +241,27 @@ const AdminPhoneNumbersView: React.FC = () => {
       resetForm();
       setRefreshKey(prev => prev + 1);
     } catch (error: any) {
-      toast.error(error.response?.data?.message || `Failed to ${editingId ? 'update' : 'import'} number`);
+      toast.error(
+        error.response?.data?.error?.message ||
+          error.response?.data?.message ||
+          `Failed to ${editingId ? 'update' : 'import'} number`,
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const resetForm = () => {
-    setFormData({ 
-      phone_number: '', 
-      organization_id: '', 
-      user_id: '', 
-      label: '', 
-      provider: 'twilio',
-      twilio_account_sid: '',
-      twilio_auth_token: '',
-      vonage_api_key: '',
-      vonage_api_secret: '',
-      telnyx_api_key: '',
+    setFormData({
+      phone_number: '',
+      organization_id: '',
+      user_id: '',
+      label: '',
+      status: 'active',
       sms_enabled: false,
       call_forwarding_enabled: false,
       call_forwarding_number: '',
-      call_forwarding_reason: 'busy'
+      call_forwarding_reason: 'busy',
     });
     setLocalPhone('');
     setForwardingLocalPhone('');
@@ -298,16 +304,11 @@ const AdminPhoneNumbersView: React.FC = () => {
       organization_id: row.organization_id || '',
       user_id: row.user_id || row.metadata?.user_id || '',
       label: row.label || '',
-      provider: row.provider || 'twilio',
-      twilio_account_sid: row.metadata?.twilio_account_sid || '',
-      twilio_auth_token: row.metadata?.twilio_auth_token || '',
-      vonage_api_key: row.metadata?.vonage_api_key || '',
-      vonage_api_secret: row.metadata?.vonage_api_secret || '',
-      telnyx_api_key: row.metadata?.telnyx_api_key || '',
+      status: resolvePhoneLineStatus(row),
       sms_enabled: row.sms_enabled || false,
       call_forwarding_enabled: row.call_forwarding_enabled || false,
       call_forwarding_number: row.call_forwarding_number || '',
-      call_forwarding_reason: row.call_forwarding_reason || 'busy'
+      call_forwarding_reason: row.call_forwarding_reason || 'busy',
     });
 
     // Parse forwarding number
@@ -359,31 +360,27 @@ const AdminPhoneNumbersView: React.FC = () => {
       <AdminDataView 
         key={refreshKey}
         title={isAdminView ? "Global Phone Numbers" : "My Phone Numbers"} 
-        endpoint="/phone-numbers"
+        endpoint={listEndpoint}
+        rowFilter={rowFilter}
         emptyMessage={
-          isGCC
-            ? 'No phone numbers in the network yet. Import or register lines so organizations can run campaigns.'
-            : isSP
-              ? 'No client phone numbers yet. When lines are provisioned for accounts in your portfolio, they will appear here.'
-              : 'No phone numbers assigned to your organization yet. Contact your admin or import a line to get started.'
+          scopedOrgName
+            ? `No phone line for ${scopedOrgName}. Each client may have one dedicated inbound number—import a line for this client only.`
+            : isGCC
+              ? 'No phone numbers in the network yet. Import or register lines so organizations can run campaigns.'
+              : isSP
+                ? 'No client phone numbers yet. When lines are provisioned for accounts in your portfolio, they will appear here.'
+                : 'No phone numbers assigned to your organization yet. Contact your admin or import a line to get started.'
         }
         columns={[
           { key: 'phone_number', label: 'Number' },
           { 
             key: 'status', 
             label: 'Status',
-            render: (val:string) => (
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                val === 'active' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 
-                'bg-amber-500/10 text-amber-500 border border-amber-500/20'
-              }`}>
-                {val}
-              </span>
-            )
+            render: (_val: string, row: Record<string, unknown>) => <PhoneLineStatusBadge row={row} />,
           },
           { 
             key: 'organizations', 
-            label: 'Organization', 
+            label: 'Client', 
             render: (val:any) => isAdminView ? (
               <div className="flex items-center gap-2">
                 <Building2 size={12} className="text-[hsl(var(--muted-foreground))]" />
@@ -402,7 +399,13 @@ const AdminPhoneNumbersView: React.FC = () => {
             )
           },
           { key: 'label', label: 'Label' },
-          { key: 'provider', label: 'Provider' }
+          {
+            key: 'agents',
+            label: 'Agent',
+            render: (val: { name?: string } | null) => (
+              <span className="text-[11px]">{val?.name || '—'}</span>
+            ),
+          },
         ].filter(col => {
           if (col.key === 'profiles' && isClient) return false;
           if (col.key === 'organizations' && !isAdminView) return false;
@@ -433,7 +436,9 @@ const AdminPhoneNumbersView: React.FC = () => {
                   {editingId ? 'Edit Phone Number' : 'Import Phone Number'}
                 </h3>
                 <p className="text-xs text-[hsl(var(--muted-foreground))]">
-                  {editingId ? 'Update the details of this phone number.' : 'Assign a new phone number to an organization and user.'}
+                  {editingId
+                    ? 'Update this line. Each number is dedicated to one client only.'
+                    : 'Register a line for exactly one client organization. Numbers cannot be shared across clients.'}
                 </p>
               </div>
               <div className="w-10 h-10 rounded-full bg-[hsl(var(--primary))]/10 flex items-center justify-center text-[hsl(var(--primary))]">
@@ -539,19 +544,21 @@ const AdminPhoneNumbersView: React.FC = () => {
                 {isAdminView && (
                   <div className="space-y-2 relative">
                     <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
-                      <Building2 size={12} /> Organization
+                      <Building2 size={12} /> Client (required)
                     </label>
                     <div className="relative">
-                      <input 
-                        type="text" required
-                        placeholder="Search Org..."
+                      <input
+                        type="text"
+                        required
+                        disabled={!!editingId}
+                        placeholder="Search client..."
                         value={orgSearch}
-                        onFocus={() => setIsOrgSearchOpen(true)}
-                        onChange={e => {
+                        onFocus={() => !editingId && setIsOrgSearchOpen(true)}
+                        onChange={(e) => {
                           setOrgSearch(e.target.value);
                           setIsOrgSearchOpen(true);
                         }}
-                        className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))] transition-all"
+                        className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))] transition-all disabled:opacity-50"
                       />
                       {isOrgSearchOpen && (
                         <div className="absolute top-full left-0 mt-1 w-full bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-lg shadow-xl z-[120] max-h-40 overflow-y-auto py-1 animate-in fade-in zoom-in-95 duration-100">
@@ -654,16 +661,16 @@ const AdminPhoneNumbersView: React.FC = () => {
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
-                    <Globe size={12} /> Provider
+                    Status
                   </label>
                   <select 
-                    value={formData.provider}
-                    onChange={e => setFormData({...formData, provider: e.target.value})}
+                    value={formData.status}
+                    onChange={(e) => setFormData({ ...formData, status: e.target.value as PhoneLineStatus })}
                     className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))] transition-all appearance-none"
                   >
-                    <option value="twilio">Twilio</option>
-                    <option value="vonage">Vonage</option>
-                    <option value="telnyx">Telnyx</option>
+                    <option value="active">Active</option>
+                    <option value="porting">Porting</option>
+                    <option value="suspended">Suspended</option>
                   </select>
                 </div>
               </div>
@@ -777,74 +784,15 @@ const AdminPhoneNumbersView: React.FC = () => {
                 )}
               </div>
 
-              {/* Dynamic Provider Fields */}
-              {formData.provider === 'twilio' && (
-                <div className="grid grid-cols-2 gap-4 animate-in slide-in-from-top-2 duration-200">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))]">Twilio Account SID</label>
-                    <input 
-                      type="text" required
-                      value={formData.twilio_account_sid}
-                      onChange={e => setFormData({...formData, twilio_account_sid: e.target.value})}
-                      className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))]"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))]">Twilio Auth Token</label>
-                    <input 
-                      type="password" required
-                      value={formData.twilio_auth_token}
-                      onChange={e => setFormData({...formData, twilio_auth_token: e.target.value})}
-                      className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))]"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {formData.provider === 'vonage' && (
-                <div className="grid grid-cols-2 gap-4 animate-in slide-in-from-top-2 duration-200">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))]">Vonage API Key</label>
-                    <input 
-                      type="text" required
-                      value={formData.vonage_api_key}
-                      onChange={e => setFormData({...formData, vonage_api_key: e.target.value})}
-                      className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))]"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))]">Vonage API Secret</label>
-                    <input 
-                      type="password" required
-                      value={formData.vonage_api_secret}
-                      onChange={e => setFormData({...formData, vonage_api_secret: e.target.value})}
-                      className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))]"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {formData.provider === 'telnyx' && (
-                <div className="space-y-2 animate-in slide-in-from-top-2 duration-200">
-                  <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))]">Telnyx API Key</label>
-                  <input 
-                    type="password" required
-                    value={formData.telnyx_api_key}
-                    onChange={e => setFormData({...formData, telnyx_api_key: e.target.value})}
-                    className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))]"
-                  />
-                </div>
-              )}
-
               <div className="flex items-center gap-3 mt-8">
-                <button 
+                <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
                   className="flex-1 px-4 py-2 bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] rounded-lg text-xs font-semibold hover:bg-[hsl(var(--border-v))] transition-colors border border-[hsl(var(--border-v))]"
                 >
                   Cancel
                 </button>
-                <button 
+                <button
                   type="submit"
                   disabled={isSubmitting}
                   className="flex-1 px-4 py-2 bg-[hsl(var(--primary))] text-black rounded-lg text-xs font-semibold hover:opacity-90 transition-all shadow-lg shadow-[hsl(var(--primary))]/20 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"

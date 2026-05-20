@@ -23,6 +23,7 @@ router.post('/:numberId/bind', requireRole(['gcc_admin', 'client_admin']), phone
 router.patch('/:numberId/assign', requireRole(['gcc_admin', 'client_admin']), phoneController.bindNumber)
 
 router.post('/:numberId/port-request', requireRole(['gcc_admin', 'client_admin']), phoneController.requestPort)
+router.patch('/:numberId/port-review', requireRole(['gcc_admin', 'gcc_reviewer']), phoneController.reviewPort)
 
 router.delete('/:numberId', requireRole(['gcc_admin', 'client_admin', 'client_sub', 'sp_primary', 'sp_sub']), phoneController.deleteNumber)
 

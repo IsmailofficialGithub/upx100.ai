@@ -1,5 +1,6 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { parseNullableDate } from '@/lib/dateFormat';
 
 type JsPdfWithTable = jsPDF & { lastAutoTable?: { finalY: number } };
 
@@ -15,7 +16,7 @@ export interface MonthlyExportPayload {
   };
   callLogs: Array<{
     id: string;
-    createdAt: string;
+    createdAt: string | null;
     status: string;
     durationSec: number | null;
     caller: string | null;
@@ -24,7 +25,7 @@ export interface MonthlyExportPayload {
   }>;
   leads: Array<{
     id: string;
-    createdAt: string;
+    createdAt: string | null;
     name: string;
     email: string | null;
     phone: string | null;
@@ -62,6 +63,11 @@ function clip(s: string | null | undefined, max = 40): string {
 function tableBottom(doc: jsPDF, fallback: number): number {
   const d = doc as JsPdfWithTable;
   return (d.lastAutoTable?.finalY ?? fallback) + 8;
+}
+
+function exportDate(value: unknown): string {
+  const date = parseNullableDate(value);
+  return date ? date.toISOString().replace('T', ' ').slice(0, 19) : 'â€”';
 }
 
 export function downloadMonthlyExportPdf(payload: MonthlyExportPayload): void {
@@ -146,7 +152,7 @@ export function downloadMonthlyExportPdf(payload: MonthlyExportPayload): void {
   doc.text('Call logs — period window (up to 400 rows)', 14, y);
   y += 6;
   const callBody = payload.callLogs.map((c) => [
-    clip(c.createdAt.replace('T', ' ').slice(0, 19), 19),
+    clip(exportDate(c.createdAt), 19),
     clip(c.status, 14),
     String(Math.round(c.durationSec ?? 0)),
     clip(c.caller, 22),
@@ -167,7 +173,7 @@ export function downloadMonthlyExportPdf(payload: MonthlyExportPayload): void {
   doc.text('Leads — period window (up to 400 rows)', 14, y);
   y += 6;
   const leadBody = payload.leads.map((l) => [
-    clip(l.createdAt.replace('T', ' ').slice(0, 19), 19),
+    clip(exportDate(l.createdAt), 19),
     clip(l.name, 20),
     clip(l.email, 30),
     clip(l.phone, 16),

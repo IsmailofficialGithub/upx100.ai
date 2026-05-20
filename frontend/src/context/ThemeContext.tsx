@@ -46,11 +46,11 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const isUK = region === 'UK';
   const isLight = mode === 'light';
   const currency = isUK ? 'GBP' : 'USD';
-  const currencySymbol = isUK ? '£' : '$';
+  const currencySymbol = isUK ? '\u00A3' : '$';
   const dateFormat = isUK ? 'DD/MM/YYYY' : 'MM/DD/YYYY';
   const timeFormat: '12h' | '24h' = isUK ? '24h' : '12h';
   const complianceLabel = isUK ? 'GDPR' : 'TCPA';
-  const sdrRate = isUK ? '£28.50' : '$40.50';
+  const sdrRate = isUK ? `${currencySymbol}28.50` : '$40.50';
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);

@@ -1,44 +1,39 @@
-import React, { useState, useEffect } from 'react';
-import api from '@/lib/api';
+import React, { useState } from 'react';
 import AdminDataView from './AdminDataView';
+import CreateClientModal from './CreateClientModal';
+import EditClientModal, { type ClientOrg } from './EditClientModal';
+import ClientDetailDrawer from './ClientDetailDrawer';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
+import api from '@/lib/api';
+import { formatNullableLocaleDate } from '@/lib/dateFormat';
+import { BarChart3, FileEdit } from 'lucide-react';
+import type { DrawerTab } from './ClientDetailDrawer';
 
 const AdminOrgView: React.FC = () => {
-  const { isGCCAdmin, isSP } = useAuth();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  // ... (rest of state)
-  const [editingOrg, setEditingOrg] = useState<any>(null);
-  const [refreshKey, setRefreshKey] = useState(0);
-  const [formData, setFormData] = useState({
-    name: '',
-    country_code: 'US'
-  });
+  const { isGCCAdmin, isSP, isGCC } = useAuth();
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingOrg, setEditingOrg] = useState<ClientOrg | null>(null);
+  const [detailOrg, setDetailOrg] = useState<ClientOrg | null>(null);
+  const [detailTab, setDetailTab] = useState<DrawerTab>('roi');
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    // ... (handleSubmit logic)
-    e.preventDefault();
-    try {
-      if (editingOrg) {
-        await api.patch(`/admin/organizations/${editingOrg.id}`, formData);
-        toast.success('Organization updated');
-      } else {
-        await api.post('/admin/organizations', formData);
-        toast.success('Organization created');
-      }
-      setIsModalOpen(false);
-      setEditingOrg(null);
-      setFormData({ name: '', country_code: 'US' });
-      setRefreshKey(prev => prev + 1);
-    } catch (error: any) {
-      toast.error('Operation failed');
-    }
+  const openClientDetail = (row: { id: string; name: string; country_code?: string }, tab: DrawerTab) => {
+    setDetailTab(tab);
+    setDetailOrg({
+      id: row.id,
+      name: row.name,
+      country_code: row.country_code || 'US',
+    });
+  };
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const notifyOrgsChanged = () => {
+    setRefreshKey((prev) => prev + 1);
+    window.dispatchEvent(new CustomEvent('gcc-organizations-changed'));
   };
 
-  const startEdit = (org: any) => {
+  const startEdit = (org: ClientOrg) => {
     setEditingOrg(org);
-    setFormData({ name: org.name, country_code: org.country_code });
-    setIsModalOpen(true);
   };
 
   const handleDeleteOrg = async (id: string) => {
@@ -46,82 +41,85 @@ const AdminOrgView: React.FC = () => {
     try {
       await api.delete(`/admin/organizations/${id}`);
       toast.success('Organization deleted');
-      setRefreshKey(prev => prev + 1);
-    } catch (error) {
+      notifyOrgsChanged();
+    } catch {
       toast.error('Failed to delete organization');
     }
   };
 
   return (
     <>
-      <AdminDataView 
+      <AdminDataView
         key={refreshKey}
-        title="All Organizations" 
+        title="All Clients"
         endpoint="organizations"
+        addLabel="New Client"
         emptyMessage={
           isSP
             ? 'No additional organizations are linked to your partner account yet. You should at least see your own sales partner org; contact support if this list is empty.'
             : 'No organizations returned. Create an organization to onboard a client or partner.'
         }
-        onAdd={isGCCAdmin ? () => setIsModalOpen(true) : undefined}
+        onAdd={isGCCAdmin ? () => setIsCreateOpen(true) : undefined}
         onEdit={isGCCAdmin ? startEdit : undefined}
         onDelete={isGCCAdmin ? handleDeleteOrg : undefined}
-
-
         columns={[
           { key: 'name', label: 'Name' },
           { key: 'country_code', label: 'Region' },
-          { key: 'created_at', label: 'Created', render: (val) => new Date(val).toLocaleDateString() }
+          { key: 'created_at', label: 'Created', render: (val) => formatNullableLocaleDate(val) },
         ]}
+        renderActions={(row) =>
+          isGCC ? (
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => openClientDetail(row, 'scripts')}
+                className="flex items-center gap-1 px-2 py-1 text-[10px] font-mono uppercase tracking-wide text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))] rounded border border-[hsl(var(--border-v))]"
+                title="Edit live agent scripts (immediate save + audit log)"
+              >
+                <FileEdit size={12} />
+                Scripts
+              </button>
+              <button
+                type="button"
+                onClick={() => openClientDetail(row, 'roi')}
+                className="flex items-center gap-1 px-2 py-1 text-[10px] font-mono uppercase tracking-wide text-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/10 rounded border border-[hsl(var(--primary))]/20"
+              >
+                <BarChart3 size={12} />
+                ROI
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => openClientDetail(row, 'roi')}
+              className="flex items-center gap-1 px-2 py-1 text-[10px] font-mono uppercase tracking-wide text-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/10 rounded border border-[hsl(var(--primary))]/20"
+            >
+              <BarChart3 size={12} />
+              ROI
+            </button>
+          )
+        }
       />
 
-      {isModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl w-full max-w-sm p-6 shadow-2xl">
-            <h3 className="text-base font-display font-semibold mb-4">{editingOrg ? 'Edit Organization' : 'Create Organization'}</h3>
-            <form onSubmit={handleSubmit} className="space-y-4">
+      {isCreateOpen && (
+        <CreateClientModal onClose={() => setIsCreateOpen(false)} onCreated={notifyOrgsChanged} />
+      )}
 
-              <div>
-                <label className="block text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] mb-1">Org Name</label>
-                <input 
-                  type="text" required
-                  value={formData.name}
-                  onChange={e => setFormData({...formData, name: e.target.value})}
+      {editingOrg && (
+        <EditClientModal
+          org={editingOrg}
+          onClose={() => setEditingOrg(null)}
+          onSaved={notifyOrgsChanged}
+        />
+      )}
 
-                  className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[hsl(var(--primary))]"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] mb-1">Region</label>
-                <select 
-                  value={formData.country_code}
-                  onChange={e => setFormData({...formData, country_code: e.target.value})}
-                  className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[hsl(var(--primary))]"
-                >
-
-                  <option value="US">United States (USD)</option>
-                  <option value="GB">United Kingdom (GBP)</option>
-                </select>
-              </div>
-              <div className="flex items-center gap-3 mt-6">
-                <button 
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="flex-1 px-4 py-2 bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] rounded-lg text-xs font-semibold hover:bg-[hsl(var(--border-v))] transition-colors"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-[hsl(var(--primary))] text-black rounded-lg text-xs font-semibold hover:opacity-90 transition-opacity"
-                >
-                  {editingOrg ? 'Save Changes' : 'Create'}
-                </button>
-
-              </div>
-            </form>
-          </div>
-        </div>
+      {detailOrg && (
+        <ClientDetailDrawer
+          org={detailOrg}
+          isOpen={Boolean(detailOrg)}
+          initialTab={detailTab}
+          onClose={() => setDetailOrg(null)}
+        />
       )}
     </>
   );
