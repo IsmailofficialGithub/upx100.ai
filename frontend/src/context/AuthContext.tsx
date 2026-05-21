@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import api from '@/lib/api';
 import { clearGccTenantScopeStorage } from '@/lib/gccTenantScope';
+import { clearSessionAndRedirectToLogin } from '@/lib/authSession';
 import { useTheme } from './ThemeContext';
 
 
@@ -120,8 +121,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = useCallback(() => {
     setAuthData(null);
-    localStorage.removeItem('up100x_auth');
     clearGccTenantScopeStorage();
+    clearSessionAndRedirectToLogin();
   }, []);
 
   const user = authData?.user || null;

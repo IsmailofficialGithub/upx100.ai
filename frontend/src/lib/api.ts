@@ -1,5 +1,6 @@
 import axios from 'axios';
-import { readGccTenantScopeFromStorage, clearGccTenantScopeStorage } from '@/lib/gccTenantScope';
+import { readGccTenantScopeFromStorage } from '@/lib/gccTenantScope';
+import { clearSessionAndRedirectToLogin, isAuthSessionError } from '@/lib/authSession';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
@@ -15,6 +16,7 @@ const GCC_SCOPE_QUERY_PATHS = [
   '/admin/stats',
   '/admin/call-logs',
   '/admin/leads',
+  '/admin/users',
   '/admin/agents',
   '/admin/phone-numbers',
   '/phone-numbers',
@@ -54,17 +56,16 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Add a response interceptor to handle auth errors
+// Expired/invalid session → logout once and redirect (no error spam in UI)
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('up100x_auth');
-      clearGccTenantScopeStorage();
-      window.location.href = '/login';
+    if (isAuthSessionError(error)) {
+      clearSessionAndRedirectToLogin();
     }
     return Promise.reject(error);
-  }
+  },
 );
 
 export default api;
+export { isAuthSessionError, isAuthRedirectInProgress } from '@/lib/authSession';

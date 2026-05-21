@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import api from '@/lib/api';
+import api, { isAuthRedirectInProgress, isAuthSessionError } from '@/lib/api';
 import { Loader2, Search, Edit2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -70,7 +70,9 @@ const AdminDataView: React.FC<AdminDataViewProps> = ({
           window.dispatchEvent(new CustomEvent('gcc-organizations-loaded', { detail: { rows } }));
         }
       } catch (error) {
-        toast.error(`Failed to fetch ${title}`);
+        if (!isAuthSessionError(error) && !isAuthRedirectInProgress()) {
+          toast.error(`Failed to fetch ${title}`);
+        }
       } finally {
         setIsLoading(false);
       }

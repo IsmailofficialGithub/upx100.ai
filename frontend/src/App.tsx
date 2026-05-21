@@ -56,8 +56,9 @@ function App() {
           {/* Admin Routes */}
           <Route path="/admin" element={<DashboardShell />}>
             <Route path="dashboard" element={<AdminDashboardView />} />
-            <Route path="user" element={<AdminSalesPartnersView />} />
-            <Route path="client-users" element={<AdminClientUsersView />} />
+            <Route path="user" element={<AdminClientUsersView />} />
+            <Route path="sales-partners" element={<AdminSalesPartnersView />} />
+            <Route path="client-users" element={<Navigate to="/admin/user" replace />} />
             <Route path="organizations" element={<AdminOrgView />} />
 
             <Route path="phone-numbers" element={<AdminPhoneNumbersView />} />

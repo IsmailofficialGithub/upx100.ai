@@ -45,8 +45,8 @@ const GCC_ADMIN_NAV: GccNavGroup[] = [
     label: 'Compliance',
     items: [
       { label: 'Compliance Monitor', path: '/admin/analytics', icon: Shield },
-      { label: 'Sales Partners', path: '/admin/user', icon: Users },
-      { label: 'Client Users', path: '/admin/client-users', icon: Users },
+      { label: 'Client Users', path: '/admin/user', icon: Users },
+      { label: 'Sales Partners', path: '/admin/sales-partners', icon: Users },
     ],
   },
   {
@@ -77,8 +77,8 @@ const GCC_REVIEWER_NAV: GccNavGroup[] = [
     label: 'Compliance',
     items: [
       { label: 'Compliance Monitor', path: '/admin/analytics', icon: Shield },
-      { label: 'Sales Partners', path: '/admin/user', icon: Users },
-      { label: 'Client Users', path: '/admin/client-users', icon: Users },
+      { label: 'Client Users', path: '/admin/user', icon: Users },
+      { label: 'Sales Partners', path: '/admin/sales-partners', icon: Users },
     ],
   },
   {

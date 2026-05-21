@@ -63,7 +63,7 @@ const AdminUserView: React.FC<Props> = ({ userDomain }) => {
 
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+  }, [fetchData, gccScope.scopeOrgId]);
 
   useEffect(() => {
     if (!isPartnerPage && scopedOrgId) {
@@ -181,7 +181,9 @@ const AdminUserView: React.FC<Props> = ({ userDomain }) => {
   const emptyHint =
     filteredUsers.length === 0 && !searchTerm
       ? isPartnerPage
-        ? 'No sales partner users yet. Partner Primary accounts represent reseller organizations; Partner Sub users are their sales reps.'
+        ? scopedOrgId && scopeOrgName
+          ? `No sales partners are assigned to ${scopeOrgName}. Link a Partner Primary to this client in their portfolio assignments.`
+          : 'No sales partner users yet. Partner Primary accounts represent reseller organizations; Partner Sub users are their sales reps.'
         : scopedOrgId && scopeOrgName
           ? `No client users are assigned to ${scopeOrgName}. Creating a client under All Clients only adds the workspace—you must add Client Admin or Client Sub users here and link them to this organization.${
               clientUsersOnOtherOrgs > 0
@@ -226,8 +228,16 @@ const AdminUserView: React.FC<Props> = ({ userDomain }) => {
               Sales Partner ·{' '}
             </span>
             Resellers who signed the Master Agency Agreement. They manage a portfolio of client accounts, earn
-            commissions, and can add their own sales reps (Partner Sub). This list is network-wide; tenant scope does
-            not filter partners.
+            commissions, and can add their own sales reps (Partner Sub).
+            {isGCC && scopedOrgId && scopeOrgName ? (
+              <>
+                {' '}
+                Showing partners assigned to{' '}
+                <span className="text-[hsl(var(--foreground))] font-medium">{scopeOrgName}</span>.
+              </>
+            ) : isGCC ? (
+              <> Use the top-bar client scope to narrow by assigned portfolio.</>
+            ) : null}
           </>
         ) : (
           <>

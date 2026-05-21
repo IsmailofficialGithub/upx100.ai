@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '@/lib/api';
 import { 
@@ -159,6 +159,7 @@ const AdminAgentsView: React.FC = () => {
   });
 
   const [currentStep, setCurrentStep] = useState(1);
+  const modalBodyRef = useRef<HTMLDivElement>(null);
 
   const [approvedClones, setApprovedClones] = useState<ApprovedVoiceClone[]>([]);
   const [previewPhrase, setPreviewPhrase] = useState('');
@@ -186,6 +187,12 @@ const AdminAgentsView: React.FC = () => {
       setPreviewSpeaking(false);
     }
   }, [isModalOpen]);
+
+  useEffect(() => {
+    if (isModalOpen) {
+      modalBodyRef.current?.scrollTo({ top: 0 });
+    }
+  }, [currentStep, isModalOpen]);
 
   const pickBrowserTtsVoice = (personaId: string, language: string): SpeechSynthesisVoice | null => {
     if (typeof window === 'undefined' || !window.speechSynthesis) return null;
@@ -612,7 +619,6 @@ const AdminAgentsView: React.FC = () => {
         isGCC ? scopedOrg?.name || '' : isAdminView ? '' : (user?.entityName || ''),
       );
       setUserSearch('');
-      setIsCustomVoice(false);
       setCurrentStep(1);
     }
     setIsModalOpen(true);
@@ -759,8 +765,8 @@ const AdminAgentsView: React.FC = () => {
       {/* Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-[hsl(var(--background))] border border-[hsl(var(--border-v))] rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="flex items-center justify-between p-4 border-b border-[hsl(var(--border-v))] bg-[hsl(var(--muted))]/30">
+          <div className="bg-[hsl(var(--background))] border border-[hsl(var(--border-v))] rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[min(92vh,calc(100dvh-2rem))] overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="flex shrink-0 items-center justify-between p-4 border-b border-[hsl(var(--border-v))] bg-[hsl(var(--muted))]/30">
               <div className="flex items-center gap-2">
                 <div className="p-1.5 bg-[hsl(var(--primary))]/10 rounded-lg text-[hsl(var(--primary))]">
                   <Bot size={18} />
@@ -777,8 +783,9 @@ const AdminAgentsView: React.FC = () => {
               </button>
             </div>
 
-            <div className="p-6">
-              <div className="flex items-center gap-2 mb-6">
+            <div className="flex flex-col flex-1 min-h-0">
+              <div className="shrink-0 px-6 pt-4 pb-2 border-b border-[hsl(var(--border-v))]/50">
+              <div className="flex items-center gap-2">
                 {[1, 2, 3, 4].map((step) => (
                   <div key={step} className="flex items-center gap-2">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
@@ -799,8 +806,13 @@ const AdminAgentsView: React.FC = () => {
                   }
                 </div>
               </div>
+              </div>
 
-              <form onSubmit={handleSubmit} className="space-y-6">
+              <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+                <div
+                  ref={modalBodyRef}
+                  className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-6 py-4 custom-scrollbar"
+                >
                 {currentStep === 1 && (
                   <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
                     <div className={`grid ${isClient ? 'grid-cols-1' : 'grid-cols-2'} gap-4`}>
@@ -1001,6 +1013,8 @@ const AdminAgentsView: React.FC = () => {
                         }
                         approvedClones={approvedClones}
                         onCloneSubmitted={fetchApprovedClones}
+                        previewLanguage={formData.language}
+                        previewTone={formData.tone}
                         className="rounded-xl border border-[hsl(var(--border-v))] bg-[hsl(var(--card))]/40 p-3"
                       />
                     </div>
@@ -1111,7 +1125,7 @@ const AdminAgentsView: React.FC = () => {
                 )}
 
                 {currentStep === 3 && (
-                  <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300 max-h-[60vh] overflow-y-auto px-1 custom-scrollbar">
+                  <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
                     <div className="space-y-2">
                       <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
                         <Globe size={12} /> Website URL <span className="normal-case font-normal">(optional)</span>
@@ -1311,8 +1325,9 @@ const AdminAgentsView: React.FC = () => {
                     </div>
                   </div>
                 )}
+                </div>
 
-                <div className="flex items-center justify-between pt-4 border-t border-[hsl(var(--border-v))]">
+                <div className="shrink-0 flex items-center justify-between gap-3 px-6 py-4 border-t border-[hsl(var(--border-v))] bg-[hsl(var(--background))]">
                   <button
                     type="button"
                     onClick={handleBack}

@@ -27,8 +27,8 @@ const gccPortalAdminTitles: Record<string, string> = {
   '/admin/call-logs': 'Live Calls',
   '/admin/hitl': 'HITL Queue',
   '/admin/analytics': 'Compliance Monitor',
-  '/admin/user': 'Sales Partners',
-  '/admin/client-users': 'Client Users',
+  '/admin/user': 'Client Users',
+  '/admin/sales-partners': 'Sales Partners',
   '/admin/commissions': 'Revenue & Payments',
   '/admin/agents': 'AI Agent Management',
   '/admin/phone-numbers': 'Phone Numbers',
@@ -58,7 +58,8 @@ const GCC_TENANT_SCOPE_PATHS = new Set([
   '/admin/agents',
   '/admin/hitl',
   '/admin/analytics',
-  '/admin/client-users',
+  '/admin/user',
+  '/admin/sales-partners',
   '/admin/commissions',
 ]);
 

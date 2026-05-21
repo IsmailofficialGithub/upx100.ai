@@ -54,11 +54,21 @@ function healthStatusFromScore(health) {
   return 'At Risk';
 }
 
-function computeHealthScore({ liveCalls, meetings, totalCalls, pendingReview }) {
+function mrrHealthBonus(mrrValue) {
+  const mrr = Number(mrrValue) || 0;
+  if (mrr <= 0) return 0;
+  if (mrr >= 15000) return 14;
+  if (mrr >= 5000) return 10;
+  if (mrr >= 1000) return 6;
+  return 3;
+}
+
+function computeHealthScore({ liveCalls, meetings, totalCalls, pendingReview, mrrValue }) {
   let health = 68;
   if (totalCalls > 0) health += 12;
   if (liveCalls > 0) health += 6;
   health += Math.min(14, meetings * 3);
+  health += mrrHealthBonus(mrrValue);
   health -= Math.min(24, pendingReview * 8);
   return Math.max(50, Math.min(100, Math.round(health)));
 }
@@ -135,14 +145,15 @@ export const getClientHealthOverview = async (targetOrgIds = null) => {
       (pendingScripts || []).filter((p) => p.organization_id === org.id).length +
       (pendingUploads || []).filter((p) => p.organization_id === org.id).length;
 
+    const mrrValue = mrrByOrg[org.id] ?? 0;
+
     const health = computeHealthScore({
       liveCalls,
       meetings,
       totalCalls: orgCalls.length,
       pendingReview,
+      mrrValue,
     });
-
-    const mrrValue = mrrByOrg[org.id] ?? 0;
 
     return {
       organizationId: org.id,
@@ -259,8 +270,25 @@ export const getAllUsers = async (searchTerm = '', targetOrgIds = null) => {
     .select('*, organizations!profiles_organization_id_fkey(name, country_code)')
     .order('created_at', { ascending: false });
 
-  if (targetOrgIds) {
-    query = query.in('organization_id', targetOrgIds);
+  if (targetOrgIds?.length) {
+    const orgIds = targetOrgIds.filter(Boolean);
+    const [{ data: assignments }, { data: deals }] = await Promise.all([
+      supabaseAdmin.from('sp_client_assignments').select('sp_user_id').in('client_org_id', orgIds),
+      supabaseAdmin.from('sp_sub_deals').select('sp_sub_user_id').in('client_org_id', orgIds),
+    ]);
+
+    const linkedPartnerIds = [
+      ...new Set([
+        ...(assignments || []).map((a) => a.sp_user_id),
+        ...(deals || []).map((d) => d.sp_sub_user_id),
+      ]),
+    ].filter(Boolean);
+
+    const parts = [`organization_id.in.(${orgIds.join(',')})`];
+    if (linkedPartnerIds.length) {
+      parts.push(`id.in.(${linkedPartnerIds.join(',')})`);
+    }
+    query = query.or(parts.join(','));
   }
 
   if (searchTerm && typeof searchTerm === 'string' && searchTerm.trim() !== '') {

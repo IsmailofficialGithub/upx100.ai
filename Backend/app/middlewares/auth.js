@@ -61,15 +61,15 @@ export const auth = async (req, res, next) => {
     const { data: profile, error: profileError } = await authService.getUserProfile(user.id)
 
     if (profileError || !profile) {
-      return res.status(StatusCodes.FORBIDDEN).json({
-        error: { code: 'PROFILE_NOT_FOUND', message: 'User profile not found' }
+      return res.status(StatusCodes.UNAUTHORIZED).json({
+        error: { code: 'UNAUTHORIZED', message: 'Invalid or expired session' },
       })
     }
 
     // 3. Check if user is active
     if (!profile.is_active) {
-      return res.status(StatusCodes.FORBIDDEN).json({
-        error: { code: 'ACCOUNT_INACTIVE', message: 'User account is deactivated' }
+      return res.status(StatusCodes.UNAUTHORIZED).json({
+        error: { code: 'ACCOUNT_INACTIVE', message: 'User account is deactivated' },
       })
     }
 
