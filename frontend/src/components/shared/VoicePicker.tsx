@@ -332,6 +332,7 @@ const VoicePicker: React.FC<Props> = ({
         </p>
       )}
 
+      {/* CUSTOM CLONED VOICE — this code cannot run end-to-end yet (WIP: upload/HITL UI only) */}
       <div className="pt-1 border-t border-[hsl(var(--border-v))] space-y-2">
         <p className="text-[9px] font-mono uppercase tracking-wider text-[hsl(var(--muted-foreground))]">
           Custom cloned voice
