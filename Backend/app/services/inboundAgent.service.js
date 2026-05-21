@@ -24,15 +24,15 @@ export const createAgent = async (agentData) => {
 
   // 1. Synchronize with local database first to get unique ID
   const validColumns = [
-    'organization_id', 'name', 'vapi_id', 'voice_persona', 'script', 
-    'status', 'is_paused', 'company_name', 'website_url', 'industry_vertical', 'goal', 
-    'background', 'welcome_message', 'instruction_voice', 'language', 
-    'agent_type', 'tone', 'model', 'conversation_agent_link', 'user_id'
+    'organization_id', 'name', 'vapi_id', 'voice_persona', 'script',
+    'status', 'is_paused', 'company_name', 'website_url', 'industry_vertical', 'goal',
+    'background', 'welcome_message', 'instruction_voice', 'language',
+    'agent_type', 'tone', 'model', 'conversation_agent_link', 'user_id', 'knowledge_base_url',
   ]
 
   const insertData = {
     status: 'activating',
-    metadata
+    metadata,
   }
 
   validColumns.forEach(col => {
@@ -57,6 +57,7 @@ export const createAgent = async (agentData) => {
     id: data.id,
     fallback_number: metadata.fallback_config.number,
     fallback_enabled: metadata.fallback_config.enabled,
+    knowledge_base_url: insertData.knowledge_base_url ?? null,
     metadata,
     system_prompt: insertData.script,
     welcome_ssml: metadata.welcome_ssml,
@@ -109,6 +110,10 @@ export const updateAgent = async (agentId, updateData) => {
     organization_id: enriched.organization_id || existing.organization_id || null,
     fallback_number: newMetadata.fallback_config.number,
     fallback_enabled: newMetadata.fallback_config.enabled,
+    knowledge_base_url:
+      enriched.knowledge_base_url !== undefined
+        ? enriched.knowledge_base_url
+        : existing.knowledge_base_url ?? null,
     metadata: newMetadata,
     system_prompt: enriched.script,
     welcome_ssml: newMetadata.welcome_ssml,
@@ -116,10 +121,10 @@ export const updateAgent = async (agentId, updateData) => {
 
   // 3. Update local database
   const validColumns = [
-    'organization_id', 'name', 'vapi_id', 'voice_persona', 'script', 
-    'status', 'is_paused', 'company_name', 'website_url', 'industry_vertical', 'goal', 
-    'background', 'welcome_message', 'instruction_voice', 'language', 
-    'agent_type', 'tone', 'model', 'conversation_agent_link', 'user_id'
+    'organization_id', 'name', 'vapi_id', 'voice_persona', 'script',
+    'status', 'is_paused', 'company_name', 'website_url', 'industry_vertical', 'goal',
+    'background', 'welcome_message', 'instruction_voice', 'language',
+    'agent_type', 'tone', 'model', 'conversation_agent_link', 'user_id', 'knowledge_base_url',
   ]
 
   const updatePayload = {

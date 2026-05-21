@@ -1,5 +1,6 @@
 import express from 'express'
 import * as agentController from '../controllers/inboundAgent.controller.js'
+import * as knowledgeBaseController from '../controllers/knowledgeBase.controller.js'
 import { auth } from '../middlewares/auth.js'
 import { requireRole } from '../middlewares/rbac.js'
 
@@ -15,6 +16,11 @@ router.use(auth)
 // Delete: gcc_admin only
 
 router.get('/', agentController.getAgents)
+router.post(
+  '/knowledge-base/upload',
+  requireRole(['gcc_admin', 'client_admin', 'sp_primary']),
+  knowledgeBaseController.uploadAgentKnowledgeBase,
+)
 router.get('/:agentId', agentController.getAgent)
 
 router.post('/', requireRole(['gcc_admin', 'client_admin', 'client_sub', 'sp_primary', 'sp_sub']), agentController.createAgent)

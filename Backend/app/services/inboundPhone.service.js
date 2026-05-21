@@ -437,10 +437,10 @@ export const listNumbersByOrg = async (orgId, userId = null, options = {}) => {
 
   if (assignableOnly) {
     query = query.in('status', ASSIGNABLE_STATUSES)
+    // Editing: unassigned lines + line already on this agent.
+    // Creating: all active/porting lines for the org (may reassign from another agent).
     if (forAgentId) {
       query = query.or(`agent_id.is.null,agent_id.eq.${forAgentId}`)
-    } else {
-      query = query.is('agent_id', null)
     }
   }
 
@@ -481,8 +481,6 @@ export const listAllNumbers = async (options = {}) => {
     query = query.in('status', ASSIGNABLE_STATUSES)
     if (forAgentId) {
       query = query.or(`agent_id.is.null,agent_id.eq.${forAgentId}`)
-    } else {
-      query = query.is('agent_id', null)
     }
   }
 

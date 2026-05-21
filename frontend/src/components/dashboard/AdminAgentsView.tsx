@@ -8,23 +8,17 @@ import {
   BookOpen, Zap, Globe, Users, Terminal, User,
   RotateCw,
   Link2,
-  Volume2,
-  Square,
   Layers,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
 import { useGccTenantScope } from '@/context/GccTenantScopeContext';
 import { formatNullableLocaleDate } from '@/lib/dateFormat';
-import VoicePicker, { type ApprovedVoiceClone } from '@/components/shared/VoicePicker';
+import VoicePicker from '@/components/shared/VoicePicker';
+import AgentKnowledgeBaseUpload from '@/components/shared/AgentKnowledgeBaseUpload';
 import { findVoiceById } from '@/lib/voiceCatalog';
 import { clonePersonaId, isCloneVoicePersona, parseClonePersonaId } from '@/lib/voiceCloneAudio';
-import {
-  buildAgentScriptTemplate,
-  stripAgentConfigHeader,
-  TONE_PREVIEW_PITCH,
-  TONE_PREVIEW_RATE,
-} from '@/lib/agentPrompt';
+import { buildAgentScriptTemplate, stripAgentConfigHeader } from '@/lib/agentPrompt';
 
 const INDUSTRY_VERTICALS = [
   'B2B SaaS',
@@ -83,6 +77,12 @@ interface Organization {
   name: string;
 }
 
+type ApprovedVoiceClone = {
+  id: string;
+  voice_name?: string | null;
+  status: string;
+};
+
 interface Agent {
   id: string;
   name: string;
@@ -107,6 +107,7 @@ interface Agent {
   fallback_enabled?: boolean;
   metadata?: any;
   conversation_agent_link?: string;
+  knowledge_base_url?: string | null;
 }
 
 const AdminAgentsView: React.FC = () => {
@@ -155,36 +156,19 @@ const AdminAgentsView: React.FC = () => {
     tone: 'professional',
     fallback_number: '',
     fallback_enabled: false,
-    conversation_agent_link: ''
+    conversation_agent_link: '',
+    knowledge_base_url: '',
+    knowledge_base_file_name: '',
   });
 
   const [currentStep, setCurrentStep] = useState(1);
   const modalBodyRef = useRef<HTMLDivElement>(null);
 
   const [approvedClones, setApprovedClones] = useState<ApprovedVoiceClone[]>([]);
-  const [previewPhrase, setPreviewPhrase] = useState('');
-  const [previewSpeaking, setPreviewSpeaking] = useState(false);
-
-  useEffect(() => {
-    return () => {
-      if (typeof window !== 'undefined' && window.speechSynthesis) window.speechSynthesis.cancel();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.speechSynthesis) return;
-    const warm = () => {
-      window.speechSynthesis.getVoices();
-    };
-    warm();
-    window.speechSynthesis.addEventListener('voiceschanged', warm);
-    return () => window.speechSynthesis.removeEventListener('voiceschanged', warm);
-  }, []);
 
   useEffect(() => {
     if (!isModalOpen && typeof window !== 'undefined' && window.speechSynthesis) {
       window.speechSynthesis.cancel();
-      setPreviewSpeaking(false);
     }
   }, [isModalOpen]);
 
@@ -194,33 +178,6 @@ const AdminAgentsView: React.FC = () => {
     }
   }, [currentStep, isModalOpen]);
 
-  const pickBrowserTtsVoice = (personaId: string, language: string): SpeechSynthesisVoice | null => {
-    if (typeof window === 'undefined' || !window.speechSynthesis) return null;
-    const prefixMap: Record<string, string> = {
-      english: 'en',
-      spanish: 'es',
-      french: 'fr',
-      german: 'de',
-      arabic: 'ar',
-    };
-    const p = (prefixMap[language] || 'en').toLowerCase();
-    const all = window.speechSynthesis.getVoices();
-    let list = all.filter((v) => v.lang?.toLowerCase().startsWith(p));
-    if (!list.length && p !== 'en') {
-      list = all.filter((v) => v.lang?.toLowerCase().startsWith('en'));
-    }
-    if (!list.length) return null;
-    let h = 0;
-    for (let i = 0; i < personaId.length; i++) h = (Math.imul(31, h) + personaId.charCodeAt(i)) | 0;
-    return list[Math.abs(h) % list.length];
-  };
-
-  const stopVoicePreview = () => {
-    if (typeof window === 'undefined' || !window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-    setPreviewSpeaking(false);
-  };
-
   const fetchApprovedClones = async () => {
     try {
       const res = await api.get('/voice-clones');
@@ -229,50 +186,6 @@ const AdminAgentsView: React.FC = () => {
     } catch {
       setApprovedClones([]);
     }
-  };
-
-  const playVoicePreview = () => {
-    const personaId = formData.voice_persona?.trim();
-    if (!personaId) {
-      toast.error('Select a catalog voice or an approved custom clone first.');
-      return;
-    }
-    if (typeof window === 'undefined' || !window.speechSynthesis) {
-      toast.error('Speech preview is not supported in this browser.');
-      return;
-    }
-
-    const selectedMeta = findVoiceById(personaId);
-    const cloneId = parseClonePersonaId(personaId);
-    const cloneMeta = cloneId ? approvedClones.find((c) => c.id === cloneId) : undefined;
-    const displayName = selectedMeta?.name || cloneMeta?.voice_name || 'your agent';
-
-    window.speechSynthesis.cancel();
-
-    const customLine = previewPhrase.trim();
-    const text =
-      customLine ||
-      formData.welcome_message?.trim() ||
-      `Hi — this is a quick browser preview for the ${displayName} persona. On live calls your agent uses the cloud voice you selected, not this device voice. How can I help you today?`;
-
-    const u = new SpeechSynthesisUtterance(text);
-    const picked = pickBrowserTtsVoice(personaId, formData.language);
-    if (picked) {
-      u.voice = picked;
-      u.lang = picked.lang;
-    }
-
-    const prov = selectedMeta?.provider?.toLowerCase() || '';
-    const toneRate = TONE_PREVIEW_RATE[formData.tone] ?? TONE_PREVIEW_RATE.professional;
-    const providerScale = prov === 'deepgram' ? 0.96 : 0.94;
-    u.rate = toneRate * providerScale;
-    u.pitch = TONE_PREVIEW_PITCH[formData.tone] ?? TONE_PREVIEW_PITCH.professional;
-
-    u.onend = () => setPreviewSpeaking(false);
-    u.onerror = () => setPreviewSpeaking(false);
-
-    setPreviewSpeaking(true);
-    window.speechSynthesis.speak(u);
   };
 
   useEffect(() => {
@@ -503,6 +416,7 @@ const AdminAgentsView: React.FC = () => {
         voice_provider: selectedVoice ? selectedVoice.provider : 'Cloned',
         organization_id: organizationId,
         industry_vertical: formData.industry_vertical,
+        knowledge_base_url: formData.knowledge_base_url?.trim() || null,
       };
 
       const endpoint = '/agents';
@@ -573,17 +487,16 @@ const AdminAgentsView: React.FC = () => {
         tone: agent.tone || 'professional',
         fallback_number: agent.fallback_number || agent.metadata?.fallback_config?.number || '',
         fallback_enabled: agent.fallback_enabled ?? agent.metadata?.fallback_config?.enabled ?? false,
-        conversation_agent_link: agent.conversation_agent_link || ''
+        conversation_agent_link: agent.conversation_agent_link || '',
+        knowledge_base_url: agent.knowledge_base_url || '',
+        knowledge_base_file_name: '',
       });
       const org = agent.organizations;
       setOrgSearch(Array.isArray(org) ? org[0]?.name || '' : org?.name || '');
       const currentUser = users.find(u => u.id === agent.user_id);
       setUserSearch(currentUser?.full_name || currentUser?.email || '');
-      
-      setPreviewPhrase('');
     } else {
       setEditingAgent(null);
-      setPreviewPhrase('');
       const scopedOrg =
         isGCC && gccScope.scopeOrgId !== 'all'
           ? gccScope.organizations.find((o) => o.id === gccScope.scopeOrgId) ||
@@ -613,7 +526,9 @@ const AdminAgentsView: React.FC = () => {
         tone: 'professional',
         fallback_number: '',
         fallback_enabled: false,
-        conversation_agent_link: ''
+        conversation_agent_link: '',
+        knowledge_base_url: '',
+        knowledge_base_file_name: '',
       });
       setOrgSearch(
         isGCC ? scopedOrg?.name || '' : isAdminView ? '' : (user?.entityName || ''),
@@ -802,7 +717,7 @@ const AdminAgentsView: React.FC = () => {
                   Step {currentStep} of 4: {
                     currentStep === 1 ? 'Identity' : 
                     currentStep === 2 ? 'Personality' : 
-                    currentStep === 3 ? 'Intelligence' : 'Telephony'
+                    currentStep === 3 ? 'Intelligence & RAG' : 'Telephony'
                   }
                 </div>
               </div>
@@ -1006,15 +921,6 @@ const AdminAgentsView: React.FC = () => {
                       <VoicePicker
                         value={formData.voice_persona}
                         onChange={(id) => setFormData({ ...formData, voice_persona: id })}
-                        organizationId={
-                          formData.organization_id ||
-                          (gccScope.scopeOrgId !== 'all' ? gccScope.scopeOrgId : undefined) ||
-                          user?.orgId
-                        }
-                        approvedClones={approvedClones}
-                        onCloneSubmitted={fetchApprovedClones}
-                        previewLanguage={formData.language}
-                        previewTone={formData.tone}
                         className="rounded-xl border border-[hsl(var(--border-v))] bg-[hsl(var(--card))]/40 p-3"
                       />
                     </div>
@@ -1035,54 +941,6 @@ const AdminAgentsView: React.FC = () => {
                           <option value="german">German</option>
                           <option value="arabic">Arabic</option>
                         </select>
-                      </div>
-                    </div>
-
-                    <div className="rounded-lg border border-[hsl(var(--border-v))] bg-[hsl(var(--muted))]/40 p-3 space-y-2">
-                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] tracking-wider flex items-center gap-1.5">
-                            <Volume2 size={12} className="shrink-0" /> Quick voice preview
-                          </p>
-                          <p className="text-[10px] text-[hsl(var(--muted-foreground))] mt-1 leading-snug">
-                            Type what you want to hear (company name, industry phrases). Browser preview approximates tone only.
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <button
-                            type="button"
-                            onClick={playVoicePreview}
-                            disabled={previewSpeaking || !formData.voice_persona?.trim()}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
-                          >
-                            {previewSpeaking ? <Loader2 size={14} className="animate-spin" /> : <Volume2 size={14} />}
-                            {previewSpeaking ? 'Playing…' : 'Play preview'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={stopVoicePreview}
-                            disabled={!previewSpeaking}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium border border-[hsl(var(--border-v))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                          >
-                            <Square size={12} className="shrink-0" fill="currentColor" />
-                            Stop
-                          </button>
-                        </div>
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))]">
-                          Preview script
-                        </label>
-                        <textarea
-                          value={previewPhrase}
-                          onChange={(e) => setPreviewPhrase(e.target.value)}
-                          rows={2}
-                          placeholder="e.g. Thank you for calling Acme Corp — how can we help you today?"
-                          className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs resize-none focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))]/40"
-                        />
-                        <p className="text-[10px] text-[hsl(var(--muted-foreground))]">
-                          Leave blank to use the welcome message from step 3, or a default sample line.
-                        </p>
                       </div>
                     </div>
 
@@ -1117,7 +975,7 @@ const AdminAgentsView: React.FC = () => {
                           <option value="calm">Calm</option>
                         </select>
                         <p className="text-[10px] text-[hsl(var(--muted-foreground))]">
-                          Shapes the system prompt and voice pacing on save. Use Play preview to hear tone differences.
+                          Shapes the system prompt and voice pacing on save.
                         </p>
                       </div>
                     </div>
@@ -1126,6 +984,35 @@ const AdminAgentsView: React.FC = () => {
 
                 {currentStep === 3 && (
                   <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
+                        <BookOpen size={12} /> Company knowledge base <span className="normal-case font-normal">(optional)</span>
+                      </label>
+                      <AgentKnowledgeBaseUpload
+                        organizationId={
+                          formData.organization_id ||
+                          (isGCC && gccScope.scopeOrgId !== 'all' ? gccScope.scopeOrgId : undefined)
+                        }
+                        agentId={editingAgent?.id}
+                        value={formData.knowledge_base_url}
+                        fileLabel={formData.knowledge_base_file_name || undefined}
+                        onChange={(url, fileName) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            knowledge_base_url: url,
+                            knowledge_base_file_name: fileName,
+                          }))
+                        }
+                        onClear={() =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            knowledge_base_url: '',
+                            knowledge_base_file_name: '',
+                          }))
+                        }
+                      />
+                    </div>
+
                     <div className="space-y-2">
                       <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
                         <Globe size={12} /> Website URL <span className="normal-case font-normal">(optional)</span>

@@ -6,12 +6,6 @@
         "status": "active"
     },
     {
-        "id": "kylie",
-        "name": "Kylie",
-        "provider": "vapi",
-        "status": "active"
-    },
-    {
         "id": "rohan",
         "name": "Rohan",
         "provider": "vapi",
@@ -24,20 +18,8 @@
         "status": "active"
     },
     {
-        "id": "savannah",
-        "name": "Savannah",
-        "provider": "vapi",
-        "status": "active"
-    },
-    {
         "id": "hana",
         "name": "Hana",
-        "provider": "vapi",
-        "status": "active"
-    },
-    {
-        "id": "neha",
-        "name": "Neha",
         "provider": "vapi",
         "status": "active"
     },
@@ -50,12 +32,6 @@
     {
         "id": "harry",
         "name": "Harry",
-        "provider": "vapi",
-        "status": "active"
-    },
-    {
-        "id": "paige",
-        "name": "Paige",
         "provider": "vapi",
         "status": "active"
     },
@@ -176,12 +152,6 @@
     {
         "id": "harmonia",
         "name": "Harmonia",
-        "provider": "deepgram",
-        "status": "active"
-    },
-    {
-        "id": "helena",
-        "name": "Helena",
         "provider": "deepgram",
         "status": "active"
     },
