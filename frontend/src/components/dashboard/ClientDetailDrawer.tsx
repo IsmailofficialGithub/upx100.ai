@@ -4,7 +4,7 @@ import type { ClientOrg } from './EditClientModal';
 import RoiCalculator from '@/components/shared/RoiCalculator';
 import ClientScriptEditor from '@/components/dashboard/ClientScriptEditor';
 import CalendarView from '@/components/dashboard/CalendarView';
-import { currencyCodeForSource } from '@/lib/currency';
+import { currencyCodeForSource, currencySourceFromRegion } from '@/lib/currency';
 import { useAuth } from '@/context/AuthContext';
 
 export type DrawerTab = 'roi' | 'scripts' | 'calendar';
@@ -24,8 +24,9 @@ const ClientDetailDrawer: React.FC<Props> = ({ org, isOpen, onClose, initialTab 
     if (isOpen) setTab(initialTab);
   }, [isOpen, initialTab, org.id]);
 
-  const currencySource = { country_code: org.country_code };
-  const currencyLabel = currencyCodeForSource(currencySource) === 'GBP' ? 'GBP (£)' : 'USD ($)';
+  const currencySource = currencySourceFromRegion(org.country_code);
+  const currencyLabel =
+    currencyCodeForSource(currencySource) === 'GBP' ? 'GBP (£)' : 'USD ($)';
   const regionLabel = org.country_code === 'GB' ? 'United Kingdom' : 'United States';
 
   return (

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import AdminDataView from './AdminDataView';
 import { useGccTenantScope } from '@/context/GccTenantScopeContext';
 import { useAuth } from '@/context/AuthContext';
-import { formatCurrencyForSource } from '@/lib/currency';
+import { formatMoneyFromSource, resolveCurrencySource, useClientCurrencySource } from '@/lib/currency';
 import StatusBadge from '@/components/shared/StatusBadge';
 import api from '@/lib/api';
 
@@ -46,8 +46,9 @@ const CommissionsPage: React.FC<Props> = ({ title, emptyMessage, partnerMode }) 
     };
   }, [isGCC, partnerMode, gccScope.scopeOrgId]);
 
+  const scopeCurrencySource = useClientCurrencySource();
   const currencySourceForRow = (row: { organizations?: { country_code?: string } }) =>
-    row?.organizations?.country_code ? row : selectedScopeOrg || row;
+    resolveCurrencySource(row, selectedScopeOrg ?? scopeCurrencySource);
 
   const scopedEmptyMessage = selectedScopeOrg
     ? `No commission records for ${selectedScopeOrg.name} yet. New clients only show earnings after payments are reconciled for that organization.`
@@ -74,14 +75,14 @@ const CommissionsPage: React.FC<Props> = ({ title, emptyMessage, partnerMode }) 
             key: 'collected_mrr',
             label: 'Collected MRR',
             render: (val: number, row: { organizations?: { country_code?: string } }) =>
-              formatCurrencyForSource(val, currencySourceForRow(row)),
+              formatMoneyFromSource(val, row, selectedScopeOrg ?? scopeCurrencySource),
           },
           { key: 'rate', label: 'Rate (%)', render: (val: number) => `${val}%` },
           {
             key: 'amount',
             label: 'Commission',
             render: (val: number, row: { organizations?: { country_code?: string } }) =>
-              formatCurrencyForSource(val, currencySourceForRow(row)),
+              formatMoneyFromSource(val, row, selectedScopeOrg ?? scopeCurrencySource),
           },
           {
             key: 'status',

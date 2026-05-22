@@ -23,16 +23,20 @@ export const createAgent = async (agentData) => {
   }
 
   // 1. Synchronize with local database first to get unique ID
+  const recording_disclosure_enabled = enriched.recording_disclosure_enabled
+
   const validColumns = [
     'organization_id', 'name', 'vapi_id', 'voice_persona', 'script',
     'status', 'is_paused', 'company_name', 'website_url', 'industry_vertical', 'goal',
     'background', 'welcome_message', 'instruction_voice', 'language',
     'agent_type', 'tone', 'model', 'conversation_agent_link', 'user_id', 'knowledge_base_url',
+    'recording_disclosure_enabled',
   ]
 
   const insertData = {
     status: 'activating',
     metadata,
+    recording_disclosure_enabled,
   }
 
   validColumns.forEach(col => {
@@ -61,6 +65,8 @@ export const createAgent = async (agentData) => {
     metadata,
     system_prompt: insertData.script,
     welcome_ssml: metadata.welcome_ssml,
+    recording_disclosure_enabled: enriched.recording_disclosure_enabled,
+    recording_disclosure_message: enriched.recording_disclosure_message,
   }
 
   const webhookResponse = await axios.post(webhookUrl, finalPayload)
@@ -93,6 +99,8 @@ export const updateAgent = async (agentId, updateData) => {
   const enriched = enrichAgentPayload(updateData, existing)
 
   // Construct metadata with fallback_config
+  const recording_disclosure_enabled = enriched.recording_disclosure_enabled
+
   const newMetadata = {
     ...(enriched.metadata || {}),
     voice_name: updateData.voice_name !== undefined ? updateData.voice_name : (existing.metadata?.voice_name || null),
@@ -100,7 +108,9 @@ export const updateAgent = async (agentId, updateData) => {
     fallback_config: {
       number: updateData.fallback_number !== undefined ? updateData.fallback_number : (existing.metadata?.fallback_config?.number || null),
       enabled: updateData.fallback_enabled !== undefined ? updateData.fallback_enabled : (existing.metadata?.fallback_config?.enabled || false)
-    }
+    },
+    recording_disclosure_enabled,
+    recording_disclosure_message: enriched.recording_disclosure_message,
   }
 
   // 2. Trigger external automation
@@ -117,6 +127,8 @@ export const updateAgent = async (agentId, updateData) => {
     metadata: newMetadata,
     system_prompt: enriched.script,
     welcome_ssml: newMetadata.welcome_ssml,
+    recording_disclosure_enabled,
+    recording_disclosure_message: enriched.recording_disclosure_message,
   })
 
   // 3. Update local database
@@ -125,11 +137,13 @@ export const updateAgent = async (agentId, updateData) => {
     'status', 'is_paused', 'company_name', 'website_url', 'industry_vertical', 'goal',
     'background', 'welcome_message', 'instruction_voice', 'language',
     'agent_type', 'tone', 'model', 'conversation_agent_link', 'user_id', 'knowledge_base_url',
+    'recording_disclosure_enabled',
   ]
 
   const updatePayload = {
     metadata: newMetadata,
-    updated_at: new Date().toISOString()
+    updated_at: new Date().toISOString(),
+    recording_disclosure_enabled,
   }
 
   validColumns.forEach(col => {

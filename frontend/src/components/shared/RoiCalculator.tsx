@@ -3,7 +3,7 @@ import {
   XAxis, YAxis, Tooltip, ResponsiveContainer, Area, AreaChart, Legend,
 } from 'recharts';
 import { roiDefaults as mockRoi } from '@/data/mockData';
-import { formatCurrencyForSource, type CurrencySource } from '@/lib/currency';
+import { formatCurrencyForSource, useClientCurrencySource, type CurrencySource } from '@/lib/currency';
 import {
   buildProjectionSeries,
   computeRoiSimulation,
@@ -20,7 +20,9 @@ type Props = {
   initialDefaults?: Partial<Pick<RoiSimulationInput, 'acv' | 'closeRatePercent' | 'runwayMonths'>>;
 };
 
-const RoiCalculator: React.FC<Props> = ({ currencySource, className = '', subtitle, initialDefaults }) => {
+const RoiCalculator: React.FC<Props> = ({ currencySource: currencySourceProp, className = '', subtitle, initialDefaults }) => {
+  const scopedCurrency = useClientCurrencySource();
+  const currencySource = currencySourceProp ?? scopedCurrency;
   const [acv, setAcv] = useState(initialDefaults?.acv ?? mockRoi.acv);
   const [closeRatePercent, setCloseRatePercent] = useState(
     normalizeCloseRatePercent(initialDefaults?.closeRatePercent ?? mockRoi.closeRate),

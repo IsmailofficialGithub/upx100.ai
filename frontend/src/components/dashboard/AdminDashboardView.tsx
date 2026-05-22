@@ -5,7 +5,7 @@ import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { useGccTenantScope } from '@/context/GccTenantScopeContext';
 import { CALL_LOGS_EMPTY_MESSAGE } from '@/components/dashboard/callLogsEmptyMessage';
-import { formatCurrencyForSource } from '@/lib/currency';
+import { formatCurrencyForSource, useClientCurrencySource } from '@/lib/currency';
 import MetricCard from '@/components/shared/MetricCard';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -161,20 +161,11 @@ const alerts = [
   },
 ];
 
-const formatPortfolioMrr = (value: number | undefined) => {
-  if (value == null || !Number.isFinite(value)) return '—';
-  return Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-    notation: 'compact',
-  }).format(value);
-};
-
 const AdminDashboardView: React.FC = () => {
   const navigate = useNavigate();
   const { isGCCReviewer } = useAuth();
   const gccScope = useGccTenantScope();
+  const currencySource = useClientCurrencySource();
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
   const [sampledCalls, setSampledCalls] = useState<DashboardCallCard[]>([]);
@@ -252,7 +243,9 @@ const AdminDashboardView: React.FC = () => {
       },
       {
         label: 'MRR',
-        value: statsLoading ? '…' : formatPortfolioMrr(stats?.mrr),
+        value: statsLoading
+          ? '…'
+          : formatCurrencyForSource(stats?.mrr, currencySource, { notation: 'compact', maximumFractionDigits: 0 }),
         subtext: 'Latest collected MRR (portfolio)',
         onClick: () => navigate('/admin/commissions'),
       },
@@ -263,7 +256,7 @@ const AdminDashboardView: React.FC = () => {
         onClick: () => navigate('/admin/hitl'),
       },
     ];
-  }, [navigate, stats, statsLoading]);
+  }, [navigate, stats, statsLoading, currencySource]);
 
   return (
     <div className="space-y-5">
@@ -421,9 +414,11 @@ const AdminDashboardView: React.FC = () => {
                   <TableCell className="font-mono">{client.liveCalls}</TableCell>
                   <TableCell className="font-mono">{client.meetings}</TableCell>
                   <TableCell className="font-mono">
-                    {formatCurrencyForSource(client.mrrValue, { country_code: client.country_code }, {
-                      notation: 'compact',
-                    })}
+                    {formatCurrencyForSource(
+                      client.mrrValue,
+                      { country_code: client.country_code },
+                      { notation: 'compact' },
+                    )}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2 min-w-[120px]">

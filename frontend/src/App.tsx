@@ -70,7 +70,8 @@ function App() {
             <Route path="calendar" element={<Navigate to="/admin/organizations" replace />} />
             <Route path="engine" element={<Navigate to="/admin/organizations" replace />} />
             <Route path="playbook" element={<Navigate to="/admin/dashboard" replace />} />
-            <Route path="analytics" element={<ComplianceMonitorView />} />
+            <Route path="compliance" element={<ComplianceMonitorView />} />
+            <Route path="analytics" element={<Navigate to="/admin/compliance" replace />} />
             <Route path="clones" element={<VoicePersonaView />} />
 
             <Route path="hitl" element={<HitlQueueView />} />

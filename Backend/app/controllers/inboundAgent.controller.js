@@ -3,6 +3,7 @@ import * as phoneService from '../services/inboundPhone.service.js'
 import * as adminService from '../services/admin.service.js'
 import { resolveScopedTargetOrgIds } from './admin.controller.js'
 import { StatusCodes } from 'http-status-codes'
+import { parseRecordingDisclosureEnabled } from '../lib/recordingDisclosure.js'
 
 /** Never expose vendor model ids or internal telephony ids to GCC/client UI. */
 const stripInternalAgentFields = (rows) =>
@@ -96,10 +97,17 @@ export const createAgent = async (req, res) => {
     })
   }
 
+  if (req.body.recording_disclosure_enabled === undefined) {
+    return res.status(StatusCodes.BAD_REQUEST).json({
+      error: { message: 'recording_disclosure_enabled is required (true or false).' },
+    })
+  }
+
   const agentData = {
     ...req.body,
     organization_id: orgId,
     industry_vertical: industryVertical,
+    recording_disclosure_enabled: parseRecordingDisclosureEnabled(req.body.recording_disclosure_enabled, true),
     user_id: ['gcc_admin', 'client_admin', 'sp_primary'].includes(req.user.role)
       ? (req.body.user_id || req.user.userId)
       : req.user.userId
@@ -134,10 +142,15 @@ export const updateAgent = async (req, res) => {
     })
   }
 
-  const result = await agentService.updateAgent(agentId, {
-    ...req.body,
-    user_id: req.user.userId
-  })
+  const updateBody = { ...req.body, user_id: req.user.userId }
+  if (req.body.recording_disclosure_enabled !== undefined) {
+    updateBody.recording_disclosure_enabled = parseRecordingDisclosureEnabled(
+      req.body.recording_disclosure_enabled,
+      true,
+    )
+  }
+
+  const result = await agentService.updateAgent(agentId, updateBody)
 
   // Handle phone number assignment/update if provided
   if (req.body.phone_number_id) {

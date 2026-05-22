@@ -22,7 +22,7 @@ const AdminOrgView: React.FC = () => {
     setDetailOrg({
       id: row.id,
       name: row.name,
-      country_code: row.country_code || 'US',
+      country_code: row.country_code ?? 'US',
     });
   };
   const [refreshKey, setRefreshKey] = useState(0);

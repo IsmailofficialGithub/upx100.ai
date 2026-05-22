@@ -1,3 +1,8 @@
+import {
+  resolveRecordingDisclosureEnabled,
+  resolveRecordingDisclosureMessage,
+} from './recordingDisclosure.js'
+
 /**
  * Agent prompt + SSML pacing derived from agent_type and tone.
  * Model selection is server-side only (INBOUND_AGENT_MODEL); never from client UI.
@@ -116,6 +121,9 @@ export function enrichAgentPayload(agentData, existing = null) {
 
   const { model: _clientModel, ...rest } = agentData
 
+  const recording_disclosure_enabled = resolveRecordingDisclosureEnabled(agentData, existing)
+  const recording_disclosure_message = resolveRecordingDisclosureMessage(recording_disclosure_enabled)
+
   const metadata = {
     ...(existing?.metadata || {}),
     ...(agentData.metadata || {}),
@@ -123,6 +131,8 @@ export function enrichAgentPayload(agentData, existing = null) {
     ssml_pacing,
     agent_type,
     tone,
+    recording_disclosure_enabled,
+    recording_disclosure_message,
   }
 
   const enriched = {
@@ -131,6 +141,8 @@ export function enrichAgentPayload(agentData, existing = null) {
     tone,
     script,
     metadata,
+    recording_disclosure_enabled,
+    recording_disclosure_message,
   }
 
   const serverModel = process.env.INBOUND_AGENT_MODEL

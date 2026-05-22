@@ -2,7 +2,9 @@ import * as callLogService from '../services/callLog.service.js'
 import * as userService from '../services/user.service.js'
 import { createSupabaseForRequest, supabaseAdmin } from '../config/supabase.js'
 import { StatusCodes } from 'http-status-codes'
+import { mergeCallLogDirections } from '../services/callLog.service.js'
 import { enrichCallLogRow, mapVapiCallDirection } from '../utils/callLogDirection.js'
+import { callLogBelongsToOrg, effectiveCallLogOrganizationId } from '../utils/callLogOrg.js'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
@@ -26,19 +28,20 @@ const fetchCallLogsWithUserClient = async (req, role, orgId, userId) => {
     return []
   }
   let q = userDb
-    .schema('inbound')
-    .from('call_logs')
+    .from('view_call_logs')
     .select('*')
     .eq('organization_id', org)
     .order('created_at', { ascending: false })
+
   if (role === 'client_sub') {
     q = q.or(`user_id.eq.${userId},user_id.is.null`)
   }
+
   const { data, error } = await q
   if (error) {
     throw error
   }
-  return data || []
+  return mergeCallLogDirections(data || [])
 }
 
 export const handleVapiWebhook = async (req, res) => {
@@ -123,7 +126,9 @@ export const getLogs = async (req, res) => {
       } else {
         const orgIds = [...new Set(deals.map((d) => d.client_org_id))]
         const raw = await callLogService.listLogsByOrgs(orgIds, null)
-        logs = (raw || []).filter((row) => dealAllows(deals, row.organization_id, row.agent_id))
+        logs = (raw || []).filter((row) =>
+          dealAllows(deals, effectiveCallLogOrganizationId(row), row.agent_id),
+        )
       }
     } else {
       const rlsLogs = await fetchCallLogsWithUserClient(req, role, orgId, userId)
@@ -171,21 +176,23 @@ export const getLog = async (req, res) => {
       const { data: assignments } = await userService.getSPClientAssignments(userId)
       const assignedOrgIds = assignments?.map((a) => a.client_org_id) || []
 
-      if (!assignedOrgIds.includes(log.organization_id)) {
+      const logOrg = effectiveCallLogOrganizationId(log)
+      if (!assignedOrgIds.includes(logOrg)) {
         return res.status(StatusCodes.FORBIDDEN).json({
           error: { code: 'FORBIDDEN', message: 'Access denied - Client not assigned' }
         })
       }
     } else if (role === 'sp_sub') {
       const { data: deals } = await userService.getSpSubDeals(userId)
-      if (!dealAllows(deals, log.organization_id, log.agent_id)) {
+      const logOrg = effectiveCallLogOrganizationId(log)
+      if (!dealAllows(deals, logOrg, log.agent_id)) {
         return res.status(StatusCodes.FORBIDDEN).json({
           error: { code: 'FORBIDDEN', message: 'Access denied' }
         })
       }
     } else {
       const eff = effectiveOrgId(orgId)
-      if (log.organization_id !== eff) {
+      if (!callLogBelongsToOrg(log, eff)) {
         return res.status(StatusCodes.FORBIDDEN).json({
           error: { code: 'FORBIDDEN', message: 'Access denied' }
         })

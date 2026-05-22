@@ -41,7 +41,11 @@ describe('InboundAgent Service', () => {
   })
 
   it('createAgent should call the creation webhook and insert into DB', async () => {
-    const mockAgentData = { name: 'Test Agent', organization_id: 'org123' }
+    const mockAgentData = {
+      name: 'Test Agent',
+      organization_id: 'org123',
+      recording_disclosure_enabled: true,
+    }
     axios.post.mockResolvedValue({ data: { id: 'external-vapi-id' } })
 
     const result = await agentService.createAgent(mockAgentData)
@@ -50,7 +54,8 @@ describe('InboundAgent Service', () => {
       'http://test-base/create',
       expect.objectContaining({
         name: mockAgentData.name,
-        organization_id: mockAgentData.organization_id
+        organization_id: mockAgentData.organization_id,
+        recording_disclosure_message: expect.stringContaining('recorded'),
       })
     )
     expect(supabaseAdmin.from).toHaveBeenCalledWith('agents')

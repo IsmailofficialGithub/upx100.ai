@@ -107,6 +107,43 @@ export const getLogById = async (logId) => {
   return data
 }
 
+export const getCallLogsByIds = async (ids) => {
+  if (!ids?.length) return []
+  const { data, error } = await supabaseAdmin
+    .from('view_call_logs')
+    .select('*')
+    .in('id', ids)
+
+  if (error) throw error
+  return mergeCallLogDirections(data || [])
+}
+
+/**
+ * Permanently remove call log rows (GCC admin). Clears lead references first.
+ */
+export const deleteCallLogsByIds = async (ids) => {
+  if (!ids?.length) return { deleted: 0, ids: [] }
+
+  const { error: leadError } = await supabaseAdmin
+    .schema('inbound')
+    .from('leads')
+    .update({ call_log_id: null })
+    .in('call_log_id', ids)
+
+  if (leadError) throw leadError
+
+  const { data, error } = await supabaseAdmin
+    .schema('inbound')
+    .from('call_logs')
+    .delete()
+    .in('id', ids)
+    .select('id')
+
+  if (error) throw error
+  const deletedIds = (data || []).map((row) => row.id)
+  return { deleted: deletedIds.length, ids: deletedIds }
+}
+
 export const listLogsByOrgs = async (orgIds, userId = null) => {
   if (!orgIds || orgIds.length === 0) return []
   

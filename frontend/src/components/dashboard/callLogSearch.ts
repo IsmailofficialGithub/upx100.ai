@@ -32,6 +32,10 @@ export function buildCallLogSearchHaystack(row: Record<string, unknown>): string
     parts.push(String(row.agent_name));
   }
 
+  if (typeof row.is_deleted_data === 'boolean') {
+    parts.push(row.is_deleted_data ? 'deleted data true' : 'deleted data false', 'active');
+  }
+
   return parts.join(' ').toLowerCase();
 }
 

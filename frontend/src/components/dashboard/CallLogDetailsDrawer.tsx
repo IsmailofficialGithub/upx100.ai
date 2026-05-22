@@ -60,6 +60,17 @@ const CallLogDetailsDrawer: React.FC<CallLogDetailsDrawerProps> = ({ log, isOpen
                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${statusColors[log.status] || 'bg-slate-500/10 text-slate-500 border-slate-500/20'} uppercase tracking-wider`}>
                   {log.status}
                 </span>
+                {typeof log.is_deleted_data === 'boolean' && (
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider font-mono ${
+                      log.is_deleted_data
+                        ? 'bg-red-500/10 text-red-400 border-red-500/20'
+                        : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                    }`}
+                  >
+                    Deleted data: {log.is_deleted_data ? 'True' : 'False'}
+                  </span>
+                )}
                 <span className="text-[10px] text-[hsl(var(--muted-foreground))] flex items-center gap-1 font-mono">
                   ID: {log.vapi_call_id?.slice(0, 8) || log.id.slice(0, 8)}...
                 </span>

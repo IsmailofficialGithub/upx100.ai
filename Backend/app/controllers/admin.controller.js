@@ -1,9 +1,11 @@
 import * as adminService from '../services/admin.service.js';
 import * as userService from '../services/user.service.js';
+import * as callLogService from '../services/callLog.service.js';
 import { StatusCodes } from 'http-status-codes';
 import { supabaseAdmin } from '../config/supabase.js';
 import { sanitizePhonesForApi } from '../utils/phoneNumberCompliance.js';
 import { enrichCallLogRow } from '../utils/callLogDirection.js';
+import { effectiveCallLogOrganizationId } from '../utils/callLogOrg.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -126,6 +128,55 @@ export const getCallLogs = async (req, res) => {
   const { data, error } = await adminService.getAllCallLogs(targetOrgIds);
   if (error) return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error });
   res.status(StatusCodes.OK).json({ data: (data || []).map(enrichCallLogRow) });
+};
+
+export const deleteCallLogs = async (req, res) => {
+  const raw = req.body?.ids;
+  const ids = Array.isArray(raw)
+    ? [...new Set(raw.map((id) => String(id).trim()).filter((id) => UUID_RE.test(id)))]
+    : [];
+
+  if (!ids.length) {
+    return res.status(StatusCodes.BAD_REQUEST).json({
+      error: { code: 'BAD_REQUEST', message: 'ids must be a non-empty array of call log UUIDs' },
+    });
+  }
+
+  const targetOrgIds = await resolveScopedTargetOrgIds(req);
+  if (targetOrgIds && targetOrgIds.length === 0) {
+    return res.status(StatusCodes.FORBIDDEN).json({
+      error: { code: 'FORBIDDEN', message: 'No clients in scope' },
+    });
+  }
+
+  let logs;
+  try {
+    logs = await callLogService.getCallLogsByIds(ids);
+  } catch (e) {
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: e.message });
+  }
+
+  if (logs.length !== ids.length) {
+    return res.status(StatusCodes.NOT_FOUND).json({
+      error: { code: 'NOT_FOUND', message: 'One or more call logs were not found' },
+    });
+  }
+
+  for (const log of logs) {
+    const orgId = effectiveCallLogOrganizationId(log);
+    if (targetOrgIds?.length && (!orgId || !targetOrgIds.includes(orgId))) {
+      return res.status(StatusCodes.FORBIDDEN).json({
+        error: { code: 'FORBIDDEN', message: 'Call log is outside your client scope' },
+      });
+    }
+  }
+
+  try {
+    const result = await callLogService.deleteCallLogsByIds(ids);
+    return res.status(StatusCodes.OK).json({ data: result });
+  } catch (e) {
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: e.message });
+  }
 };
 
 export const getLeads = async (req, res) => {

@@ -16,12 +16,16 @@ export function mapVapiCallDirection(vapiType) {
   return direction === 'unknown' ? null : direction
 }
 
+import { effectiveCallLogOrganizationId } from './callLogOrg.js'
+
 /** Add a consistent `direction` field for API consumers; align call_type / call_direction when known. */
 export function enrichCallLogRow(row) {
   if (!row || typeof row !== 'object') return row
   const direction = normalizeCallDirection(row.call_type ?? row.call_direction ?? row.direction)
+  const resolvedOrgId = effectiveCallLogOrganizationId(row) ?? row.organization_id
   return {
     ...row,
+    organization_id: resolvedOrgId ?? row.organization_id,
     direction,
     ...(direction !== 'unknown'
       ? { call_direction: direction, call_type: direction }

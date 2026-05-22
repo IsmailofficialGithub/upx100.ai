@@ -51,6 +51,7 @@ router.get(
 );
 
 router.get('/call-logs', requireRole(readElevated), adminController.getCallLogs);
+router.post('/call-logs/delete', requireRole(['gcc_admin']), adminController.deleteCallLogs);
 router.get('/leads', requireRole(readElevated), adminController.getLeads);
 router.get('/phone-numbers', requireRole(readElevated), adminController.getPhoneNumbers);
 router.get('/agents', requireRole(readElevated), adminController.getAgents);

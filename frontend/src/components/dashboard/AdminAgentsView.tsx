@@ -19,6 +19,10 @@ import AgentKnowledgeBaseUpload from '@/components/shared/AgentKnowledgeBaseUplo
 import { findVoiceById } from '@/lib/voiceCatalog';
 import { clonePersonaId, isCloneVoicePersona, parseClonePersonaId } from '@/lib/voiceCloneAudio';
 import { buildAgentScriptTemplate, stripAgentConfigHeader } from '@/lib/agentPrompt';
+import {
+  RECORDING_DISCLOSURE_MESSAGE,
+  readRecordingDisclosureEnabled,
+} from '@/lib/recordingDisclosure';
 
 const INDUSTRY_VERTICALS = [
   'B2B SaaS',
@@ -108,6 +112,7 @@ interface Agent {
   metadata?: any;
   conversation_agent_link?: string;
   knowledge_base_url?: string | null;
+  recording_disclosure_enabled?: boolean;
 }
 
 const AdminAgentsView: React.FC = () => {
@@ -159,6 +164,7 @@ const AdminAgentsView: React.FC = () => {
     conversation_agent_link: '',
     knowledge_base_url: '',
     knowledge_base_file_name: '',
+    recording_disclosure_enabled: true,
   });
 
   const [currentStep, setCurrentStep] = useState(1);
@@ -417,6 +423,7 @@ const AdminAgentsView: React.FC = () => {
         organization_id: organizationId,
         industry_vertical: formData.industry_vertical,
         knowledge_base_url: formData.knowledge_base_url?.trim() || null,
+        recording_disclosure_enabled: formData.recording_disclosure_enabled,
       };
 
       const endpoint = '/agents';
@@ -490,6 +497,7 @@ const AdminAgentsView: React.FC = () => {
         conversation_agent_link: agent.conversation_agent_link || '',
         knowledge_base_url: agent.knowledge_base_url || '',
         knowledge_base_file_name: '',
+        recording_disclosure_enabled: readRecordingDisclosureEnabled(agent),
       });
       const org = agent.organizations;
       setOrgSearch(Array.isArray(org) ? org[0]?.name || '' : org?.name || '');
@@ -529,6 +537,7 @@ const AdminAgentsView: React.FC = () => {
         conversation_agent_link: '',
         knowledge_base_url: '',
         knowledge_base_file_name: '',
+        recording_disclosure_enabled: true,
       });
       setOrgSearch(
         isGCC ? scopedOrg?.name || '' : isAdminView ? '' : (user?.entityName || ''),
@@ -1099,6 +1108,60 @@ const AdminAgentsView: React.FC = () => {
                         onChange={e => setFormData({ ...formData, welcome_message: e.target.value })}
                         className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))] transition-all"
                       />
+                    </div>
+
+                    <div className="rounded-xl border border-[hsl(var(--border-v))] bg-[hsl(var(--muted))]/40 p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-1 min-w-0">
+                          <label className="text-[10px] font-mono uppercase text-[hsl(var(--foreground))] flex items-center gap-1.5">
+                            <Mic2 size={12} className="text-[hsl(var(--primary))]" />
+                            AI recording disclosure <span className="text-red-400">*</span>
+                          </label>
+                          <p className="text-[10px] text-[hsl(var(--muted-foreground))] leading-relaxed">
+                            Required for compliance. When enabled, callers hear the disclosure at the start of each call.
+                            When disabled, no recording notice is played.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={formData.recording_disclosure_enabled}
+                          aria-required="true"
+                          onClick={() =>
+                            setFormData({
+                              ...formData,
+                              recording_disclosure_enabled: !formData.recording_disclosure_enabled,
+                            })
+                          }
+                          className={`relative inline-flex h-5 w-10 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary))]/40 ${
+                            formData.recording_disclosure_enabled
+                              ? 'bg-[hsl(var(--primary))]'
+                              : 'bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))]'
+                          }`}
+                        >
+                          <span
+                            className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                              formData.recording_disclosure_enabled ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                          />
+                        </button>
+                      </div>
+                      <div
+                        className={`rounded-lg border px-3 py-2.5 text-[11px] leading-relaxed ${
+                          formData.recording_disclosure_enabled
+                            ? 'border-emerald-500/25 bg-emerald-500/5 text-[hsl(var(--foreground))]'
+                            : 'border-amber-500/25 bg-amber-500/5 text-[hsl(var(--muted-foreground))] italic'
+                        }`}
+                      >
+                        {formData.recording_disclosure_enabled ? (
+                          <span>&ldquo;{RECORDING_DISCLOSURE_MESSAGE}&rdquo;</span>
+                        ) : (
+                          <span>
+                            Disclosure is off. Callers will not hear a recording notice — only enable this if your legal
+                            team has approved skipping it for this agent.
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     <div className="space-y-2">
