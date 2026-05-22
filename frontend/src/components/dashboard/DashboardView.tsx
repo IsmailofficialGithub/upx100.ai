@@ -1,35 +1,19 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import api from '@/lib/api';
 import { useTheme } from '@/context/ThemeContext';
 import MetricCard from '@/components/shared/MetricCard';
 import StatusBadge from '@/components/shared/StatusBadge';
 import UsaCallActivityMap from '@/components/dashboard/UsaCallActivityMap';
-import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
-} from 'recharts';
 import { Phone, Headphones, Mic, ChevronRight, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-type ActivityPeriod = 'daily' | 'weekly' | 'monthly' | 'custom';
-
-function toYmd(d: Date) {
-  return d.toISOString().split('T')[0];
-}
-
 const DashboardView: React.FC = () => {
-  const { isUK, currencySymbol } = useTheme();
+  const { isUK } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const mapSectionRef = useRef<HTMLDivElement>(null);
   const rolePrefix = location.pathname.split('/')[1] || 'client';
-  const [activityPeriod, setActivityPeriod] = useState<ActivityPeriod>('weekly');
-  const [customRange, setCustomRange] = useState(() => {
-    const end = new Date();
-    const start = new Date();
-    start.setDate(start.getDate() - 13);
-    return { start: toYmd(start), end: toYmd(end) };
-  });
 
   const [expandedMeeting, setExpandedMeeting] = useState<string | null>(null);
   const [selectedTranscript, setSelectedTranscript] = useState<string | null>(null);
@@ -67,67 +51,26 @@ const DashboardView: React.FC = () => {
   const liveCalls = stats?.liveCalls || [];
   const contactsData = stats?.contactsData || [];
   const meetings = stats?.meetings || [];
-  const outreachChartData = useMemo(
-    () =>
-      stats?.outreachActivity || {
-        daily: { labels: [], data: [] },
-        weekly: { labels: [], data: [] },
-        monthly: { labels: [], data: [] },
-      },
-    [stats?.outreachActivity],
-  );
-  const outreachDaySeries = useMemo(() => (stats?.outreachDaySeries || []) as { date: string; label: string; count: number }[], [stats?.outreachDaySeries]);
-
   const regionalData = stats?.regionalData || [];
-  const emailPerformance = stats?.emailStats || { sent: 0, openRate: 0, replyRate: 0 };
-  const networkBenchmarks = stats?.benchmarks || {
-    meetings: { yours: 0, network: 0, top25: 0, unit: '/week' },
-    connection: { yours: 0, network: 0, top25: 0, unit: '%' },
-    response: { yours: 0, network: 0, top25: 0, unit: '%' },
+  const leadCallSummary = stats?.leadCallSummary || {
+    totalCalls: 0,
+    totalLeads: 0,
+    connectedCalls: 0,
+    successCalls: 0,
+    followUpCalls: 0,
+    meetingsBooked: 0,
+    connectionRate: 0,
+    leadSuccessRate: 0,
+    avgCallDurationSec: 0,
+    totalCallTime: '0h 0m',
   };
 
-  const seriesBounds = useMemo(() => {
-    if (!outreachDaySeries.length) return { min: '', max: '' };
-    return {
-      min: outreachDaySeries[0].date,
-      max: outreachDaySeries[outreachDaySeries.length - 1].date,
-    };
-  }, [outreachDaySeries]);
-
-  const outreachBarPoints = useMemo(() => {
-    if (activityPeriod !== 'custom') {
-      const d = outreachChartData[activityPeriod];
-      const labels = d?.labels || [];
-      const data = d?.data || [];
-      return labels.map((label: string, i: number) => ({ name: label, value: Number(data[i]) || 0 }));
-    }
-    let start = customRange.start;
-    let end = customRange.end;
-    if (seriesBounds.min && start < seriesBounds.min) start = seriesBounds.min;
-    if (seriesBounds.max && end > seriesBounds.max) end = seriesBounds.max;
-    if (start > end) {
-      const t = start;
-      start = end;
-      end = t;
-    }
-    const days = outreachDaySeries.filter((row) => row.date >= start && row.date <= end);
-    if (!days.length) return [{ name: 'No calls', value: 0 }];
-
-    const MAX_BARS = 36;
-    if (days.length <= MAX_BARS) {
-      return days.map((row) => ({ name: row.label, value: row.count }));
-    }
-    const chunk = Math.ceil(days.length / MAX_BARS);
-    const out: { name: string; value: number }[] = [];
-    for (let i = 0; i < days.length; i += chunk) {
-      const slice = days.slice(i, i + chunk);
-      const sum = slice.reduce((s, row) => s + row.count, 0);
-      const a = slice[0].label;
-      const b = slice[slice.length - 1].label;
-      out.push({ name: a === b ? a : `${a}–${b}`, value: sum });
-    }
-    return out;
-  }, [activityPeriod, outreachChartData, customRange, outreachDaySeries, seriesBounds]);
+  const formatAvgDuration = (seconds: number) => {
+    if (!seconds) return '0:00';
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
 
   const activeCall =
     liveCalls.length > 0
@@ -149,11 +92,6 @@ const DashboardView: React.FC = () => {
     }, 5000);
     return () => clearInterval(interval);
   }, [activeCall]);
-
-  const handleMetricClick = (label: string) => {
-    if (label === 'Outreach Activity' || label === 'Outreach') setShowContacts(true);
-    else if (label === 'Meetings Booked' || label === 'Meetings') setShowMeetings(true);
-  };
 
   const scrollToCallActivityMap = () => {
     mapSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -363,193 +301,67 @@ const DashboardView: React.FC = () => {
         </div>
       </div>
 
-      {/* Outreach activity (+ UK regional breakdown when applicable) */}
-      <div className={`grid grid-cols-1 gap-4 ${isUK ? 'lg:grid-cols-2' : ''}`}>
+      {isUK && (
         <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-4">
-          <div className="flex flex-col gap-3 mb-4">
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-              <h3 className="text-sm font-display font-semibold text-[hsl(var(--foreground))]">Outreach Activity</h3>
-              <div className="flex flex-wrap justify-end gap-0.5 rounded-lg bg-[hsl(var(--muted))] p-0.5">
-                {(['daily', 'weekly', 'monthly', 'custom'] as const).map((p) => (
-                  <button
-                    key={p}
-                    type="button"
-                    onClick={() => setActivityPeriod(p)}
-                    className={`px-2.5 py-1 rounded-md text-[10px] font-mono font-semibold uppercase transition-colors ${
-                      activityPeriod === p
-                        ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]'
-                        : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
-                    }`}
-                  >
-                    {p === 'custom' ? 'Custom' : p}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {activityPeriod === 'custom' && (
-              <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-3 rounded-lg border border-[hsl(var(--border-v))] bg-[hsl(var(--muted))]/40 px-3 py-2.5">
-                <span className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] tracking-wider shrink-0">
-                  Date range
-                </span>
-                <div className="flex flex-wrap items-center gap-2">
-                  <label className="sr-only" htmlFor="dash-outreach-start">Start date</label>
-                  <input
-                    id="dash-outreach-start"
-                    type="date"
-                    value={customRange.start}
-                    min={seriesBounds.min || undefined}
-                    max={customRange.end}
-                    onChange={(e) => setCustomRange((r) => ({ ...r, start: e.target.value }))}
-                    className="rounded-md border border-[hsl(var(--border-v))] bg-[hsl(var(--card))] px-2 py-1 text-[11px] font-mono text-[hsl(var(--foreground))]"
-                  />
-                  <span className="text-[10px] text-[hsl(var(--muted-foreground))]">to</span>
-                  <label className="sr-only" htmlFor="dash-outreach-end">End date</label>
-                  <input
-                    id="dash-outreach-end"
-                    type="date"
-                    value={customRange.end}
-                    min={customRange.start}
-                    max={seriesBounds.max || undefined}
-                    onChange={(e) => setCustomRange((r) => ({ ...r, end: e.target.value }))}
-                    className="rounded-md border border-[hsl(var(--border-v))] bg-[hsl(var(--card))] px-2 py-1 text-[11px] font-mono text-[hsl(var(--foreground))]"
-                  />
+          <h3 className="text-sm font-display font-semibold text-[hsl(var(--foreground))] mb-4">UK Regions</h3>
+          <div className="space-y-2.5">
+            {regionalData.length > 0 ? regionalData.map((item: any, i: number) => {
+              const maxCount = regionalData[0]?.count || 1;
+              const width = (item.count / maxCount) * 100;
+              const label = item.state ? `${item.state} - ${item.label}` : item.region;
+              return (
+                <div key={i}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[11px] text-[hsl(var(--foreground))]">{label}</span>
+                    <span className="text-[10px] font-mono text-[hsl(var(--muted-foreground))]">{item.count}</span>
+                  </div>
+                  <div className="h-5 bg-[hsl(var(--muted))] rounded overflow-hidden">
+                    <div
+                      className="h-full rounded transition-all duration-700"
+                      style={{
+                        width: `${width}%`,
+                        background: `linear-gradient(90deg, hsl(var(--primary)), hsl(var(--accent-blue)))`,
+                        opacity: 0.7 + (i * 0.03),
+                      }}
+                    />
+                  </div>
                 </div>
-                <p className="text-[9px] font-mono text-[hsl(var(--muted-foreground))] sm:ml-auto">
-                  Based on call volume (last {outreachDaySeries.length || 90} days from server).
-                </p>
-              </div>
+              );
+            }) : (
+              <p className="text-[10px] font-mono text-[hsl(var(--muted-foreground))]">No regional data yet.</p>
             )}
           </div>
-          <div className="h-64 overflow-hidden relative isolate">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={outreachBarPoints}>
-                <XAxis
-                  dataKey="name"
-                  tick={{ fontSize: 10, fill: '#888' }}
-                  axisLine={false}
-                  tickLine={false}
-                  interval={outreachBarPoints.length > 18 ? Math.floor(outreachBarPoints.length / 12) : 0}
-                  angle={outreachBarPoints.length > 12 ? -32 : 0}
-                  textAnchor={outreachBarPoints.length > 12 ? 'end' : 'middle'}
-                  height={outreachBarPoints.length > 12 ? 52 : 28}
-                />
-                <YAxis tick={{ fontSize: 11, fill: '#888' }} axisLine={false} tickLine={false} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'hsl(var(--card))',
-                    border: '1px solid hsl(var(--border-v))',
-                    borderRadius: '8px',
-                    fontSize: '12px',
-                  }}
-                />
-                <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                  {outreachBarPoints.map((_, i) => (
-                    <Cell key={i} fill={i === outreachBarPoints.length - 1 ? 'hsl(var(--primary))' : 'hsl(var(--accent-blue))'} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
         </div>
+      )}
 
-        {isUK && (
-          <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-4">
-            <h3 className="text-sm font-display font-semibold text-[hsl(var(--foreground))] mb-4">UK Regions</h3>
-            <div className="space-y-2.5">
-              {regionalData.length > 0 ? regionalData.map((item: any, i: number) => {
-                const maxCount = regionalData[0]?.count || 1;
-                const width = (item.count / maxCount) * 100;
-                const label = item.state ? `${item.state} - ${item.label}` : item.region;
-                return (
-                  <div key={i}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[11px] text-[hsl(var(--foreground))]">{label}</span>
-                      <span className="text-[10px] font-mono text-[hsl(var(--muted-foreground))]">{item.count}</span>
-                    </div>
-                    <div className="h-5 bg-[hsl(var(--muted))] rounded overflow-hidden">
-                      <div
-                        className="h-full rounded transition-all duration-700"
-                        style={{
-                          width: `${width}%`,
-                          background: `linear-gradient(90deg, hsl(var(--primary)), hsl(var(--accent-blue)))`,
-                          opacity: 0.7 + (i * 0.03),
-                        }}
-                      />
-                    </div>
-                  </div>
-                );
-              }) : (
-                <p className="text-[10px] font-mono text-[hsl(var(--muted-foreground))]">No regional data yet.</p>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Email Performance + Benchmarks */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Email Performance */}
-        <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-4">
-          <h3 className="text-sm font-display font-semibold text-[hsl(var(--foreground))] mb-4">Email Performance</h3>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="text-center p-3 bg-[hsl(var(--muted))] rounded-lg">
-              <p className="text-[10px] font-mono uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Sent</p>
-              <p className="text-xl font-bold font-display text-[hsl(var(--foreground))] mt-1">{emailPerformance.sent}</p>
-            </div>
-            <div className="text-center p-3 bg-[hsl(var(--muted))] rounded-lg">
-              <p className="text-[10px] font-mono uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Open Rate</p>
-              <p className="text-xl font-bold font-display text-[hsl(var(--primary))] mt-1">{emailPerformance.openRate}%</p>
-            </div>
-            <div className="text-center p-3 bg-[hsl(var(--muted))] rounded-lg">
-              <p className="text-[10px] font-mono uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Reply Rate</p>
-              <p className="text-xl font-bold font-display text-[hsl(var(--accent-blue))] mt-1">{emailPerformance.replyRate}%</p>
-            </div>
-          </div>
+      {/* Leads & calls summary */}
+      <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+          <h3 className="text-sm font-display font-semibold text-[hsl(var(--foreground))]">Leads & Calls Overview</h3>
+          <p className="text-[10px] font-mono text-[hsl(var(--muted-foreground))]">
+            Total call time: {leadCallSummary.totalCallTime}
+          </p>
         </div>
-
-        {/* Network Benchmarks */}
-        <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-4">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-display font-semibold text-[hsl(var(--foreground))]">Network Benchmarks</h3>
-            <span className="px-2 py-0.5 bg-[hsl(var(--primary))]/15 text-[hsl(var(--primary))] text-[10px] font-mono font-semibold rounded-full">
-              Top 22% of network
-            </span>
-          </div>
-          <div className="space-y-4">
-            {Object.entries(networkBenchmarks).map(([key, data]: [string, any]) => (
-              <div key={key}>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[11px] font-medium text-[hsl(var(--foreground))]">
-                    {key === 'meetings' ? 'Meetings Booked' : key === 'connection' ? 'Connection Rate' : 'Response Rate'}
-                  </span>
-                  <span className="text-[10px] font-mono text-[hsl(var(--muted-foreground))]">{data.unit}</span>
-                </div>
-                <div className="space-y-1.5">
-                  {[
-                    { label: 'Your Rate', value: data.yours, color: 'hsl(var(--primary))' },
-                    { label: 'Network Avg', value: data.network, color: 'hsl(var(--accent-blue))' },
-                    { label: 'Top 25%', value: data.top25, color: '#888' },
-                  ].map(bar => {
-                    const maxVal = Math.max(data.yours, data.network, data.top25);
-                    const pct = (bar.value / maxVal) * 100;
-                    return (
-                      <div key={bar.label} className="flex items-center gap-2">
-                        <span className="text-[9px] font-mono text-[hsl(var(--muted-foreground))] w-20 text-right flex-shrink-0">{bar.label}</span>
-                        <div className="flex-1 h-4 bg-[hsl(var(--muted))] rounded overflow-hidden">
-                          <div
-                            className="h-full rounded transition-all duration-500"
-                            style={{ width: `${pct}%`, backgroundColor: bar.color, opacity: 0.7 }}
-                          />
-                        </div>
-                        <span className="text-[9px] font-mono text-[hsl(var(--foreground))] w-8 flex-shrink-0">{bar.value}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          {[
+            { label: 'Total Calls', value: leadCallSummary.totalCalls.toLocaleString(), accent: 'text-[hsl(var(--foreground))]' },
+            { label: 'Total Leads', value: leadCallSummary.totalLeads.toLocaleString(), accent: 'text-[hsl(var(--primary))]' },
+            { label: 'Connected', value: leadCallSummary.connectedCalls.toLocaleString(), accent: 'text-[hsl(var(--accent-blue))]' },
+            { label: 'Success Calls', value: leadCallSummary.successCalls.toLocaleString(), accent: 'text-emerald-400' },
+            { label: 'Follow-ups', value: leadCallSummary.followUpCalls.toLocaleString(), accent: 'text-[hsl(var(--foreground))]' },
+            { label: 'Meetings Booked', value: leadCallSummary.meetingsBooked.toLocaleString(), accent: 'text-[hsl(var(--primary))]' },
+            { label: 'Connection Rate', value: `${leadCallSummary.connectionRate}%`, accent: 'text-[hsl(var(--accent-blue))]' },
+            { label: 'Lead Success Rate', value: `${leadCallSummary.leadSuccessRate}%`, accent: 'text-emerald-400' },
+          ].map((item) => (
+            <div key={item.label} className="text-center p-3 bg-[hsl(var(--muted))] rounded-lg">
+              <p className="text-[10px] font-mono uppercase tracking-wider text-[hsl(var(--muted-foreground))]">{item.label}</p>
+              <p className={`text-xl font-bold font-display mt-1 ${item.accent}`}>{item.value}</p>
+            </div>
+          ))}
         </div>
+        <p className="mt-3 text-[10px] font-mono text-[hsl(var(--muted-foreground))]">
+          Avg call duration: {formatAvgDuration(leadCallSummary.avgCallDurationSec)}
+        </p>
       </div>
 
       {/* Contact/Meeting Drilldown */}

@@ -27,6 +27,31 @@ describe('Leads API', () => {
     expect(res.body.data).toHaveLength(1)
   })
 
+  it('POST /api/leads should create a meeting lead for Client Admin', async () => {
+    leadService.createLead.mockResolvedValue({
+      id: 'lead-new',
+      organization_id: 'org123',
+      name: 'Jane Doe',
+      meeting_time: '2026-05-21T15:00:00.000Z',
+      meeting_date: '2026-05-21',
+      status: 'follow_up',
+    })
+
+    const res = await request(app)
+      .post('/api/leads')
+      .send({
+        organization_id: 'org123',
+        name: 'Jane Doe',
+        meeting_time: '2026-05-21T15:00:00.000Z',
+        meeting_date: '2026-05-21',
+        status: 'follow_up',
+      })
+
+    expect(res.statusCode).toEqual(201)
+    expect(res.body.data.id).toBe('lead-new')
+    expect(leadService.createLead).toHaveBeenCalled()
+  })
+
   it('PATCH /api/leads/:id should fail for Client Admin', async () => {
     const res = await request(app)
       .patch('/api/leads/lead1')

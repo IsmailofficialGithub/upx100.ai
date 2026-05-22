@@ -1,21 +1,20 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import api from '@/lib/api';
-import { winLossData as mockWinLoss, objectionInsights as mockObjections } from '@/data/mockData';
+import { winLossData as mockWinLoss } from '@/data/mockData';
 import { useAuth } from '@/context/AuthContext';
 import { useGccTenantScope } from '@/context/GccTenantScopeContext';
 import { formatCurrencyForSource } from '@/lib/currency';
 import RoiCalculator from '@/components/shared/RoiCalculator';
 import { normalizeCloseRatePercent } from '@/lib/roiSimulation';
-import { TrendingUp, TrendingDown, AlertTriangle, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { TrendingUp, TrendingDown, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-/** Client & partner analytics: win/loss, objections, ROI. GCC admin uses ComplianceMonitorView at /admin/analytics. */
+/** Client & partner analytics: win/loss, ROI. GCC admin uses ComplianceMonitorView at /admin/analytics. */
 const AnalyticsView: React.FC = () => {
   const { canViewFinances, isGCC, user } = useAuth();
   const gccScope = useGccTenantScope();
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [expandedObj, setExpandedObj] = useState<number | null>(null);
   const [expandedLoss, setExpandedLoss] = useState<number | null>(null);
 
   useEffect(() => {
@@ -34,7 +33,6 @@ const AnalyticsView: React.FC = () => {
   }, [isGCC, gccScope.scopeOrgId]);
 
   const winLossData = data?.winLossData || mockWinLoss;
-  const objectionInsights = data?.objectionInsights || mockObjections;
   const roiDefaults = data?.roiDefaults;
 
   const selectedScopeOrg =
@@ -60,8 +58,8 @@ const AnalyticsView: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-4">
+      <div className="grid grid-cols-1 gap-4">
+        <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-4 max-w-2xl">
           <h3 className="text-sm font-display font-semibold text-[hsl(var(--foreground))] mb-4">Win/Loss Analysis</h3>
           <div className="grid grid-cols-2 gap-3 mb-4">
             <div className="p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-lg text-center">
@@ -118,46 +116,6 @@ const AnalyticsView: React.FC = () => {
                 );
               })}
             </div>
-          </div>
-        </div>
-
-        <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-4">
-          <h3 className="text-sm font-display font-semibold text-[hsl(var(--foreground))] mb-4">Objection Insights</h3>
-          <div className="space-y-3">
-            {objectionInsights.map((obj: { objection: string; frequency: number; rebuttal: string }, i: number) => {
-              const isExpanded = expandedObj === i;
-              const maxFreq = objectionInsights[0].frequency;
-              const pct = (obj.frequency / maxFreq) * 100;
-              return (
-                <div key={i} className="border border-[hsl(var(--border-v))] rounded-lg overflow-hidden">
-                  <button
-                    type="button"
-                    className="w-full p-3 text-left hover:bg-[hsl(var(--muted))] transition-colors"
-                    onClick={() => setExpandedObj(isExpanded ? null : i)}
-                  >
-                    <div className="flex items-center justify-between mb-1.5">
-                      <div className="flex items-center gap-2">
-                        <AlertTriangle size={12} className="text-yellow-400" />
-                        <span className="text-xs font-medium text-[hsl(var(--foreground))]">{obj.objection}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-mono text-[hsl(var(--muted-foreground))]">{obj.frequency}%</span>
-                        {isExpanded ? <ChevronUp size={14} className="text-[hsl(var(--muted-foreground))]" /> : <ChevronDown size={14} className="text-[hsl(var(--muted-foreground))]" />}
-                      </div>
-                    </div>
-                    <div className="h-2.5 bg-[hsl(var(--muted))] rounded overflow-hidden">
-                      <div className="h-full bg-yellow-400 rounded transition-all" style={{ width: `${pct}%`, opacity: 0.6 }} />
-                    </div>
-                  </button>
-                  {isExpanded && (
-                    <div className="px-3 pb-3 border-t border-[hsl(var(--border))]">
-                      <p className="text-[10px] font-mono uppercase text-[hsl(var(--primary))] mb-1 tracking-wider">Recommended Rebuttal</p>
-                      <p className="text-[11px] text-[hsl(var(--foreground))] leading-relaxed italic">&ldquo;{obj.rebuttal}&rdquo;</p>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
           </div>
         </div>
       </div>

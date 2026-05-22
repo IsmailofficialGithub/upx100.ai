@@ -13,6 +13,45 @@ const dealAllows = (deals, orgId, agentId) =>
     (d) => d.client_org_id === orgId && (agentId == null || d.agent_id === agentId)
   )
 
+const VALID_LEAD_STATUSES = new Set(['new', 'warm', 'cold', 'success', 'follow_up'])
+
+const assertCanWriteOrg = async (req, targetOrgId) => {
+  const { role, orgId, userId } = req.user
+  if (!targetOrgId) {
+    const err = new Error('organization_id is required')
+    err.status = StatusCodes.BAD_REQUEST
+    throw err
+  }
+  if (['gcc_admin', 'gcc_reviewer'].includes(role)) {
+    return
+  }
+  if (role === 'sp_primary') {
+    const { data: assignments } = await userService.getSPClientAssignments(userId)
+    const assignedOrgIds = assignments?.map((a) => a.client_org_id) || []
+    if (!assignedOrgIds.includes(targetOrgId)) {
+      const err = new Error('Access denied - Client not assigned')
+      err.status = StatusCodes.FORBIDDEN
+      throw err
+    }
+    return
+  }
+  if (role === 'sp_sub') {
+    const { data: deals } = await userService.getSpSubDeals(userId)
+    if (!dealAllows(deals, targetOrgId, null)) {
+      const err = new Error('Access denied')
+      err.status = StatusCodes.FORBIDDEN
+      throw err
+    }
+    return
+  }
+  const eff = effectiveOrgId(orgId)
+  if (targetOrgId !== eff) {
+    const err = new Error('Access denied')
+    err.status = StatusCodes.FORBIDDEN
+    throw err
+  }
+}
+
 /**
  * Leads for client roles using user JWT + anon key (RLS enforced in DB when migration 12 applied).
  */
@@ -132,6 +171,65 @@ export const getLead = async (req, res) => {
   }
 
   return res.json({ data: lead })
+}
+
+export const createLead = async (req, res) => {
+  try {
+    const body = req.body || {}
+    const { role, userId } = req.user
+    const organizationId = body.organization_id
+
+    await assertCanWriteOrg(req, organizationId)
+
+    const name = typeof body.name === 'string' ? body.name.trim() : ''
+    if (!name) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        error: { code: 'VALIDATION', message: 'name is required' },
+      })
+    }
+
+    if (!body.meeting_time && !body.meeting_date) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        error: { code: 'VALIDATION', message: 'meeting_time or meeting_date is required' },
+      })
+    }
+
+    const status = body.status || 'follow_up'
+    if (!VALID_LEAD_STATUSES.has(status)) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        error: { code: 'VALIDATION', message: 'Invalid lead status' },
+      })
+    }
+
+    const payload = {
+      organization_id: organizationId,
+      name,
+      email: body.email ?? null,
+      phone: body.phone ?? null,
+      notes: body.notes ?? null,
+      status,
+      meeting_time: body.meeting_time ?? null,
+      meeting_date: body.meeting_date ?? null,
+      meeting_timezone: body.meeting_timezone ?? null,
+      agent_id: body.agent_id ?? null,
+    }
+
+    if (role === 'client_sub') {
+      payload.user_id = userId
+    }
+
+    const lead = await leadService.createLead(payload)
+
+    return res.status(StatusCodes.CREATED).json({
+      message: 'Lead created successfully',
+      data: lead,
+    })
+  } catch (e) {
+    const status = e.status || StatusCodes.INTERNAL_SERVER_ERROR
+    return res.status(status).json({
+      error: { message: e.message || 'Failed to create lead' },
+    })
+  }
 }
 
 export const updateLead = async (req, res) => {

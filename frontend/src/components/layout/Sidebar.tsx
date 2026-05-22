@@ -86,7 +86,6 @@ const GCC_REVIEWER_NAV: GccNavGroup[] = [
     items: [
       { label: 'AI Agent Management', path: '/admin/agents', icon: Cpu },
       { label: 'Phone Numbers', path: '/admin/phone-numbers', icon: Phone },
-      { label: 'Leads', path: '/admin/leads', icon: FileText },
     ],
   },
 ];

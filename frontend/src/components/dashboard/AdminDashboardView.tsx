@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, ShieldAlert } from 'lucide-react';
 import api from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
 import { useGccTenantScope } from '@/context/GccTenantScopeContext';
 import { CALL_LOGS_EMPTY_MESSAGE } from '@/components/dashboard/callLogsEmptyMessage';
 import { formatCurrencyForSource } from '@/lib/currency';
@@ -172,6 +173,7 @@ const formatPortfolioMrr = (value: number | undefined) => {
 
 const AdminDashboardView: React.FC = () => {
   const navigate = useNavigate();
+  const { isGCCReviewer } = useAuth();
   const gccScope = useGccTenantScope();
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
@@ -280,7 +282,13 @@ const AdminDashboardView: React.FC = () => {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.85fr)] gap-4">
+      <div
+        className={
+          isGCCReviewer
+            ? 'grid grid-cols-1 gap-4'
+            : 'grid grid-cols-1 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.85fr)] gap-4'
+        }
+      >
         <section className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl overflow-hidden">
           <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[hsl(var(--border-v))]">
             <div>
@@ -327,45 +335,47 @@ const AdminDashboardView: React.FC = () => {
           </div>
         </section>
 
-        <section className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl overflow-hidden">
-          <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[hsl(var(--border-v))]">
-            <div>
-              <h2 className="text-sm font-semibold text-[hsl(var(--foreground))]">Alerts & Flags</h2>
-              <p className="text-[11px] text-[hsl(var(--muted-foreground))]">
-                Items requiring operator attention.
-              </p>
+        {!isGCCReviewer && (
+          <section className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl overflow-hidden">
+            <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[hsl(var(--border-v))]">
+              <div>
+                <h2 className="text-sm font-semibold text-[hsl(var(--foreground))]">Alerts & Flags</h2>
+                <p className="text-[11px] text-[hsl(var(--muted-foreground))]">
+                  Items requiring operator attention.
+                </p>
+              </div>
+              <ShieldAlert size={18} className="text-amber-500" />
             </div>
-            <ShieldAlert size={18} className="text-amber-500" />
-          </div>
 
-          <div className="divide-y divide-[hsl(var(--border-v))]">
-            {alerts.map((alert) => (
-              <button
-                key={alert.id}
-                type="button"
-                onClick={() => navigate('/admin/hitl')}
-                className="w-full text-left p-4 hover:bg-[hsl(var(--muted))]/35 transition-colors"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="mt-0.5 rounded-md bg-amber-500/10 p-2 text-amber-500">
-                    <AlertTriangle size={15} />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm font-medium text-[hsl(var(--foreground))]">{alert.label}</p>
-                      <Badge variant="outline" className="font-mono">
-                        {alert.priority}
-                      </Badge>
+            <div className="divide-y divide-[hsl(var(--border-v))]">
+              {alerts.map((alert) => (
+                <button
+                  key={alert.id}
+                  type="button"
+                  onClick={() => navigate('/admin/hitl')}
+                  className="w-full text-left p-4 hover:bg-[hsl(var(--muted))]/35 transition-colors"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5 rounded-md bg-amber-500/10 p-2 text-amber-500">
+                      <AlertTriangle size={15} />
                     </div>
-                    <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
-                      {alert.client} · {alert.detail}
-                    </p>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-medium text-[hsl(var(--foreground))]">{alert.label}</p>
+                        <Badge variant="outline" className="font-mono">
+                          {alert.priority}
+                        </Badge>
+                      </div>
+                      <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
+                        {alert.client} · {alert.detail}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              </button>
-            ))}
-          </div>
-        </section>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
 
       <section className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl overflow-hidden">

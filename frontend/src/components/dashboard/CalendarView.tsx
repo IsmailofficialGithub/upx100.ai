@@ -1,9 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { meetings as seedMeetings, calendarDemoOrganizations } from '@/data/mockData';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { useGccTenantScope } from '@/context/GccTenantScopeContext';
 import api from '@/lib/api';
+import {
+  type CalendarMeeting,
+  buildMeetingTimestamp,
+  calendarFormToLeadStatus,
+  mapLeadToCalendarMeeting,
+  parseCallLogTranscript,
+} from '@/lib/mapLeadToCalendarMeeting';
 import StatusBadge from '@/components/shared/StatusBadge';
 import AudioPlayer from '@/components/shared/AudioPlayer';
 import {
@@ -27,17 +33,14 @@ import {
   CalendarDays,
   ChevronDown,
   ChevronUp,
-  DollarSign,
   ExternalLink,
-  Globe,
-  MapPin,
   Plus,
   Download,
-  Users,
+  Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-type Meeting = (typeof seedMeetings)[number] & { organizationId?: string };
+type Meeting = CalendarMeeting;
 
 /** Normalize legacy / alternate API spellings to keys used in OUTCOME_KEYS. */
 function normalizeOutcomeKey(outcome: string | null | undefined): string | null {
@@ -96,23 +99,28 @@ type CalendarViewProps = {
   embedded?: boolean;
 };
 
+const MEETING_FORM_FIELD =
+  'w-full text-xs rounded-md border border-[hsl(var(--border-v))] bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] px-2 py-2 outline-none focus-visible:ring-1 focus-visible:ring-[hsl(var(--primary))]/50';
+
 const CalendarView: React.FC<CalendarViewProps> = ({ lockedOrganizationId, embedded = false }) => {
-  useTheme();
+  const { mode } = useTheme();
+  const formColorScheme = { colorScheme: mode } as React.CSSProperties;
   const { user, isGCC, isSP } = useAuth();
   const gccScope = useGccTenantScope();
   const [viewMode, setViewMode] = useState<'agenda' | 'grid'>('agenda');
   const [selectedMeeting, setSelectedMeeting] = useState<string | null>(null);
   const [expandedOutcome, setExpandedOutcome] = useState<string | null>(null);
   const [period, setPeriod] = useState<'month' | 'quarter' | 'year'>('month');
-  const [meetingsState, setMeetingsState] = useState<Meeting[]>(() =>
-    seedMeetings.map((m) => ({ ...m }))
-  );
+  const [meetingsState, setMeetingsState] = useState<Meeting[]>([]);
+  const [meetingsLoading, setMeetingsLoading] = useState(true);
   const [orgOptions, setOrgOptions] = useState<{ id: string; name: string }[]>([
     { id: 'all', name: 'All companies' },
   ]);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>('all');
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState<Meeting>(() => emptyMeeting());
+  const [savingMeeting, setSavingMeeting] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   const companyFilterId = lockedOrganizationId
     ? lockedOrganizationId
@@ -141,21 +149,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({ lockedOrganizationId, embed
             return;
           }
         } catch {
-          /* demo fallback */
-        }
-        if (!cancelled) {
-          setOrgOptions([
-            { id: 'all', name: 'All companies' },
-            ...calendarDemoOrganizations.map((o) => ({ id: o.id, name: o.name })),
-          ]);
+          /* keep default "All companies" only */
         }
         return;
       }
       if (!cancelled && user?.orgId) {
         setOrgOptions([{ id: user.orgId, name: user.entityName || 'My organization' }]);
         setSelectedCompanyId(user.orgId);
-      } else if (!cancelled) {
-        setOrgOptions([{ id: 'all', name: 'All companies' }, ...calendarDemoOrganizations.map((o) => ({ id: o.id, name: o.name }))]);
       }
     };
     load();
@@ -163,6 +163,74 @@ const CalendarView: React.FC<CalendarViewProps> = ({ lockedOrganizationId, embed
       cancelled = true;
     };
   }, [isGCC, isSP, user?.orgId, user?.entityName, gccScope.organizations]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchMeetings = async () => {
+      setMeetingsLoading(true);
+      try {
+        const res = await api.get<{ data: Record<string, unknown>[] }>('/leads');
+        const rows = res.data?.data ?? [];
+        if (!cancelled) {
+          const mapped = rows
+            .map((row) => mapLeadToCalendarMeeting(row as Parameters<typeof mapLeadToCalendarMeeting>[0]))
+            .filter((m): m is Meeting => m != null);
+          setMeetingsState(mapped);
+        }
+      } catch (error) {
+        console.error(error);
+        if (!cancelled) {
+          setMeetingsState([]);
+          toast.error('Failed to load calendar meetings');
+        }
+      } finally {
+        if (!cancelled) setMeetingsLoading(false);
+      }
+    };
+    fetchMeetings();
+    return () => {
+      cancelled = true;
+    };
+  }, [gccScope.scopeOrgId]);
+
+  useEffect(() => {
+    if (!selectedMeeting) return;
+    let cancelled = false;
+    const loadDetail = async () => {
+      setDetailLoading(true);
+      try {
+        const res = await api.get<{ data: Record<string, unknown> }>(`/leads/${selectedMeeting}`);
+        const lead = res.data?.data;
+        if (cancelled || !lead) return;
+        const callLog = (lead.call_logs ?? lead.call_log) as { transcript?: string; summary?: string } | null;
+        const transcript = parseCallLogTranscript(callLog?.transcript);
+        const aiStrategy = typeof callLog?.summary === 'string' ? callLog.summary : undefined;
+        setMeetingsState((prev) =>
+          prev.map((m) =>
+            m.id === selectedMeeting
+              ? {
+                  ...m,
+                  transcript,
+                  aiStrategy,
+                  notes: (lead.notes as string) || m.notes,
+                  phone: (lead.phone as string) || m.phone,
+                  email: (lead.email as string) || m.email,
+                  contact: (lead.name as string) || m.contact,
+                }
+              : m
+          )
+        );
+      } catch (error) {
+        console.error(error);
+      } finally {
+        if (!cancelled) setDetailLoading(false);
+      }
+    };
+    loadDetail();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedMeeting]);
 
   const periodMeetings = useMemo(() => {
     const ref = new Date();
@@ -220,22 +288,51 @@ const CalendarView: React.FC<CalendarViewProps> = ({ lockedOrganizationId, embed
     const m = emptyMeeting();
     const scopeId = companyFilterId;
     const defaultOrg =
-      scopeId !== 'all'
-        ? scopeId
-        : orgOptions.find((o) => o.id !== 'all')?.id || calendarDemoOrganizations[0]?.id || '';
+      scopeId !== 'all' ? scopeId : orgOptions.find((o) => o.id !== 'all')?.id || '';
     m.organizationId = defaultOrg;
     setForm(m);
     setAddOpen(true);
   }, [companyFilterId, orgOptions]);
 
-  const submitNewMeeting = () => {
+  const submitNewMeeting = async () => {
     if (!form.company.trim() || !form.contact.trim() || !form.organizationId) {
       toast.error('Company, contact, and organization are required.');
       return;
     }
-    setMeetingsState((prev) => [{ ...form, id: `local-${Date.now()}`, transcript: form.transcript || [] }, ...prev]);
-    setAddOpen(false);
-    toast.success('Meeting added');
+    if (!form.date || !form.time) {
+      toast.error('Date and time are required.');
+      return;
+    }
+
+    setSavingMeeting(true);
+    try {
+      const notes = [form.company.trim(), form.title.trim()].filter(Boolean).join(' · ');
+      const res = await api.post<{ data: Record<string, unknown> }>('/leads', {
+        organization_id: form.organizationId,
+        name: form.contact.trim(),
+        email: form.email.trim() || null,
+        notes: notes || null,
+        meeting_time: buildMeetingTimestamp(form.date, form.time),
+        meeting_date: form.date,
+        status: calendarFormToLeadStatus(form.status, form.outcome),
+      });
+
+      const mapped = mapLeadToCalendarMeeting(res.data?.data as Parameters<typeof mapLeadToCalendarMeeting>[0]);
+      if (mapped) {
+        setMeetingsState((prev) => [mapped, ...prev]);
+        setSelectedMeeting(mapped.id);
+      }
+      setAddOpen(false);
+      toast.success('Meeting saved');
+    } catch (error: unknown) {
+      const msg =
+        (error as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error
+          ?.message || 'Failed to save meeting';
+      toast.error(msg);
+      console.error(error);
+    } finally {
+      setSavingMeeting(false);
+    }
   };
 
   const exportVisibleToIcs = () => {
@@ -338,7 +435,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({ lockedOrganizationId, embed
             </div>
           </div>
 
-          {viewMode === 'agenda' ? (
+          {meetingsLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="animate-spin text-[hsl(var(--primary))]" size={28} />
+            </div>
+          ) : viewMode === 'agenda' ? (
             <div className="space-y-4">
               {Object.entries(groupedMeetings)
                 .sort(([a], [b]) => b.localeCompare(a))
@@ -380,7 +481,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ lockedOrganizationId, embed
                 ))}
               {periodMeetings.length === 0 && (
                 <p className="text-sm text-[hsl(var(--muted-foreground))] py-6 text-center">
-                  No meetings for this company and period. Try another company or switch Month / Quarter / Year below.
+                  No scheduled meetings for this company and period. Leads with a meeting time or success status appear here.
                 </p>
               )}
             </div>
@@ -453,6 +554,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({ lockedOrganizationId, embed
         <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-4">
           {activeMeeting ? (
             <div className="space-y-4">
+              {detailLoading && (
+                <div className="flex items-center gap-2 text-[10px] font-mono text-[hsl(var(--muted-foreground))]">
+                  <Loader2 size={12} className="animate-spin" />
+                  Loading details…
+                </div>
+              )}
               <div className="flex flex-wrap gap-2">
                 <a
                   href={googleCalendarUrl(activeMeeting)}
@@ -491,45 +598,24 @@ const CalendarView: React.FC<CalendarViewProps> = ({ lockedOrganizationId, embed
                 <p className={`text-xs ${calendarEventNameColorClass(activeMeeting)}`}>
                   {activeMeeting.contact} · {activeMeeting.title}
                 </p>
+                {activeMeeting.email && (
+                  <p className="text-[11px] text-[hsl(var(--muted-foreground))] mt-1">{activeMeeting.email}</p>
+                )}
+                {activeMeeting.phone && (
+                  <p className="text-[11px] text-[hsl(var(--muted-foreground))]">{activeMeeting.phone}</p>
+                )}
+                {activeMeeting.meetingTimezone && (
+                  <p className="text-[10px] font-mono text-[hsl(var(--muted-foreground))] mt-1">
+                    Timezone: {activeMeeting.meetingTimezone}
+                  </p>
+                )}
               </div>
 
-              {activeMeeting.enrichment && (
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="p-2.5 bg-[hsl(var(--muted))] rounded-lg">
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <Globe size={11} className="text-[hsl(var(--primary))]" />
-                      <span className="text-[9px] font-mono uppercase text-[hsl(var(--muted-foreground))]">Industry</span>
-                    </div>
-                    <p className="text-[11px] font-medium text-[hsl(var(--foreground))]">{activeMeeting.enrichment.industry}</p>
-                  </div>
-                  <div className="p-2.5 bg-[hsl(var(--muted))] rounded-lg">
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <Users size={11} className="text-[hsl(var(--primary))]" />
-                      <span className="text-[9px] font-mono uppercase text-[hsl(var(--muted-foreground))]">Employees</span>
-                    </div>
-                    <p className="text-[11px] font-medium text-[hsl(var(--foreground))]">{activeMeeting.enrichment.employees}</p>
-                  </div>
-                  <div className="p-2.5 bg-[hsl(var(--muted))] rounded-lg">
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <DollarSign size={11} className="text-[hsl(var(--primary))]" />
-                      <span className="text-[9px] font-mono uppercase text-[hsl(var(--muted-foreground))]">Revenue</span>
-                    </div>
-                    <p className="text-[11px] font-medium text-[hsl(var(--foreground))]">{activeMeeting.enrichment.revenue}</p>
-                  </div>
-                  <div className="p-2.5 bg-[hsl(var(--muted))] rounded-lg">
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <MapPin size={11} className="text-[hsl(var(--primary))]" />
-                      <span className="text-[9px] font-mono uppercase text-[hsl(var(--muted-foreground))]">HQ</span>
-                    </div>
-                    <p className="text-[11px] font-medium text-[hsl(var(--foreground))]">{activeMeeting.enrichment.hq}</p>
-                  </div>
+              {activeMeeting.notes && (
+                <div className="p-3 bg-[hsl(var(--muted))] rounded-lg border border-[hsl(var(--border-v))]">
+                  <p className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] mb-1 tracking-wider">Notes</p>
+                  <p className="text-[11px] text-[hsl(var(--foreground))] leading-relaxed whitespace-pre-wrap">{activeMeeting.notes}</p>
                 </div>
-              )}
-
-              {activeMeeting.enrichment?.funding && (
-                <span className="inline-block px-2 py-0.5 bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))] text-[10px] font-mono font-semibold rounded-full">
-                  {activeMeeting.enrichment.funding}
-                </span>
               )}
 
               {activeMeeting.transcript.length > 0 && (
@@ -563,7 +649,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ lockedOrganizationId, embed
 
               {activeMeeting.aiStrategy && (
                 <div className="p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-lg">
-                  <p className="text-[10px] font-mono font-semibold uppercase text-emerald-400 mb-1 tracking-wider">AI Strategy Note</p>
+                  <p className="text-[10px] font-mono font-semibold uppercase text-emerald-400 mb-1 tracking-wider">Call summary</p>
                   <p className="text-[11px] text-[hsl(var(--foreground))] leading-relaxed">{activeMeeting.aiStrategy}</p>
                 </div>
               )}
@@ -661,7 +747,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ lockedOrganizationId, embed
         <DialogContent className="sm:max-w-md bg-[hsl(var(--card))] border-[hsl(var(--border-v))]">
           <DialogHeader>
             <DialogTitle>Add meeting</DialogTitle>
-            <DialogDescription>Creates a local calendar entry (connect CRM sync separately when available).</DialogDescription>
+            <DialogDescription>Saves a lead with a scheduled meeting time to your database.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 py-2">
             <label className="grid gap-1">
@@ -669,7 +755,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ lockedOrganizationId, embed
               <select
                 value={form.organizationId}
                 onChange={(e) => setForm((f) => ({ ...f, organizationId: e.target.value }))}
-                className="text-xs rounded-md border border-[hsl(var(--border-v))] bg-transparent px-2 py-2"
+                className={MEETING_FORM_FIELD}
+                style={formColorScheme}
               >
                 <option value="">Select…</option>
                 {orgOptions
@@ -686,7 +773,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ lockedOrganizationId, embed
               <input
                 value={form.company}
                 onChange={(e) => setForm((f) => ({ ...f, company: e.target.value }))}
-                className="text-xs rounded-md border border-[hsl(var(--border-v))] bg-transparent px-2 py-2"
+                className={MEETING_FORM_FIELD}
               />
             </label>
             <label className="grid gap-1">
@@ -694,7 +781,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ lockedOrganizationId, embed
               <input
                 value={form.contact}
                 onChange={(e) => setForm((f) => ({ ...f, contact: e.target.value }))}
-                className="text-xs rounded-md border border-[hsl(var(--border-v))] bg-transparent px-2 py-2"
+                className={MEETING_FORM_FIELD}
               />
             </label>
             <label className="grid gap-1">
@@ -702,7 +789,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ lockedOrganizationId, embed
               <input
                 value={form.email}
                 onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                className="text-xs rounded-md border border-[hsl(var(--border-v))] bg-transparent px-2 py-2"
+                className={MEETING_FORM_FIELD}
               />
             </label>
             <label className="grid gap-1">
@@ -710,7 +797,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ lockedOrganizationId, embed
               <input
                 value={form.title}
                 onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                className="text-xs rounded-md border border-[hsl(var(--border-v))] bg-transparent px-2 py-2"
+                className={MEETING_FORM_FIELD}
               />
             </label>
             <div className="grid grid-cols-2 gap-2">
@@ -720,7 +807,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ lockedOrganizationId, embed
                   type="date"
                   value={form.date}
                   onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
-                  className="text-xs rounded-md border border-[hsl(var(--border-v))] bg-transparent px-2 py-2"
+                  className={MEETING_FORM_FIELD}
+                  style={formColorScheme}
                 />
               </label>
               <label className="grid gap-1">
@@ -729,7 +817,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ lockedOrganizationId, embed
                   type="time"
                   value={form.time}
                   onChange={(e) => setForm((f) => ({ ...f, time: e.target.value }))}
-                  className="text-xs rounded-md border border-[hsl(var(--border-v))] bg-transparent px-2 py-2"
+                  className={MEETING_FORM_FIELD}
+                  style={formColorScheme}
                 />
               </label>
             </div>
@@ -737,8 +826,17 @@ const CalendarView: React.FC<CalendarViewProps> = ({ lockedOrganizationId, embed
               <span className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))]">Status</span>
               <select
                 value={form.status}
-                onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
-                className="text-xs rounded-md border border-[hsl(var(--border-v))] bg-transparent px-2 py-2"
+                onChange={(e) => {
+                  const status = e.target.value as Meeting['status'];
+                  setForm((f) => ({
+                    ...f,
+                    status,
+                    outcome:
+                      status !== 'confirmed' && f.outcome === 'closedWon' ? null : f.outcome,
+                  }));
+                }}
+                className={MEETING_FORM_FIELD}
+                style={formColorScheme}
               >
                 <option value="confirmed">confirmed</option>
                 <option value="upcoming">upcoming</option>
@@ -756,12 +854,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({ lockedOrganizationId, embed
                     outcome: (e.target.value || null) as Meeting['outcome'],
                   }))
                 }
-                className="text-xs rounded-md border border-[hsl(var(--border-v))] bg-transparent px-2 py-2"
+                className={MEETING_FORM_FIELD}
+                style={formColorScheme}
               >
                 <option value="">—</option>
-                {OUTCOME_KEYS.map((k) => (
+                {OUTCOME_KEYS.filter((k) => k !== 'closedWon' || form.status === 'confirmed').map((k) => (
                   <option key={k} value={k}>
-                    {k}
+                    {k === 'closedWon' ? 'Closed won' : k.replace(/([A-Z])/g, ' $1').trim()}
                   </option>
                 ))}
               </select>
@@ -778,8 +877,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({ lockedOrganizationId, embed
             <button
               type="button"
               onClick={submitNewMeeting}
-              className="px-3 py-2 text-xs rounded-lg bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]"
+              disabled={savingMeeting}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs rounded-lg bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] disabled:opacity-60"
             >
+              {savingMeeting && <Loader2 size={14} className="animate-spin" />}
               Save
             </button>
           </DialogFooter>

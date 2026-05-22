@@ -37,18 +37,75 @@ export const listAllLeads = async () => {
 }
 
 export const getLeadById = async (leadId) => {
-  const { data, error } = await supabaseAdmin
+  const { data: lead, error } = await supabaseAdmin
     .schema('inbound')
     .from('leads')
-    .select('*, call_logs(*), agents(*)')
+    .select('*, agents(*)')
     .eq('id', leadId)
     .single()
 
   if (error) {
-    if (error.code === 'PGRST116') return null;
-    throw error;
+    if (error.code === 'PGRST116') return null
+    throw error
   }
-  return data
+
+  if (lead?.call_log_id) {
+    const { data: callLog, error: callErr } = await supabaseAdmin
+      .schema('inbound')
+      .from('call_logs')
+      .select('*')
+      .eq('id', lead.call_log_id)
+      .maybeSingle()
+
+    if (callErr) throw callErr
+    if (callLog) {
+      lead.call_log = callLog
+      lead.call_logs = callLog
+    }
+  }
+
+  return lead
+}
+
+const LEAD_INSERT_FIELDS = [
+  'organization_id',
+  'name',
+  'email',
+  'phone',
+  'notes',
+  'status',
+  'meeting_time',
+  'meeting_date',
+  'meeting_timezone',
+  'agent_id',
+  'user_id',
+]
+
+export const createLead = async (payload) => {
+  const row = {}
+  for (const key of LEAD_INSERT_FIELDS) {
+    if (payload[key] !== undefined) {
+      row[key] = payload[key]
+    }
+  }
+
+  const { data, error } = await supabaseAdmin
+    .schema('inbound')
+    .from('leads')
+    .insert(row)
+    .select()
+    .single()
+
+  if (error) throw error
+
+  const { data: viewRow, error: viewError } = await supabaseAdmin
+    .from('view_leads')
+    .select('*')
+    .eq('id', data.id)
+    .maybeSingle()
+
+  if (viewError) throw viewError
+  return viewRow || data
 }
 
 export const updateLead = async (leadId, updateData) => {

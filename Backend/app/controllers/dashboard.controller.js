@@ -152,9 +152,15 @@ export const getStats = async (req, res) => {
     const connectedCount = (callLogs || []).filter(
       (c) => c.status === 'success' || c.status === 'follow_up'
     ).length
+    const successCalls = (callLogs || []).filter((c) => c.status === 'success').length
+    const followUpCalls = (callLogs || []).filter((c) => c.status === 'follow_up').length
     const leadCount = leads?.length || 0
     const pctOfCalls = (n) =>
       totalOutreach > 0 ? Math.round((n / totalOutreach) * 100) : null
+    const connectionRate = pctOfCalls(connectedCount) ?? 0
+    const leadSuccessRate = leadCount > 0 ? Math.round((totalMeetings / leadCount) * 100) : 0
+    const avgCallDurationSec =
+      totalOutreach > 0 ? Math.round(totalDurationSec / totalOutreach) : 0
 
     const funnelData =
       totalOutreach <= 0
@@ -201,12 +207,18 @@ export const getStats = async (req, res) => {
         monthly: { labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'], data: [0, 0, 0, 0, 0, totalOutreach] }
       },
       outreachDaySeries,
-      regionalData: aggregateRegionalFromCallLogs(callLogs || []), 
-      emailStats: { sent: 0, openRate: 0, replyRate: 0 },
-      benchmarks: {
-        meetings: { yours: totalOutreach > 0 ? (totalMeetings / 4).toFixed(1) : 0, network: 2.1, top25: 4.2, unit: '/week' },
-        connection: { yours: totalOutreach > 0 ? Math.round(((callLogs || []).filter(c => c.status === 'success').length / totalOutreach) * 100) : 0, network: 42, top25: 68, unit: '%' },
-        response: { yours: 0, network: 8, top25: 18, unit: '%' }
+      regionalData: aggregateRegionalFromCallLogs(callLogs || []),
+      leadCallSummary: {
+        totalCalls: totalOutreach,
+        totalLeads: leadCount,
+        connectedCalls: connectedCount,
+        successCalls,
+        followUpCalls,
+        meetingsBooked: totalMeetings,
+        connectionRate,
+        leadSuccessRate,
+        avgCallDurationSec,
+        totalCallTime: `${totalHours}h ${totalMins}m`,
       },
       contactsData: (leads || []).map(l => ({
         id: l.id,
