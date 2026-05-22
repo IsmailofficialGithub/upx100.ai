@@ -56,11 +56,80 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Expired/invalid session → logout once and redirect (no error spam in UI)
+let isRefreshing = false;
+let failedQueue: any[] = [];
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
+// Expired/invalid session → attempt refresh or logout and redirect
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (isAuthSessionError(error)) {
+  async (error) => {
+    const originalRequest = error.config;
+
+    if (isAuthSessionError(error) && originalRequest && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      const authDataStr = localStorage.getItem('up100x_auth');
+      if (authDataStr) {
+        try {
+          const authData = JSON.parse(authDataStr);
+          const refresh_token = authData.session?.refresh_token;
+
+          if (refresh_token) {
+            // Check if 24 hours have passed since login
+            const loginTime = authData.login_timestamp;
+            const ONE_DAY = 24 * 60 * 60 * 1000;
+            if (loginTime && (Date.now() - loginTime > ONE_DAY)) {
+              clearSessionAndRedirectToLogin();
+              return Promise.reject(error);
+            }
+
+            if (isRefreshing) {
+              return new Promise(function(resolve, reject) {
+                failedQueue.push({ resolve, reject });
+              }).then(token => {
+                originalRequest.headers.Authorization = 'Bearer ' + token;
+                return api(originalRequest);
+              }).catch(err => {
+                return Promise.reject(err);
+              });
+            }
+
+            isRefreshing = true;
+
+            const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+            const res = await axios.post(`${baseURL}/auth/refresh`, { refresh_token }, {
+              headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (res.data?.data?.session) {
+              const newSession = res.data.data.session;
+              authData.session = newSession;
+              localStorage.setItem('up100x_auth', JSON.stringify(authData));
+
+              processQueue(null, newSession.access_token);
+              isRefreshing = false;
+
+              originalRequest.headers.Authorization = `Bearer ${newSession.access_token}`;
+              return api(originalRequest);
+            }
+          }
+        } catch (refreshError) {
+          processQueue(refreshError, null);
+          isRefreshing = false;
+        }
+      }
+
       clearSessionAndRedirectToLogin();
     }
     return Promise.reject(error);

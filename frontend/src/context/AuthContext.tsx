@@ -105,7 +105,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         region: apiUser.profile?.organizations?.country_code === 'GB' ? 'UK' : 'US',
       };
 
-      const newAuthData = { user: userData, session };
+      const newAuthData = { user: userData, session, login_timestamp: Date.now() };
       setAuthData(newAuthData);
       localStorage.setItem('up100x_auth', JSON.stringify(newAuthData));
       setRegion(userData.region);
