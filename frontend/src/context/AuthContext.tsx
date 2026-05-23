@@ -1,7 +1,12 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import axios from 'axios';
 import api from '@/lib/api';
 import { clearGccTenantScopeStorage } from '@/lib/gccTenantScope';
-import { clearSessionAndRedirectToLogin } from '@/lib/authSession';
+import {
+  clearSessionAndRedirectToLogin,
+  clearStoredAuth,
+  resetAuthRedirectState,
+} from '@/lib/authSession';
 import { useTheme } from './ThemeContext';
 
 
@@ -46,6 +51,8 @@ interface AuthContextType {
   canExportMonthly: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
+  clearAuth: () => void;
+  isBootstrapping: boolean;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -68,20 +75,85 @@ const AuthContext = createContext<AuthContextType>({
   canExportMonthly: false,
   login: async () => {},
   logout: () => {},
+  clearAuth: () => {},
+  isBootstrapping: false,
 });
 
 export const useAuth = () => useContext(AuthContext);
 
+type StoredAuth = {
+  user: User;
+  session: { access_token?: string; refresh_token?: string };
+  login_timestamp?: number;
+};
+
+function readStoredAuth(): StoredAuth | null {
+  try {
+    const saved = localStorage.getItem('up100x_auth');
+    if (!saved) return null;
+    const data = JSON.parse(saved) as StoredAuth;
+    if (!data?.user?.role || !data?.session?.access_token) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { setRegion } = useTheme();
-  const [authData, setAuthData] = useState<{ user: User; session: any } | null>(() => {
-    const saved = localStorage.getItem('up100x_auth');
-    if (saved) {
-      const data = JSON.parse(saved);
-      return data;
-    }
-    return null;
+  const [authData, setAuthData] = useState<StoredAuth | null>(() => readStoredAuth());
+  const [sessionReady, setSessionReady] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return window.location.pathname === '/login' || !readStoredAuth();
   });
+
+  // Refresh Supabase session on hard reload so dashboard APIs don't 401 in parallel.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (window.location.pathname === '/login') {
+      setSessionReady(true);
+      return;
+    }
+
+    const stored = readStoredAuth();
+    if (!stored?.session?.refresh_token) {
+      setSessionReady(true);
+      return;
+    }
+
+    let cancelled = false;
+    const bootstrap = async () => {
+      try {
+        const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+        const res = await axios.post(
+          `${baseURL}/auth/refresh`,
+          { refresh_token: stored.session.refresh_token },
+          { headers: { 'Content-Type': 'application/json' } },
+        );
+        if (cancelled) return;
+        if (res.data?.data?.session) {
+          const updated: StoredAuth = {
+            ...stored,
+            session: res.data.data.session,
+            login_timestamp: stored.login_timestamp ?? Date.now(),
+          };
+          localStorage.setItem('up100x_auth', JSON.stringify(updated));
+          setAuthData(updated);
+        }
+      } catch {
+        if (cancelled) return;
+        clearStoredAuth();
+        setAuthData(null);
+      } finally {
+        if (!cancelled) setSessionReady(true);
+      }
+    };
+
+    void bootstrap();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Sync region on mount
   React.useEffect(() => {
@@ -105,10 +177,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         region: apiUser.profile?.organizations?.country_code === 'GB' ? 'UK' : 'US',
       };
 
-      const newAuthData = { user: userData, session, login_timestamp: Date.now() };
+      const newAuthData: StoredAuth = { user: userData, session, login_timestamp: Date.now() };
       setAuthData(newAuthData);
       localStorage.setItem('up100x_auth', JSON.stringify(newAuthData));
       setRegion(userData.region);
+      resetAuthRedirectState();
+      setSessionReady(true);
       if (!['gcc_admin', 'gcc_reviewer'].includes(userData.role)) {
         clearGccTenantScopeStorage();
       }
@@ -117,6 +191,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Login error:', error.response?.data?.error || error.message);
       throw error;
     }
+  }, [setRegion]);
+
+  const clearAuth = useCallback(() => {
+    setAuthData(null);
+    clearStoredAuth();
+    resetAuthRedirectState();
+    setSessionReady(true);
   }, []);
 
   const logout = useCallback(() => {
@@ -126,9 +207,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const user = authData?.user || null;
+  const isBootstrapping = authData !== null && !sessionReady;
 
   // Role Checks
-  const isAuthenticated = authData !== null;
+  const isAuthenticated = authData !== null && sessionReady;
   const isGCC = user?.role === 'gcc_admin' || user?.role === 'gcc_reviewer';
   const isGCCAdmin = user?.role === 'gcc_admin';
   const isGCCReviewer = user?.role === 'gcc_reviewer';
@@ -149,7 +231,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   return (
     <AuthContext.Provider value={{
-      user, isAuthenticated, 
+      user, isAuthenticated, isBootstrapping,
       isGCC, isGCCAdmin, isGCCReviewer,
       isSP, isSPPrimary,
       isClient, isClientAdmin,
@@ -158,7 +240,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       canManageUsers, canViewFinances,
       canUploadTargets,
       canExportMonthly,
-      login, logout,
+      login, logout, clearAuth,
     }}>
       {children}
     </AuthContext.Provider>

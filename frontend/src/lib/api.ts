@@ -1,6 +1,10 @@
 import axios from 'axios';
 import { readGccTenantScopeFromStorage } from '@/lib/gccTenantScope';
-import { clearSessionAndRedirectToLogin, isAuthSessionError } from '@/lib/authSession';
+import {
+  clearSessionAndRedirectToLogin,
+  isAuthSessionError,
+  isPublicAuthRequest,
+} from '@/lib/authSession';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
@@ -43,11 +47,13 @@ function mergeGccTenantScopeParam(config: import('axios').InternalAxiosRequestCo
 // Add a request interceptor to add the auth token
 api.interceptors.request.use(
   (config) => {
-    const authData = localStorage.getItem('up100x_auth');
-    if (authData) {
-      const { session } = JSON.parse(authData);
-      if (session?.access_token) {
-        config.headers.Authorization = `Bearer ${session.access_token}`;
+    if (!isPublicAuthRequest(config.url)) {
+      const authData = localStorage.getItem('up100x_auth');
+      if (authData) {
+        const { session } = JSON.parse(authData);
+        if (session?.access_token) {
+          config.headers.Authorization = `Bearer ${session.access_token}`;
+        }
       }
     }
     mergeGccTenantScopeParam(config);
@@ -76,7 +82,13 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    if (isAuthSessionError(error) && originalRequest && !originalRequest._retry) {
+    const requestUrl = originalRequest?.url;
+    if (
+      isAuthSessionError(error) &&
+      originalRequest &&
+      !originalRequest._retry &&
+      !isPublicAuthRequest(requestUrl)
+    ) {
       originalRequest._retry = true;
 
       const authDataStr = localStorage.getItem('up100x_auth');
@@ -130,11 +142,17 @@ api.interceptors.response.use(
         }
       }
 
-      clearSessionAndRedirectToLogin();
+      if (authDataStr) {
+        clearSessionAndRedirectToLogin();
+      }
     }
     return Promise.reject(error);
   },
 );
 
 export default api;
-export { isAuthSessionError, isAuthRedirectInProgress } from '@/lib/authSession';
+export {
+  isAuthSessionError,
+  isAuthRedirectInProgress,
+  isPublicAuthRequest,
+} from '@/lib/authSession';

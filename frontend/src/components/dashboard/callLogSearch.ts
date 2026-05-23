@@ -1,13 +1,19 @@
 import { format } from 'date-fns';
 import { parseNullableDate } from '@/lib/dateFormat';
+import { resolveCallStartedAt } from '@/lib/callLogTimestamps';
 
 /** Searchable text: call dates, transcript, result (status), assigned agent. */
 export function buildCallLogSearchHaystack(row: Record<string, unknown>): string {
   const parts: string[] = [];
 
-  for (const key of ['started_at', 'created_at', 'ended_at'] as const) {
-    const date = parseNullableDate(row[key]);
-    if (!date) continue;
+  const callStarted = resolveCallStartedAt(row as Parameters<typeof resolveCallStartedAt>[0]);
+  const dateKeys: Array<'started_at' | 'created_at' | 'ended_at'> = ['created_at', 'ended_at'];
+  const dates = [
+    parseNullableDate(callStarted),
+    ...dateKeys.map((key) => parseNullableDate(row[key])),
+  ].filter((date): date is Date => date != null);
+
+  for (const date of dates) {
     parts.push(
       format(date, 'MMMM d, yyyy'),
       format(date, 'MMM d, yyyy'),

@@ -303,7 +303,7 @@ export const faqData = [
   },
   {
     q: 'Can I listen to the AI calls?',
-    a: 'Yes. Every call is recorded and available in your client portal. You can listen in on live calls in real-time, review transcripts, and even take over a call mid-conversation if needed.',
+    a: 'Yes. Every call is recorded and available in your client portal. You can play recordings and review transcripts after each session.',
     tags: ['Service'],
   },
   {

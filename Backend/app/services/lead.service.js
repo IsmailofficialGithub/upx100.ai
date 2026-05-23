@@ -77,8 +77,10 @@ const LEAD_INSERT_FIELDS = [
   'meeting_time',
   'meeting_date',
   'meeting_timezone',
+  'meeting_outcome',
   'agent_id',
   'user_id',
+  'call_log_id',
 ]
 
 export const createLead = async (payload) => {

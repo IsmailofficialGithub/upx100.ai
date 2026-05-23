@@ -52,12 +52,25 @@ describe('Leads API', () => {
     expect(leadService.createLead).toHaveBeenCalled()
   })
 
-  it('PATCH /api/leads/:id should fail for Client Admin', async () => {
+  it('PATCH /api/leads/:id should update meeting_outcome for Client Admin', async () => {
+    leadService.getLeadById.mockResolvedValue({
+      id: 'lead1',
+      organization_id: 'org123',
+    })
+    leadService.updateLead.mockResolvedValue({
+      id: 'lead1',
+      meeting_outcome: 'proposal',
+    })
+
     const res = await request(app)
       .patch('/api/leads/lead1')
-      .send({ status: 'warm' })
-    
-    expect(res.statusCode).toEqual(403)
+      .send({ meeting_outcome: 'proposal' })
+
+    expect(res.statusCode).toEqual(200)
+    expect(leadService.updateLead).toHaveBeenCalledWith(
+      'lead1',
+      expect.objectContaining({ meeting_outcome: 'proposal' })
+    )
   })
 
   it('POST /api/leads/:id/sync-crm should fail for Client Admin', async () => {

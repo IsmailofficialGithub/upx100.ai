@@ -17,16 +17,19 @@ export function mapVapiCallDirection(vapiType) {
 }
 
 import { effectiveCallLogOrganizationId } from './callLogOrg.js'
+import { resolveCallStartedAt } from './callLogTimestamps.js'
 
 /** Add a consistent `direction` field for API consumers; align call_type / call_direction when known. */
 export function enrichCallLogRow(row) {
   if (!row || typeof row !== 'object') return row
   const direction = normalizeCallDirection(row.call_type ?? row.call_direction ?? row.direction)
   const resolvedOrgId = effectiveCallLogOrganizationId(row) ?? row.organization_id
+  const callStartedAt = resolveCallStartedAt(row)
   return {
     ...row,
     organization_id: resolvedOrgId ?? row.organization_id,
     direction,
+    ...(callStartedAt ? { started_at: callStartedAt } : {}),
     ...(direction !== 'unknown'
       ? { call_direction: direction, call_type: direction }
       : {}),

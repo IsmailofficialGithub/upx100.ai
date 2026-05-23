@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Check, Loader2, Search, X } from 'lucide-react';
 import { toast } from 'sonner';
-import api from '@/lib/api';
+import api, { isAuthRedirectInProgress, isAuthSessionError } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { useGccTenantScope } from '@/context/GccTenantScopeContext';
 import { formatNullableLocaleDate } from '@/lib/dateFormat';
@@ -75,8 +75,10 @@ const HitlQueueView: React.FC = () => {
       });
 
       setItems(merged);
-    } catch {
-      toast.error('Failed to load HITL queue');
+    } catch (error) {
+      if (!isAuthSessionError(error) && !isAuthRedirectInProgress()) {
+        toast.error('Failed to load HITL queue');
+      }
     } finally {
       setIsLoading(false);
     }

@@ -45,17 +45,22 @@ export const createCallLog = async (logData) => {
 
   // If the call is flagged as a lead, automatically create a lead record
   if (logData.is_lead) {
-    await supabaseAdmin
-      .schema('inbound')
-      .from('leads')
-      .insert({
+    const leadRow = {
       organization_id: logData.organization_id,
       user_id: logData.user_id,
       call_log_id: data.id,
       agent_id: logData.agent_id,
       phone: logData.caller_number,
-      status: 'new'
-    })
+      status: logData.meeting_time || logData.meeting_date ? 'warm' : 'follow_up',
+      meeting_outcome: 'qualified',
+    }
+    if (logData.meeting_time) leadRow.meeting_time = logData.meeting_time
+    if (logData.meeting_date) leadRow.meeting_date = logData.meeting_date
+    if (logData.meeting_timezone) leadRow.meeting_timezone = logData.meeting_timezone
+    if (logData.lead_name) leadRow.name = logData.lead_name
+    if (logData.lead_email) leadRow.email = logData.lead_email
+
+    await supabaseAdmin.schema('inbound').from('leads').insert(leadRow)
   }
 
   return data

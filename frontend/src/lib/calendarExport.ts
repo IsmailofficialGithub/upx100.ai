@@ -67,7 +67,8 @@ export function aggregateOutcomes(
   );
   for (const m of scoped) {
     if (!m.outcome) continue;
-    const k = m.outcome as OutcomeKey;
+    const raw = m.outcome === 'no-show' ? 'noShow' : m.outcome;
+    const k = raw as OutcomeKey;
     if (counts[k] !== undefined) counts[k] += 1;
   }
   return counts;

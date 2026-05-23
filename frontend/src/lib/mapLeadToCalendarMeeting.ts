@@ -17,6 +17,8 @@ export type CalendarMeeting = {
   agentName?: string;
   meetingTimezone?: string;
   aiStrategy?: string;
+  /** true when lead was created from an AI agent call booking */
+  bookedByAgent?: boolean;
 };
 
 type ApiLead = {
@@ -30,8 +32,11 @@ type ApiLead = {
   meeting_time?: string | null;
   meeting_date?: string | null;
   meeting_timezone?: string | null;
+  meeting_outcome?: string | null;
   organization_name?: string | null;
   agent_name?: string | null;
+  agent_id?: string | null;
+  call_log_id?: string | null;
   created_at?: string | null;
 };
 
@@ -44,6 +49,21 @@ function localYmdHm(d: Date): { date: string; time: string } {
     date: `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`,
     time: `${pad2(d.getHours())}:${pad2(d.getMinutes())}`,
   };
+}
+
+function normalizeStoredOutcome(raw: string | null | undefined): OutcomeKey | null {
+  if (raw == null || raw === '') return null;
+  if (raw === 'no-show' || raw === 'no_show') return 'noShow';
+  if (raw === 'closed-won' || raw === 'closed_won') return 'closedWon';
+  const keys: OutcomeKey[] = [
+    'qualified',
+    'proposal',
+    'negotiation',
+    'closedWon',
+    'noShow',
+    'unqualified',
+  ];
+  return keys.includes(raw as OutcomeKey) ? (raw as OutcomeKey) : null;
 }
 
 function resolveSchedule(lead: ApiLead): { date: string; time: string } | null {
@@ -104,12 +124,33 @@ function mapLeadStatusToOutcome(
   }
 }
 
+/** Outcome for tracker: stored value, status mapping, or default for any scheduled meeting. */
+export function resolveMeetingOutcome(
+  lead: ApiLead,
+  calendarStatus: CalendarMeeting['status']
+): OutcomeKey | null {
+  const stored = normalizeStoredOutcome(lead.meeting_outcome);
+  if (stored) return stored;
+
+  const fromStatus = mapLeadStatusToOutcome(lead.status || 'new', calendarStatus);
+  if (fromStatus) return fromStatus;
+
+  if (lead.meeting_time || lead.meeting_date) {
+    if (lead.status === 'cold') return 'unqualified';
+    return 'qualified';
+  }
+
+  return null;
+}
+
 export function mapLeadToCalendarMeeting(lead: ApiLead): CalendarMeeting | null {
   const schedule = resolveSchedule(lead);
   if (!schedule) return null;
 
   const status = lead.status || 'new';
   const calendarStatus = mapLeadStatusToCalendar(status, schedule.date, schedule.time);
+  const bookedByAgent = Boolean(lead.call_log_id || lead.agent_id);
+
   return {
     id: lead.id,
     organizationId: lead.organization_id || '',
@@ -120,12 +161,13 @@ export function mapLeadToCalendarMeeting(lead: ApiLead): CalendarMeeting | null 
     email: lead.email || '',
     title: lead.agent_name ? `Agent: ${lead.agent_name}` : 'Meeting',
     status: calendarStatus,
-    outcome: mapLeadStatusToOutcome(status, calendarStatus),
+    outcome: resolveMeetingOutcome(lead, calendarStatus),
     transcript: [],
     notes: lead.notes || undefined,
     phone: lead.phone || undefined,
     agentName: lead.agent_name || undefined,
     meetingTimezone: lead.meeting_timezone || undefined,
+    bookedByAgent,
   };
 }
 

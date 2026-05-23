@@ -5,7 +5,7 @@ import { useTheme } from '@/context/ThemeContext';
 import MetricCard from '@/components/shared/MetricCard';
 import StatusBadge from '@/components/shared/StatusBadge';
 import UsaCallActivityMap from '@/components/dashboard/UsaCallActivityMap';
-import { Phone, Headphones, Mic, ChevronRight, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { Phone, ChevronRight, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const DashboardView: React.FC = () => {
@@ -233,7 +233,7 @@ const DashboardView: React.FC = () => {
                   <div className="py-8 px-3 text-center border border-dashed border-[hsl(var(--border-v))] rounded-lg space-y-2">
                     <p className="text-[10px] font-mono text-[hsl(var(--muted-foreground))] uppercase tracking-widest">No recent calls</p>
                     <p className="text-[11px] text-[hsl(var(--muted-foreground))] leading-relaxed max-w-sm mx-auto">
-                      When a call is live, recent sessions appear here with streaming transcript. Use Listen In or Take Over when your telephony integration enables supervisor controls.
+                      Recent sessions appear here with transcript preview when call logs are available.
                     </p>
                   </div>
                 )}
@@ -256,15 +256,6 @@ const DashboardView: React.FC = () => {
                         <span className="text-[10px] font-mono text-[hsl(var(--muted-foreground))]">Live transcription...</span>
                       </div>
                     )}
-                  </div>
-
-                  <div className="flex gap-2 mt-3">
-                    <button type="button" className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border border-emerald-500/40 text-emerald-400 text-xs font-medium hover:bg-emerald-500/10 transition-colors">
-                      <Headphones size={14} /> Listen In
-                    </button>
-                    <button type="button" className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border border-red-500/40 text-red-400 text-xs font-medium hover:bg-red-500/10 transition-colors">
-                      <Mic size={14} /> Take Over
-                    </button>
                   </div>
                 </>
               )}

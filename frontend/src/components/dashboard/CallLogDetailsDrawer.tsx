@@ -21,6 +21,7 @@ const CallLogDetailsDrawer: React.FC<CallLogDetailsDrawerProps> = ({ log, isOpen
   const direction = getCallDirection(log);
   const directionMeta = CALL_DIRECTION_META[direction];
   const HeaderIcon = directionMeta.Icon;
+  const callSummary = typeof log.summary === 'string' ? log.summary.trim() : '';
 
   const statusColors: Record<string, string> = {
     success: 'bg-green-500/10 text-green-500 border-green-500/20',
@@ -154,10 +155,16 @@ const CallLogDetailsDrawer: React.FC<CallLogDetailsDrawerProps> = ({ log, isOpen
             </div>
             <div className="space-y-4">
               <div className="bg-[hsl(var(--muted))]/10 border border-[hsl(var(--border-v))] rounded-xl p-4 space-y-2">
-                <span className="text-[10px] font-mono text-[hsl(var(--muted-foreground))]">CALL SUMMARY</span>
-                <p className="text-xs leading-relaxed text-[hsl(var(--foreground))]">
-                  {log.summary || 'AI analysis pending or unavailable for this call.'}
-                </p>
+                {callSummary ? (
+                  <>
+                    <span className="text-[10px] font-mono text-[hsl(var(--muted-foreground))]">CALL SUMMARY</span>
+                    <p className="text-xs leading-relaxed text-[hsl(var(--foreground))]">{callSummary}</p>
+                  </>
+                ) : (
+                  <p className="text-xs leading-relaxed text-[hsl(var(--muted-foreground))] italic">
+                   -
+                  </p>
+                )}
               </div>
             </div>
           </section>

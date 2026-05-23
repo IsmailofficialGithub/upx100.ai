@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Loader2 } from 'lucide-react';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 import { useAuth } from '@/context/AuthContext';
@@ -83,7 +84,7 @@ const DashboardShell: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, isBootstrapping, user } = useAuth();
   const path = location.pathname;
   const prefix = path.split('/')[1];
 
@@ -107,6 +108,7 @@ const DashboardShell: React.FC = () => {
     'Dashboard';
 
   React.useEffect(() => {
+    if (isBootstrapping) return;
     if (!isAuthenticated) {
       navigate('/login');
       return;
@@ -126,7 +128,15 @@ const DashboardShell: React.FC = () => {
     if (isAccessingAdmin && !hasAdminRole) navigate('/login');
     if (isAccessingPartner && !hasPartnerRole) navigate('/login');
     if (isAccessingClient && !hasClientRole) navigate('/login');
-  }, [isAuthenticated, user, location.pathname, navigate]);
+  }, [isAuthenticated, isBootstrapping, user, location.pathname, navigate]);
+
+  if (isBootstrapping) {
+    return (
+      <div className="min-h-screen bg-[hsl(var(--background))] flex items-center justify-center">
+        <Loader2 size={28} className="animate-spin text-[hsl(var(--primary))]" />
+      </div>
+    );
+  }
 
   if (!isAuthenticated) return null;
 

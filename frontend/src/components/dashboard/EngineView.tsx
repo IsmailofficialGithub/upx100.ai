@@ -17,7 +17,10 @@ type TargetUploadRow = {
   status: string;
   created_at: string;
   organization_id?: string;
+  rejection_note?: string | null;
 };
+
+const isRejectedUpload = (status: string) => status?.toLowerCase() === 'rejected';
 
 const EngineView: React.FC = () => {
   const [campaignType, setCampaignType] = useState<'outbound' | 'inbound'>('outbound');
@@ -345,20 +348,32 @@ const EngineView: React.FC = () => {
               </div>
             ) : scopedUploads.length > 0 ? (
               <>
-                {visibleSubmissions.map((sub) => (
-                  <div key={sub.id} className="flex items-center justify-between p-2.5 bg-[hsl(var(--muted))] rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <FileText size={14} className="text-[hsl(var(--muted-foreground))]" />
-                    <div>
-                      <p className="text-xs text-[hsl(var(--foreground))]">{sub.file_url}</p>
-                      <p className="text-[10px] font-mono text-[hsl(var(--muted-foreground))]">
-                        {formatNullableLocaleDate(sub.created_at)} · {sub.row_count} accounts
-                      </p>
+                {visibleSubmissions.map((sub) => {
+                  const rejectionNote = sub.rejection_note?.trim();
+                  const showRejection = isRejectedUpload(sub.status) && Boolean(rejectionNote);
+                  return (
+                    <div key={sub.id} className="p-2.5 bg-[hsl(var(--muted))] rounded-lg space-y-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <FileText size={14} className="shrink-0 text-[hsl(var(--muted-foreground))]" />
+                          <div className="min-w-0">
+                            <p className="text-xs text-[hsl(var(--foreground))] truncate">{sub.file_url}</p>
+                            <p className="text-[10px] font-mono text-[hsl(var(--muted-foreground))]">
+                              {formatNullableLocaleDate(sub.created_at)} · {sub.row_count} accounts
+                            </p>
+                          </div>
+                        </div>
+                        <StatusBadge status={sub.status} className="shrink-0" />
+                      </div>
+                      {showRejection ? (
+                        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-2.5">
+                          <p className="text-[10px] font-mono uppercase text-red-400 mb-1">Rejection reason</p>
+                          <p className="text-xs text-[hsl(var(--foreground))] leading-relaxed">{rejectionNote}</p>
+                        </div>
+                      ) : null}
                     </div>
-                  </div>
-                    <StatusBadge status={sub.status} />
-                  </div>
-                ))}
+                  );
+                })}
                 {scopedUploads.length > SUBMISSION_PREVIEW_ROWS && (
                   <button
                     type="button"

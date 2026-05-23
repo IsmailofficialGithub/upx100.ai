@@ -2,6 +2,7 @@ import * as leadService from '../services/lead.service.js'
 import * as userService from '../services/user.service.js'
 import { createSupabaseForRequest } from '../config/supabase.js'
 import { StatusCodes } from 'http-status-codes'
+import { normalizeMeetingOutcome } from '../utils/meetingOutcome.js'
 
 const SYSTEM_ORG_SENTINEL = '00000000-0000-4000-a000-000000000003'
 
@@ -201,6 +202,16 @@ export const createLead = async (req, res) => {
       })
     }
 
+    let meetingOutcome = normalizeMeetingOutcome(body.meeting_outcome)
+    if (!meetingOutcome && (body.meeting_time || body.meeting_date)) {
+      meetingOutcome = 'qualified'
+    }
+    if (body.meeting_outcome != null && body.meeting_outcome !== '' && !meetingOutcome) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        error: { code: 'VALIDATION', message: 'Invalid meeting_outcome' },
+      })
+    }
+
     const payload = {
       organization_id: organizationId,
       name,
@@ -211,6 +222,7 @@ export const createLead = async (req, res) => {
       meeting_time: body.meeting_time ?? null,
       meeting_date: body.meeting_date ?? null,
       meeting_timezone: body.meeting_timezone ?? null,
+      meeting_outcome: meetingOutcome,
       agent_id: body.agent_id ?? null,
     }
 
@@ -232,16 +244,85 @@ export const createLead = async (req, res) => {
   }
 }
 
+const CLIENT_LEAD_PATCH_FIELDS = new Set([
+  'meeting_outcome',
+  'status',
+  'meeting_time',
+  'meeting_date',
+  'meeting_timezone',
+  'notes',
+])
+
 export const updateLead = async (req, res) => {
-  const { leadId } = req.params
-  const updateData = req.body
+  try {
+    const { leadId } = req.params
+    const { role } = req.user
+    const lead = await leadService.getLeadById(leadId)
 
-  const result = await leadService.updateLead(leadId, updateData)
+    if (!lead) {
+      return res.status(StatusCodes.NOT_FOUND).json({
+        error: { code: 'NOT_FOUND', message: 'Lead not found' },
+      })
+    }
 
-  return res.json({
-    message: 'Lead updated successfully',
-    data: result
-  })
+    await assertCanWriteOrg(req, lead.organization_id)
+
+    const body = req.body || {}
+    const isClientRole = ['client_admin', 'client_sub'].includes(role)
+
+    if (isClientRole) {
+      const keys = Object.keys(body)
+      if (keys.some((k) => !CLIENT_LEAD_PATCH_FIELDS.has(k))) {
+        return res.status(StatusCodes.FORBIDDEN).json({
+          error: { code: 'FORBIDDEN', message: 'Clients may only update meeting outcome and schedule fields' },
+        })
+      }
+    }
+
+    const updateData = {}
+    if (body.status !== undefined) {
+      if (!VALID_LEAD_STATUSES.has(body.status)) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          error: { code: 'VALIDATION', message: 'Invalid lead status' },
+        })
+      }
+      updateData.status = body.status
+    }
+    if (body.meeting_outcome !== undefined) {
+      if (body.meeting_outcome === '' || body.meeting_outcome === null) {
+        updateData.meeting_outcome = null
+      } else {
+        const normalized = normalizeMeetingOutcome(body.meeting_outcome)
+        if (!normalized) {
+          return res.status(StatusCodes.BAD_REQUEST).json({
+            error: { code: 'VALIDATION', message: 'Invalid meeting_outcome' },
+          })
+        }
+        updateData.meeting_outcome = normalized
+      }
+    }
+    for (const key of ['meeting_time', 'meeting_date', 'meeting_timezone', 'notes']) {
+      if (body[key] !== undefined) updateData[key] = body[key]
+    }
+
+    if (!Object.keys(updateData).length) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        error: { code: 'VALIDATION', message: 'No valid fields to update' },
+      })
+    }
+
+    const result = await leadService.updateLead(leadId, updateData)
+
+    return res.json({
+      message: 'Lead updated successfully',
+      data: result,
+    })
+  } catch (e) {
+    const status = e.status || StatusCodes.INTERNAL_SERVER_ERROR
+    return res.status(status).json({
+      error: { message: e.message || 'Failed to update lead' },
+    })
+  }
 }
 
 export const syncCRM = async (req, res) => {

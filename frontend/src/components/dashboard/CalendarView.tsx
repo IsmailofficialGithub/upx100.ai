@@ -88,8 +88,8 @@ const emptyMeeting = (): Meeting => ({
   contact: '',
   email: '',
   title: '',
-  status: 'confirmed',
-  outcome: null,
+  status: 'upcoming',
+  outcome: 'qualified',
   transcript: [],
 });
 
@@ -120,6 +120,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ lockedOrganizationId, embed
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState<Meeting>(() => emptyMeeting());
   const [savingMeeting, setSavingMeeting] = useState(false);
+  const [savingOutcome, setSavingOutcome] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
 
   const companyFilterId = lockedOrganizationId
@@ -307,6 +308,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ lockedOrganizationId, embed
     setSavingMeeting(true);
     try {
       const notes = [form.company.trim(), form.title.trim()].filter(Boolean).join(' · ');
+      const outcome = form.outcome ?? 'qualified';
       const res = await api.post<{ data: Record<string, unknown> }>('/leads', {
         organization_id: form.organizationId,
         name: form.contact.trim(),
@@ -314,7 +316,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ lockedOrganizationId, embed
         notes: notes || null,
         meeting_time: buildMeetingTimestamp(form.date, form.time),
         meeting_date: form.date,
-        status: calendarFormToLeadStatus(form.status, form.outcome),
+        meeting_outcome: outcome,
+        status: calendarFormToLeadStatus(form.status, outcome),
       });
 
       const mapped = mapLeadToCalendarMeeting(res.data?.data as Parameters<typeof mapLeadToCalendarMeeting>[0]);
@@ -332,6 +335,29 @@ const CalendarView: React.FC<CalendarViewProps> = ({ lockedOrganizationId, embed
       console.error(error);
     } finally {
       setSavingMeeting(false);
+    }
+  };
+
+  const saveMeetingOutcome = async (outcome: Meeting['outcome']) => {
+    if (!activeMeeting) return;
+    setSavingOutcome(true);
+    try {
+      await api.patch(`/leads/${activeMeeting.id}`, {
+        meeting_outcome: outcome,
+        status: calendarFormToLeadStatus(activeMeeting.status, outcome),
+      });
+      setMeetingsState((prev) =>
+        prev.map((m) => (m.id === activeMeeting.id ? { ...m, outcome } : m))
+      );
+      toast.success('Meeting outcome updated');
+    } catch (error: unknown) {
+      const msg =
+        (error as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error
+          ?.message || 'Failed to update outcome';
+      toast.error(msg);
+      console.error(error);
+    } finally {
+      setSavingOutcome(false);
     }
   };
 
@@ -611,6 +637,42 @@ const CalendarView: React.FC<CalendarViewProps> = ({ lockedOrganizationId, embed
                 )}
               </div>
 
+              <div className="p-3 bg-[hsl(var(--muted))]/40 rounded-lg border border-[hsl(var(--border-v))] space-y-2">
+                <p className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] tracking-wider">
+                  Meeting outcome
+                </p>
+                <p className="text-[10px] text-[hsl(var(--muted-foreground))] leading-relaxed">
+                  {activeMeeting.bookedByAgent
+                    ? 'Booked by AI agent — counts in the tracker below.'
+                    : 'Client-booked meeting — set outcome to update the tracker.'}
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    value={activeMeeting.outcome ?? ''}
+                    onChange={(e) => {
+                      const next = (e.target.value || null) as Meeting['outcome'];
+                      void saveMeetingOutcome(next);
+                    }}
+                    disabled={savingOutcome}
+                    className={MEETING_FORM_FIELD}
+                    style={formColorScheme}
+                  >
+                    <option value="">—</option>
+                    {OUTCOME_KEYS.filter((k) => k !== 'closedWon' || activeMeeting.status === 'confirmed').map(
+                      (k) => (
+                        <option key={k} value={k}>
+                          {k === 'closedWon' ? 'Closed won' : k.replace(/([A-Z])/g, ' $1').trim()}
+                        </option>
+                      )
+                    )}
+                  </select>
+                  {activeMeeting.outcome && (
+                    <StatusBadge status={activeMeeting.outcome} />
+                  )}
+                  {savingOutcome && <Loader2 size={14} className="animate-spin text-[hsl(var(--muted-foreground))]" />}
+                </div>
+              </div>
+
               {activeMeeting.notes && (
                 <div className="p-3 bg-[hsl(var(--muted))] rounded-lg border border-[hsl(var(--border-v))]">
                   <p className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] mb-1 tracking-wider">Notes</p>
@@ -664,9 +726,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({ lockedOrganizationId, embed
       </div>
 
       <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-4">
-        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-          <h3 className="text-sm font-display font-semibold text-[hsl(var(--foreground))]">Meeting Outcome Tracker</h3>
-          <div className="flex bg-[hsl(var(--muted))] rounded-lg p-0.5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-4">
+          <div className="min-w-0">
+            <h3 className="text-sm font-display font-semibold text-[hsl(var(--foreground))]">Meeting Outcome Tracker</h3>
+            <p className="text-[10px] text-[hsl(var(--muted-foreground))] mt-1 max-w-xl leading-relaxed">
+              Counts scheduled meetings by pipeline stage. AI agent bookings and client-added meetings default to qualified until you change the outcome.
+            </p>
+          </div>
+          <div className="flex bg-[hsl(var(--muted))] rounded-lg p-0.5 shrink-0">
             {(['month', 'quarter', 'year'] as const).map((p) => (
               <button
                 key={p}
@@ -691,7 +758,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ lockedOrganizationId, embed
             const color = outcomeColors[outcome] || 'bg-gray-400';
             const isExpanded = expandedOutcome === outcome;
             const label = outcome.replace(/([A-Z])/g, ' $1').trim();
-            const expandedRows = periodMeetings.filter((m) => m.outcome === outcome);
+            const expandedRows = periodMeetings.filter((m) => normalizeOutcomeKey(m.outcome) === outcome);
             return (
               <div key={outcome}>
                 <button
@@ -747,7 +814,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({ lockedOrganizationId, embed
         <DialogContent className="sm:max-w-md bg-[hsl(var(--card))] border-[hsl(var(--border-v))]">
           <DialogHeader>
             <DialogTitle>Add meeting</DialogTitle>
-            <DialogDescription>Saves a lead with a scheduled meeting time to your database.</DialogDescription>
+            <DialogDescription>
+              Saves a scheduled meeting and updates the outcome tracker (defaults to qualified).
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 py-2">
             <label className="grid gap-1">
@@ -845,7 +914,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ lockedOrganizationId, embed
               </select>
             </label>
             <label className="grid gap-1">
-              <span className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))]">Outcome (optional)</span>
+              <span className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))]">Outcome</span>
               <select
                 value={form.outcome ?? ''}
                 onChange={(e) =>

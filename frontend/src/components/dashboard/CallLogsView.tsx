@@ -15,6 +15,7 @@ import {
 } from '@/lib/callDirection';
 import { CALL_LOGS_EMPTY_MESSAGE } from './callLogsEmptyMessage';
 import { matchCallLogSearch } from './callLogSearch';
+import { resolveCallStartedAt } from '@/lib/callLogTimestamps';
 
 const DIRECTION_TABS: { id: CallDirectionFilter; label: string; icon?: typeof PhoneIncoming }[] = [
   { id: 'all', label: 'All Calls' },
@@ -140,14 +141,17 @@ const CallLogsView: React.FC = () => {
     {
       key: 'started_at',
       label: 'Call Time',
-      render: (val: string) => (
-        <div className="flex flex-col gap-0.5">
-          <span className="font-semibold text-[hsl(var(--foreground))]">{formatNullableDate(val, 'MMM d, yyyy')}</span>
-          <span className="text-[10px] text-[hsl(var(--muted-foreground))] font-mono">
-            {formatNullableDate(val, 'HH:mm:ss')}
-          </span>
-        </div>
-      ),
+      render: (_val: string, row: { started_at?: string | null; created_at?: string | null; ended_at?: string | null; duration_sec?: number | null; recording_url?: string | null }) => {
+        const callTime = resolveCallStartedAt(row);
+        return (
+          <div className="flex flex-col gap-0.5">
+            <span className="font-semibold text-[hsl(var(--foreground))]">{formatNullableDate(callTime, 'MMM d, yyyy')}</span>
+            <span className="text-[10px] text-[hsl(var(--muted-foreground))] font-mono">
+              {formatNullableDate(callTime, 'HH:mm:ss')}
+            </span>
+          </div>
+        );
+      },
     },
     {
       key: 'caller_number',

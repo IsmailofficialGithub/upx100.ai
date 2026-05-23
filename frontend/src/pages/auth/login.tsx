@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { loginShowcaseCompanies } from '@/data/mockData';
@@ -16,8 +16,12 @@ import {
 
 const Login = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, clearAuth } = useAuth();
   const [email, setEmail] = useState('');
+
+  useEffect(() => {
+    clearAuth();
+  }, [clearAuth]);
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showcaseId, setShowcaseId] = useState(loginShowcaseCompanies[0].id);

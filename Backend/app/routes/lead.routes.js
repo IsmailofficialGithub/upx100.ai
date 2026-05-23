@@ -17,8 +17,11 @@ router.post(
   leadController.createLead
 )
 
-// Mutations restricted to Admin/Reviewer
-router.patch('/:leadId', requireRole(['gcc_admin', 'gcc_reviewer']), leadController.updateLead)
+router.patch(
+  '/:leadId',
+  requireRole(['gcc_admin', 'gcc_reviewer', 'client_admin', 'client_sub']),
+  leadController.updateLead
+)
 router.post('/:leadId/sync-crm', requireRole(['gcc_admin', 'gcc_reviewer']), leadController.syncCRM)
 
 export default router

@@ -4,6 +4,7 @@ import { createSupabaseForRequest, supabaseAdmin } from '../config/supabase.js'
 import { StatusCodes } from 'http-status-codes'
 import { mergeCallLogDirections } from '../services/callLog.service.js'
 import { enrichCallLogRow, mapVapiCallDirection } from '../utils/callLogDirection.js'
+import { extractVapiCallTimestamps } from '../utils/callLogTimestamps.js'
 import { callLogBelongsToOrg, effectiveCallLogOrganizationId } from '../utils/callLogOrg.js'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -54,22 +55,34 @@ export const handleVapiWebhook = async (req, res) => {
   }
 
   const payload = req.body
-  if (payload.type === 'call.ended') {
-    const callData = payload.call
+  const isCallEnded =
+    payload.type === 'call.ended' ||
+    payload.type === 'end-of-call-report' ||
+    payload.message?.type === 'end-of-call-report'
 
+  if (isCallEnded) {
+    const callData = payload.call ?? payload.message?.call ?? payload.message ?? payload
+    const { started_at, ended_at, duration_sec } = extractVapiCallTimestamps(payload)
+
+    const meta = callData.metadata || {}
     const logData = {
-      organization_id: payload.organization_id || callData.metadata?.organization_id,
-      agent_id: callData.metadata?.agent_id,
+      organization_id: payload.organization_id || meta.organization_id,
+      agent_id: meta.agent_id,
       vapi_call_id: callData.id,
+      meeting_time: meta.meeting_time ?? meta.meetingTime ?? null,
+      meeting_date: meta.meeting_date ?? meta.meetingDate ?? null,
+      meeting_timezone: meta.meeting_timezone ?? meta.meetingTimezone ?? null,
+      lead_name: meta.lead_name ?? meta.leadName ?? callData.customer?.name ?? null,
+      lead_email: meta.lead_email ?? meta.leadEmail ?? null,
       caller_number: callData.customer?.number,
       status: callData.endedReason === 'customer-ended' ? 'success' : 'follow_up',
-      duration_sec: Math.round(callData.duration || 0),
-      recording_url: callData.recordingUrl,
-      transcript: callData.transcript,
-      summary: callData.summary,
+      duration_sec,
+      recording_url: callData.recordingUrl ?? payload.recordingUrl,
+      transcript: callData.transcript ?? payload.transcript,
+      summary: callData.summary ?? payload.summary,
       is_lead: callData.analysis?.isLead || false,
-      started_at: callData.startedAt,
-      ended_at: callData.endedAt,
+      started_at,
+      ended_at,
       called_number:
         callData.phoneNumber?.number ??
         (typeof callData.phoneNumber === 'string' ? callData.phoneNumber : null),
