@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useGccTenantScope } from '@/context/GccTenantScopeContext';
-import api from '@/lib/api';
+// import api from '@/lib/api';
 import {
   LayoutDashboard,
   CalendarDays,
@@ -16,7 +16,6 @@ import {
   Phone,
   FileText,
   Shield,
-  Zap,
   Rocket,
   Banknote,
 } from 'lucide-react';
