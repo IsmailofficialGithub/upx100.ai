@@ -456,6 +456,6 @@
 }
 
 .upx-portal-shell .admin-data-panel {
-  background: #121212;
-  border-color: rgba(255, 255, 255, 0.08);
+  background: hsl(var(--card));
+  border-color: hsl(var(--border-v));
 }
