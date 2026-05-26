@@ -2,6 +2,12 @@ import { format } from 'date-fns';
 
 export const EMPTY_DATE = '—';
 
+/** 12-hour clock with seconds, e.g. `2:30:45 PM` */
+export const TIME_12H_SECONDS_PATTERN = 'h:mm:ss a';
+
+/** 12-hour clock without seconds, e.g. `2:30 PM` */
+export const TIME_12H_PATTERN = 'h:mm a';
+
 export function parseNullableDate(value: unknown): Date | null {
   if (value == null) return null;
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;

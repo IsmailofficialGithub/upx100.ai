@@ -6,9 +6,19 @@ import {
   Timer,
   Download,
   Loader2,
+  Phone,
+  Copy,
+  Check,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import AudioPlayer from '@/components/shared/AudioPlayer';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { CallDirectionBadge } from '@/components/shared/CallDirectionBadge';
 import { CALL_DIRECTION_META, getCallDirection } from '@/lib/callDirection';
 
@@ -32,6 +42,8 @@ function recordingDownloadFilename(log: { id?: string; vapi_call_id?: string | n
 
 const CallLogDetailsDrawer: React.FC<CallLogDetailsDrawerProps> = ({ log, isOpen, onClose }) => {
   const [downloadingRecording, setDownloadingRecording] = useState(false);
+  const [contactDialogOpen, setContactDialogOpen] = useState(false);
+  const [copiedNumber, setCopiedNumber] = useState(false);
 
   if (!log) return null;
 
@@ -40,6 +52,22 @@ const CallLogDetailsDrawer: React.FC<CallLogDetailsDrawerProps> = ({ log, isOpen
   const HeaderIcon = directionMeta.Icon;
   const callSummary = typeof log.summary === 'string' ? log.summary.trim() : '';
   const recordingUrl = typeof log.recording_url === 'string' ? log.recording_url.trim() : '';
+  const callerNumber =
+    typeof log.caller_number === 'string' && log.caller_number.trim()
+      ? log.caller_number.trim()
+      : '';
+
+  const handleCopyCallerNumber = async () => {
+    if (!callerNumber) return;
+    try {
+      await navigator.clipboard.writeText(callerNumber);
+      setCopiedNumber(true);
+      toast.success('Number copied to clipboard');
+      window.setTimeout(() => setCopiedNumber(false), 2000);
+    } catch {
+      toast.error('Could not copy number');
+    }
+  };
 
   const handleDownloadRecording = async () => {
     if (!recordingUrl) return;
@@ -257,12 +285,52 @@ const CallLogDetailsDrawer: React.FC<CallLogDetailsDrawerProps> = ({ log, isOpen
               {downloadingRecording ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
               Download Recording
             </button>
-            <button className="flex-1 px-4 py-2 bg-[hsl(var(--primary))] text-black rounded-lg text-xs font-semibold hover:opacity-90 transition-opacity">
+            <button
+              type="button"
+              onClick={() => setContactDialogOpen(true)}
+              disabled={!callerNumber}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-[hsl(var(--primary))] text-black rounded-lg text-xs font-semibold hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <Phone size={14} />
               Contact Caller
             </button>
           </div>
         </div>
       </div>
+
+      <Dialog
+        open={contactDialogOpen}
+        onOpenChange={(open) => {
+          setContactDialogOpen(open);
+          if (!open) setCopiedNumber(false);
+        }}
+      >
+        <DialogContent
+          className="z-[60] sm:max-w-sm bg-[hsl(var(--card))] border-[hsl(var(--border-v))] text-[hsl(var(--foreground))]"
+          showCloseButton
+        >
+          <DialogHeader>
+            <DialogTitle className="font-display text-[hsl(var(--foreground))]">Caller number</DialogTitle>
+            <DialogDescription className="text-[hsl(var(--muted-foreground))]">
+              {direction === 'outbound' ? 'Number that was dialed for this call.' : 'Customer number for this inbound call.'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="rounded-xl border border-[hsl(var(--border-v))] bg-[hsl(var(--muted))]/30 px-4 py-3">
+            <p className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] mb-1 tracking-wider">
+              {direction === 'outbound' ? 'Called (participant)' : 'From (customer)'}
+            </p>
+            <p className="text-lg font-mono font-bold tracking-wide break-all">{callerNumber}</p>
+          </div>
+          <button
+            type="button"
+            onClick={handleCopyCallerNumber}
+            className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[hsl(var(--primary))] text-black text-xs font-semibold hover:opacity-90 transition-opacity"
+          >
+            {copiedNumber ? <Check size={14} /> : <Copy size={14} />}
+            {copiedNumber ? 'Copied' : 'Copy number'}
+          </button>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

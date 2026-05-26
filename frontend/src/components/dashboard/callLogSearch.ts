@@ -1,5 +1,5 @@
 import { format } from 'date-fns';
-import { parseNullableDate } from '@/lib/dateFormat';
+import { parseNullableDate, TIME_12H_PATTERN, TIME_12H_SECONDS_PATTERN } from '@/lib/dateFormat';
 import { resolveCallStartedAt } from '@/lib/callLogTimestamps';
 
 /** Searchable text: call dates, transcript, result (status), assigned agent. */
@@ -20,6 +20,8 @@ export function buildCallLogSearchHaystack(row: Record<string, unknown>): string
       format(date, 'MMM d yyyy'),
       format(date, 'yyyy-MM-dd'),
       format(date, 'M/d/yyyy'),
+      format(date, TIME_12H_PATTERN),
+      format(date, TIME_12H_SECONDS_PATTERN),
       format(date, 'HH:mm'),
       format(date, 'HH:mm:ss'),
     );

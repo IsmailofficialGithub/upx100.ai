@@ -6,7 +6,7 @@ import { CallDirectionBadge } from '@/components/shared/CallDirectionBadge';
 import { ArrowRight, CheckCircle2, AlertCircle, Timer, PhoneIncoming, PhoneOutgoing, Trash2, ShieldCheck } from 'lucide-react';
 import api from '@/lib/api';
 import { toast } from 'sonner';
-import { formatNullableDate } from '@/lib/dateFormat';
+import { formatNullableDate, TIME_12H_SECONDS_PATTERN } from '@/lib/dateFormat';
 import {
   CALL_DIRECTION_META,
   getCallDirection,
@@ -147,7 +147,7 @@ const CallLogsView: React.FC = () => {
           <div className="flex flex-col gap-0.5">
             <span className="font-semibold text-[hsl(var(--foreground))]">{formatNullableDate(callTime, 'MMM d, yyyy')}</span>
             <span className="text-[10px] text-[hsl(var(--muted-foreground))] font-mono">
-              {formatNullableDate(callTime, 'HH:mm:ss')}
+              {formatNullableDate(callTime, TIME_12H_SECONDS_PATTERN)}
             </span>
           </div>
         );
