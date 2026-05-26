@@ -4,8 +4,6 @@ import { Loader2 } from 'lucide-react';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 import { useAuth } from '@/context/AuthContext';
-import LiveTicker from '@/components/shared/LiveTicker';
-
 const pageTitles: Record<string, string> = {
   '/client/dashboard': 'Campaign Dashboard',
   '/client/calendar': 'Calendar & Meetings',
@@ -150,7 +148,6 @@ const DashboardShell: React.FC = () => {
           portalShell={portalShell}
           showTenantScope={isGccPortal && GCC_TENANT_SCOPE_PATHS.has(path)}
         />
-        <LiveTicker />
         <main
           className={`flex-1 min-h-0 overflow-x-hidden ${
             portalShell ? 'px-5 sm:px-6 py-5' : 'p-4 sm:p-6'
