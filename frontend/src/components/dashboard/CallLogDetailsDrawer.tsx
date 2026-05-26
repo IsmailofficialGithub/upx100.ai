@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   X,
   ExternalLink,
   DollarSign,
   Timer,
+  Download,
+  Loader2,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import AudioPlayer from '@/components/shared/AudioPlayer';
 import { CallDirectionBadge } from '@/components/shared/CallDirectionBadge';
 import { CALL_DIRECTION_META, getCallDirection } from '@/lib/callDirection';
@@ -15,13 +18,50 @@ interface CallLogDetailsDrawerProps {
   onClose: () => void;
 }
 
+function recordingDownloadFilename(log: { id?: string; vapi_call_id?: string | null; recording_url?: string | null }) {
+  const id = log.vapi_call_id || log.id || 'recording';
+  if (!log.recording_url) return `call-${id}.mp3`;
+  try {
+    const ext = new URL(log.recording_url).pathname.split('.').pop()?.toLowerCase();
+    if (ext && /^[a-z0-9]{2,5}$/.test(ext)) return `call-${id}.${ext}`;
+  } catch {
+    /* ignore */
+  }
+  return `call-${id}.mp3`;
+}
+
 const CallLogDetailsDrawer: React.FC<CallLogDetailsDrawerProps> = ({ log, isOpen, onClose }) => {
+  const [downloadingRecording, setDownloadingRecording] = useState(false);
+
   if (!log) return null;
 
   const direction = getCallDirection(log);
   const directionMeta = CALL_DIRECTION_META[direction];
   const HeaderIcon = directionMeta.Icon;
   const callSummary = typeof log.summary === 'string' ? log.summary.trim() : '';
+  const recordingUrl = typeof log.recording_url === 'string' ? log.recording_url.trim() : '';
+
+  const handleDownloadRecording = async () => {
+    if (!recordingUrl) return;
+    setDownloadingRecording(true);
+    try {
+      const res = await fetch(recordingUrl);
+      if (!res.ok) throw new Error('Failed to fetch recording');
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = objectUrl;
+      anchor.download = recordingDownloadFilename(log);
+      anchor.click();
+      URL.revokeObjectURL(objectUrl);
+      toast.success('Recording downloaded');
+    } catch {
+      window.open(recordingUrl, '_blank', 'noopener,noreferrer');
+      toast.message('Could not download directly — opened recording in a new tab');
+    } finally {
+      setDownloadingRecording(false);
+    }
+  };
 
   const statusColors: Record<string, string> = {
     success: 'bg-green-500/10 text-green-500 border-green-500/20',
@@ -183,16 +223,16 @@ const CallLogDetailsDrawer: React.FC<CallLogDetailsDrawerProps> = ({ log, isOpen
           </section>
 
           {/* Audio Recording */}
-          {log.recording_url && (
+          {recordingUrl && (
             <section className="space-y-4 pb-4">
               <div className="flex items-center gap-2">
                 <div className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--primary))]" />
                 <h3 className="text-xs font-mono font-bold uppercase tracking-widest text-[hsl(var(--muted-foreground))]">Audio Recording</h3>
               </div>
               <div className="border border-[hsl(var(--border-v))] rounded-xl p-4 space-y-3 bg-[hsl(var(--primary))]/5">
-                <AudioPlayer src={log.recording_url} className="w-full bg-[hsl(var(--background))]/60 border border-[hsl(var(--border-v))]" />
+                <AudioPlayer src={recordingUrl} className="w-full bg-[hsl(var(--background))]/60 border border-[hsl(var(--border-v))]" />
                 <a
-                  href={log.recording_url}
+                  href={recordingUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-[10px] font-mono text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors"
@@ -208,8 +248,14 @@ const CallLogDetailsDrawer: React.FC<CallLogDetailsDrawerProps> = ({ log, isOpen
         {/* Footer */}
         <div className="p-6 border-t border-[hsl(var(--border-v))] bg-[hsl(var(--muted))]/10">
           <div className="flex gap-3">
-            <button className="flex-1 px-4 py-2 bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-lg text-xs font-semibold hover:bg-[hsl(var(--muted))] transition-colors">
-              Download Transcript
+            <button
+              type="button"
+              onClick={handleDownloadRecording}
+              disabled={!recordingUrl || downloadingRecording}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-lg text-xs font-semibold hover:bg-[hsl(var(--muted))] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {downloadingRecording ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+              Download Recording
             </button>
             <button className="flex-1 px-4 py-2 bg-[hsl(var(--primary))] text-black rounded-lg text-xs font-semibold hover:opacity-90 transition-opacity">
               Contact Caller
