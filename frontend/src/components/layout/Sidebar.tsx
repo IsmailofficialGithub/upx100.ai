@@ -226,7 +226,7 @@ function PortalSidebarChrome({
       >
         <div className="flex items-center justify-between px-5 py-[18px] border-b border-[hsl(var(--border))]">
           <div className="flex items-center gap-2.5 text-[hsl(var(--foreground))]">
-            <img src="/logo.png" alt="UP100X.AI" className="h-12 w-12 object-contain" />
+            <img src="/logo.png" alt="UP100X.AI" className="h-12 w-12 object-contain theme-logo" />
             <span className="font-mono font-bold text-sm tracking-tight">UP100X.AI</span>
           </div>
           <button type="button" onClick={onClose} className="md:hidden text-[hsl(var(--muted-foreground))] p-1">

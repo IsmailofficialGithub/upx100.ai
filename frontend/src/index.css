@@ -108,6 +108,13 @@
   .font-mono {
     font-family: var(--font-mono);
   }
+  .theme-logo {
+    transition: filter 150ms ease-in-out;
+  }
+  [data-theme="us-light"] .theme-logo,
+  [data-theme="uk-light"] .theme-logo {
+    filter: invert(1);
+  }
   .text-gradient {
     background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent-blue)));
     -webkit-background-clip: text;
