@@ -27,6 +27,7 @@ interface AdminDataViewProps {
   /** When set, replaces default search (visible column keys only). Query is lowercased. */
   matchSearch?: (row: any, queryLower: string) => boolean;
   searchPlaceholder?: string;
+  refreshKey?: number;
 }
 
 const AdminDataView: React.FC<AdminDataViewProps> = ({
@@ -46,6 +47,7 @@ const AdminDataView: React.FC<AdminDataViewProps> = ({
   onRowClick,
   matchSearch,
   searchPlaceholder,
+  refreshKey = 0,
 }) => {
   const [data, setData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -78,7 +80,7 @@ const AdminDataView: React.FC<AdminDataViewProps> = ({
       }
     };
     fetchData();
-  }, [endpoint, title, scopeNonce]);
+  }, [endpoint, title, scopeNonce, refreshKey]);
 
   const filteredData = useMemo(() => {
     let rows = data;

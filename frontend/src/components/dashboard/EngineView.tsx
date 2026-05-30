@@ -29,6 +29,7 @@ const EngineView: React.FC = () => {
   const [csvFileName, setCsvFileName] = useState('');
   const [dragOver, setDragOver] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isSubmittingScriptRequest, setIsSubmittingScriptRequest] = useState(false);
   const [uploads, setUploads] = useState<TargetUploadRow[]>([]);
   const [isLoadingUploads, setIsLoadingUploads] = useState(true);
   const [showAllSubmissions, setShowAllSubmissions] = useState(false);
@@ -183,13 +184,16 @@ const EngineView: React.FC = () => {
   };
 
   const submitScriptRequest = async () => {
+    if (isSubmittingScriptRequest) return;
     if (!organizationId) {
       toast.error('Select a client organization before submitting.');
       return;
     }
+    if (!scriptChange.trim()) return;
+    setIsSubmittingScriptRequest(true);
     try {
       await api.post('/script-requests', {
-        script_text: scriptChange,
+        script_text: scriptChange.trim(),
         campaign_type: campaignType,
         organization_id: organizationId,
       });
@@ -197,6 +201,8 @@ const EngineView: React.FC = () => {
       toast.success('Script change request submitted');
     } catch {
       toast.error('Failed to submit request');
+    } finally {
+      setIsSubmittingScriptRequest(false);
     }
   };
 
@@ -415,6 +421,7 @@ const EngineView: React.FC = () => {
           <select
             value={campaignType}
             onChange={(e) => setCampaignType(e.target.value as 'outbound' | 'inbound')}
+            disabled={isSubmittingScriptRequest}
             className="w-full max-w-xs mb-3 rounded-lg border border-[hsl(var(--border-v))] bg-[hsl(var(--card))] text-[hsl(var(--foreground))] px-2 py-2 text-xs"
           >
             <option value="outbound">Outbound cold</option>
@@ -424,16 +431,19 @@ const EngineView: React.FC = () => {
           <textarea
             value={scriptChange}
             onChange={(e) => setScriptChange(e.target.value)}
+            disabled={isSubmittingScriptRequest}
             placeholder="Describe the change you'd like to make to the script…"
-            className="w-full h-24 px-3 py-2 bg-[hsl(var(--muted))]/30 border border-[hsl(var(--border-v))] rounded-lg text-xs text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--muted-foreground))]/50 focus:outline-none focus:border-[hsl(var(--primary))]/50 resize-none"
+            className="w-full h-24 px-3 py-2 bg-[hsl(var(--muted))]/30 border border-[hsl(var(--border-v))] rounded-lg text-xs text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--muted-foreground))]/50 focus:outline-none focus:border-[hsl(var(--primary))]/50 resize-none disabled:opacity-60"
           />
           <div className="flex justify-end mt-2">
             <button
+              type="button"
               onClick={submitScriptRequest}
-              disabled={!scriptChange.trim()}
-              className="px-4 py-1.5 rounded-lg text-xs font-medium bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed transition-opacity"
+              disabled={!scriptChange.trim() || isSubmittingScriptRequest}
+              className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed transition-opacity"
             >
-              Submit request
+              {isSubmittingScriptRequest && <Loader2 size={14} className="animate-spin" />}
+              {isSubmittingScriptRequest ? 'Submitting' : 'Submit request'}
             </button>
           </div>
         </div>

@@ -5,7 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
 
 const TeamView: React.FC = () => {
-  const { user, isClientAdmin, isSPPrimary } = useAuth();
+  const { user, isClientAdmin, isSPPrimary, isClient, isSP } = useAuth();
   const [users, setUsers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -23,10 +23,16 @@ const TeamView: React.FC = () => {
     fetchUsers();
   }, []);
 
+  const isVisibleTeamRole = (role: string) => {
+    if (isClient) return role === 'client_admin' || role === 'client_sub';
+    if (isSP) return role === 'sp_primary' || role === 'sp_sub';
+    return true;
+  };
+
   const fetchUsers = async () => {
     try {
       const response = await api.get('/users');
-      setUsers(response.data.data);
+      setUsers((response.data.data || []).filter((u: any) => isVisibleTeamRole(u.role)));
     } catch (error) {
       toast.error('Failed to fetch team members');
     } finally {
@@ -46,7 +52,7 @@ const TeamView: React.FC = () => {
           ...formData,
           organization_id: user?.orgId // Scoped to own org
         });
-        setUsers([response.data.data, ...users]);
+        setUsers([response.data.data, ...users].filter((u: any) => isVisibleTeamRole(u.role)));
         toast.success('Team member created');
       }
       setIsModalOpen(false);
@@ -84,9 +90,12 @@ const TeamView: React.FC = () => {
     }
   };
 
-  const filteredUsers = users.filter(u => 
-    u.email.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    (u.full_name || '').toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredUsers = users.filter(u =>
+    isVisibleTeamRole(u.role) &&
+    (
+      u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (u.full_name || '').toLowerCase().includes(searchTerm.toLowerCase())
+    )
   );
 
   if (isLoading) {

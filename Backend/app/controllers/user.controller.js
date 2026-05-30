@@ -113,7 +113,11 @@ export const getUsers = async (req, res) => {
   } else if (role === 'client_admin' || role === 'client_sub') {
     const { data, error } = await userService.listUsersByOrg(orgId)
     if (error) throw error
-    users = data
+    const clientRoles = new Set(['client_admin', 'client_sub'])
+    users = (data || []).filter((u) => clientRoles.has(u.role))
+    if (role === 'client_sub') {
+      users = users.filter((u) => u.id === userId)
+    }
   } else {
     return res.status(StatusCodes.FORBIDDEN).json({
       error: { code: 'FORBIDDEN', message: 'Insufficient permissions to view users' }

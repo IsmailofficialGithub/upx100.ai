@@ -438,7 +438,7 @@ const AdminPhoneNumbersView: React.FC = () => {
                 <p className="text-xs text-[hsl(var(--muted-foreground))]">
                   {editingId
                     ? 'Update this line. Each number is dedicated to one client only.'
-                    : 'Register a line for exactly one client organization. Numbers cannot be shared across clients.'}
+                    : 'Port a phone number for your organization.'}
                 </p>
               </div>
               <div className="w-10 h-10 rounded-full bg-[hsl(var(--primary))]/10 flex items-center justify-center text-[hsl(var(--primary))]">

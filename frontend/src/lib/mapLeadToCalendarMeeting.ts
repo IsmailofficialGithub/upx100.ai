@@ -51,6 +51,24 @@ function localYmdHm(d: Date): { date: string; time: string } {
   };
 }
 
+function localTodayYmd(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
+}
+
+function isScheduledInPast(dateStr: string, timeStr: string): boolean {
+  const today = localTodayYmd();
+  if (dateStr < today) return true;
+  if (dateStr > today) return false;
+
+  const [h, mi] = timeStr.split(':').map(Number);
+  if (Number.isNaN(h) || Number.isNaN(mi)) return false;
+
+  const now = new Date();
+  const meetingDt = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, mi, 0, 0);
+  return meetingDt.getTime() < now.getTime();
+}
+
 function normalizeStoredOutcome(raw: string | null | undefined): OutcomeKey | null {
   if (raw == null || raw === '') return null;
   if (raw === 'no-show' || raw === 'no_show') return 'noShow';
@@ -89,13 +107,12 @@ function mapLeadStatusToCalendar(
   dateStr: string,
   timeStr: string
 ): CalendarMeeting['status'] {
-  const [y, mo, d] = dateStr.split('-').map(Number);
-  const [h, mi] = timeStr.split(':').map(Number);
-  const meetingDt = new Date(y, mo - 1, d, h, mi, 0, 0);
-  const isPast = meetingDt.getTime() < Date.now();
+  const isPast = isScheduledInPast(dateStr, timeStr);
+  if (isPast) return 'completed';
+
   switch (leadStatus) {
     case 'success':
-      return isPast ? 'completed' : 'confirmed';
+      return 'confirmed';
     case 'follow_up':
     case 'warm':
     case 'new':
@@ -103,7 +120,7 @@ function mapLeadStatusToCalendar(
     case 'cold':
       return 'completed';
     default:
-      return isPast ? 'completed' : 'upcoming';
+      return 'upcoming';
   }
 }
 

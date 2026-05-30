@@ -6,19 +6,11 @@ import {
   Timer,
   Download,
   Loader2,
-  Phone,
   Copy,
   Check,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import AudioPlayer from '@/components/shared/AudioPlayer';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { CallDirectionBadge } from '@/components/shared/CallDirectionBadge';
 import { CALL_DIRECTION_META, getCallDirection } from '@/lib/callDirection';
 
@@ -26,6 +18,7 @@ interface CallLogDetailsDrawerProps {
   log: any;
   isOpen: boolean;
   onClose: () => void;
+  isInternalView?: boolean;
 }
 
 function recordingDownloadFilename(log: { id?: string; vapi_call_id?: string | null; recording_url?: string | null }) {
@@ -40,9 +33,13 @@ function recordingDownloadFilename(log: { id?: string; vapi_call_id?: string | n
   return `call-${id}.mp3`;
 }
 
-const CallLogDetailsDrawer: React.FC<CallLogDetailsDrawerProps> = ({ log, isOpen, onClose }) => {
+const resolveAgentName = (log: any): string => {
+  const nestedAgent = Array.isArray(log?.agents) ? log.agents[0] : log?.agents;
+  return log?.agent_name || log?.agentName || nestedAgent?.name || '';
+};
+
+const CallLogDetailsDrawer: React.FC<CallLogDetailsDrawerProps> = ({ log, isOpen, onClose, isInternalView = false }) => {
   const [downloadingRecording, setDownloadingRecording] = useState(false);
-  const [contactDialogOpen, setContactDialogOpen] = useState(false);
   const [copiedNumber, setCopiedNumber] = useState(false);
 
   if (!log) return null;
@@ -51,11 +48,13 @@ const CallLogDetailsDrawer: React.FC<CallLogDetailsDrawerProps> = ({ log, isOpen
   const directionMeta = CALL_DIRECTION_META[direction];
   const HeaderIcon = directionMeta.Icon;
   const callSummary = typeof log.summary === 'string' ? log.summary.trim() : '';
+  const notes = typeof log.notes === 'string' ? log.notes.trim() : '';
   const recordingUrl = typeof log.recording_url === 'string' ? log.recording_url.trim() : '';
   const callerNumber =
     typeof log.caller_number === 'string' && log.caller_number.trim()
       ? log.caller_number.trim()
       : '';
+  const agentName = resolveAgentName(log);
 
   const handleCopyCallerNumber = async () => {
     if (!callerNumber) return;
@@ -129,7 +128,7 @@ const CallLogDetailsDrawer: React.FC<CallLogDetailsDrawerProps> = ({ log, isOpen
                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${statusColors[log.status] || 'bg-slate-500/10 text-slate-500 border-slate-500/20'} uppercase tracking-wider`}>
                   {log.status}
                 </span>
-                {typeof log.is_deleted_data === 'boolean' && (
+                {isInternalView && typeof log.is_deleted_data === 'boolean' && (
                   <span
                     className={`px-2 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider font-mono ${
                       log.is_deleted_data
@@ -158,7 +157,7 @@ const CallLogDetailsDrawer: React.FC<CallLogDetailsDrawerProps> = ({ log, isOpen
         <div className="flex-1 overflow-y-auto p-6 space-y-8 scrollbar-thin">
           
           {/* Call Metadata Grid */}
-          <div className="grid grid-cols-4 gap-4">
+          <div className={`grid gap-4 ${isInternalView ? 'grid-cols-4' : 'grid-cols-3'}`}>
             <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-3 flex flex-col gap-1">
               <span className="text-[9px] font-mono uppercase text-[hsl(var(--muted-foreground))] tracking-wider">Duration</span>
               <p className="text-sm font-bold flex items-center gap-1">
@@ -166,13 +165,15 @@ const CallLogDetailsDrawer: React.FC<CallLogDetailsDrawerProps> = ({ log, isOpen
                 {log.duration_sec}s
               </p>
             </div>
-            <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-3 flex flex-col gap-1">
-              <span className="text-[9px] font-mono uppercase text-[hsl(var(--muted-foreground))] tracking-wider">Cost</span>
-              <p className="text-sm font-bold flex items-center gap-1 text-green-500">
-                <DollarSign size={12} />
-                {log.cost || '0.00'}
-              </p>
-            </div>
+            {isInternalView && (
+              <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-3 flex flex-col gap-1">
+                <span className="text-[9px] font-mono uppercase text-[hsl(var(--muted-foreground))] tracking-wider">Cost</span>
+                <p className="text-sm font-bold flex items-center gap-1 text-green-500">
+                  <DollarSign size={12} />
+                  {log.cost || '0.00'}
+                </p>
+              </div>
+            )}
             <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-3 flex flex-col gap-1">
               <span className="text-[9px] font-mono uppercase text-[hsl(var(--muted-foreground))] tracking-wider">Is Lead</span>
               <p className={`text-sm font-bold ${log.is_lead ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))]'}`}>
@@ -182,7 +183,7 @@ const CallLogDetailsDrawer: React.FC<CallLogDetailsDrawerProps> = ({ log, isOpen
             <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-3 flex flex-col gap-1">
               <span className="text-[9px] font-mono uppercase text-[hsl(var(--muted-foreground))] tracking-wider">Agent</span>
               <p className="text-xs font-bold truncate">
-                {log.agent_name || 'System'}
+                {agentName || 'Unassigned'}
               </p>
             </div>
           </div>
@@ -215,27 +216,28 @@ const CallLogDetailsDrawer: React.FC<CallLogDetailsDrawerProps> = ({ log, isOpen
             </div>
           </section>
 
-          {/* AI Insights */}
-          <section className="space-y-4">
-            <div className="flex items-center gap-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--primary))]" />
-              <h3 className="text-xs font-mono font-bold uppercase tracking-widest text-[hsl(var(--muted-foreground))]">AI Insights</h3>
-            </div>
-            <div className="space-y-4">
-              <div className="bg-[hsl(var(--muted))]/10 border border-[hsl(var(--border-v))] rounded-xl p-4 space-y-2">
-                {callSummary ? (
-                  <>
+          {(callSummary || notes) && (
+            <section className="space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--primary))]" />
+                <h3 className="text-xs font-mono font-bold uppercase tracking-widest text-[hsl(var(--muted-foreground))]">AI Insights</h3>
+              </div>
+              <div className="space-y-4">
+                {callSummary && (
+                  <div className="bg-[hsl(var(--muted))]/10 border border-[hsl(var(--border-v))] rounded-xl p-4 space-y-2">
                     <span className="text-[10px] font-mono text-[hsl(var(--muted-foreground))]">CALL SUMMARY</span>
                     <p className="text-xs leading-relaxed text-[hsl(var(--foreground))]">{callSummary}</p>
-                  </>
-                ) : (
-                  <p className="text-xs leading-relaxed text-[hsl(var(--muted-foreground))] italic">
-                   -
-                  </p>
+                  </div>
+                )}
+                {notes && (
+                  <div className="bg-[hsl(var(--muted))]/10 border border-[hsl(var(--border-v))] rounded-xl p-4 space-y-2">
+                    <span className="text-[10px] font-mono text-[hsl(var(--muted-foreground))]">NOTES</span>
+                    <p className="text-xs leading-relaxed text-[hsl(var(--foreground))] whitespace-pre-wrap">{notes}</p>
+                  </div>
                 )}
               </div>
-            </div>
-          </section>
+            </section>
+          )}
 
           {/* Transcript Section */}
           <section className="space-y-4">
@@ -287,50 +289,16 @@ const CallLogDetailsDrawer: React.FC<CallLogDetailsDrawerProps> = ({ log, isOpen
             </button>
             <button
               type="button"
-              onClick={() => setContactDialogOpen(true)}
+              onClick={handleCopyCallerNumber}
               disabled={!callerNumber}
               className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-[hsl(var(--primary))] text-black rounded-lg text-xs font-semibold hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              <Phone size={14} />
-              Contact Caller
+              {copiedNumber ? <Check size={14} /> : <Copy size={14} />}
+              {copiedNumber ? 'Copied' : 'Copy Number'}
             </button>
           </div>
         </div>
       </div>
-
-      <Dialog
-        open={contactDialogOpen}
-        onOpenChange={(open) => {
-          setContactDialogOpen(open);
-          if (!open) setCopiedNumber(false);
-        }}
-      >
-        <DialogContent
-          className="z-[60] sm:max-w-sm bg-[hsl(var(--card))] border-[hsl(var(--border-v))] text-[hsl(var(--foreground))]"
-          showCloseButton
-        >
-          <DialogHeader>
-            <DialogTitle className="font-display text-[hsl(var(--foreground))]">Caller number</DialogTitle>
-            <DialogDescription className="text-[hsl(var(--muted-foreground))]">
-              {direction === 'outbound' ? 'Number that was dialed for this call.' : 'Customer number for this inbound call.'}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="rounded-xl border border-[hsl(var(--border-v))] bg-[hsl(var(--muted))]/30 px-4 py-3">
-            <p className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] mb-1 tracking-wider">
-              {direction === 'outbound' ? 'Called (participant)' : 'From (customer)'}
-            </p>
-            <p className="text-lg font-mono font-bold tracking-wide break-all">{callerNumber}</p>
-          </div>
-          <button
-            type="button"
-            onClick={handleCopyCallerNumber}
-            className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[hsl(var(--primary))] text-black text-xs font-semibold hover:opacity-90 transition-opacity"
-          >
-            {copiedNumber ? <Check size={14} /> : <Copy size={14} />}
-            {copiedNumber ? 'Copied' : 'Copy number'}
-          </button>
-        </DialogContent>
-      </Dialog>
     </>
   );
 };

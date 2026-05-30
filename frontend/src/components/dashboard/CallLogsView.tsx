@@ -48,7 +48,12 @@ const CallLogsView: React.FC = () => {
   const handleViewDetail = async (log: any) => {
     try {
       const response = await api.get(`/call-logs/${log.id}`);
-      setSelectedLog(response.data.data);
+      const detail = response.data.data;
+      setSelectedLog({
+        ...log,
+        ...detail,
+        agent_name: detail.agent_name || log.agent_name,
+      });
       setIsDrawerOpen(true);
     } catch {
       toast.error('Failed to fetch call details');
@@ -269,6 +274,7 @@ const CallLogsView: React.FC = () => {
         log={selectedLog}
         isOpen={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
+        isInternalView={isAdminCallLogs}
       />
     </div>
   );

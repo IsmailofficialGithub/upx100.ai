@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '../config/supabase.js'
 import { StatusCodes } from 'http-status-codes'
 import * as userService from '../services/user.service.js'
+import * as agentService from '../services/inboundAgent.service.js'
 import { aggregateRegionalFromCallLogs } from '../utils/usCallerRegion.js'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -69,10 +70,18 @@ export const getStats = async (req, res) => {
       .select('*', { count: 'exact', head: true })
       .is('deleted_at', null)
 
-    // 4. Get Agents count
-    const { count: totalAgents } = await buildQuery('inbound', 'agents')
-      .select('*', { count: 'exact', head: true })
-      .is('deleted_at', null)
+    // 4. Get Agents count. Client dashboard should match the AI Agent Management tab.
+    let totalAgents = 0
+    if (['client_admin', 'client_sub'].includes(role)) {
+      const filterUserId = role === 'client_admin' ? null : userId
+      const visibleAgents = await agentService.listAgentsByOrg(orgId, filterUserId)
+      totalAgents = visibleAgents.length
+    } else {
+      const { count } = await buildQuery('inbound', 'agents')
+        .select('*', { count: 'exact', head: true })
+        .is('deleted_at', null)
+      totalAgents = count || 0
+    }
 
     // Calculate aggregated metrics
     const totalOutreach = callLogs?.length || 0;

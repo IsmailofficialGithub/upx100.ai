@@ -1,18 +1,103 @@
-import React from 'react';
-import { X, Calendar, Clock, Phone, Mail, ExternalLink, MessageSquare, Sparkles, Building2, UserCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, Calendar, Clock, Phone, Mail, ExternalLink, MessageSquare, Sparkles, Building2, UserCircle, Loader2 } from 'lucide-react';
 import { formatNullableDate } from '@/lib/dateFormat';
+import api from '@/lib/api';
+import { toast } from 'sonner';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 interface LeadDetailsDrawerProps {
   lead: any;
   isOpen: boolean;
   onClose: () => void;
+  onViewFullLog?: (callLog: any) => void;
+  onLeadUpdated?: (lead: any) => void;
 }
 
-const LeadDetailsDrawer: React.FC<LeadDetailsDrawerProps> = ({ lead, isOpen, onClose }) => {
+const LEAD_STATUS_OPTIONS = [
+  { value: 'new', label: 'New' },
+  { value: 'warm', label: 'Warm' },
+  { value: 'cold', label: 'Cold' },
+  { value: 'success', label: 'Success' },
+  { value: 'follow_up', label: 'Follow up' },
+];
+
+const CRM_OPTIONS = ['HubSpot', 'Salesforce', 'GoHighLevel', 'Zoho', 'Other'];
+
+const LeadDetailsDrawer: React.FC<LeadDetailsDrawerProps> = ({ lead, isOpen, onClose, onViewFullLog, onLeadUpdated }) => {
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const [crmDialogOpen, setCrmDialogOpen] = useState(false);
+  const [savingStatus, setSavingStatus] = useState(false);
+  const [submittingCrm, setSubmittingCrm] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState('');
+  const [crmProvider, setCrmProvider] = useState('HubSpot');
+  const [crmNotes, setCrmNotes] = useState('');
+
   if (!lead) return null;
+
+  const notes = typeof lead.notes === 'string' ? lead.notes.trim() : '';
+  const leadStatus = selectedStatus || lead.status || 'new';
+
+  const openStatusDialog = () => {
+    setSelectedStatus(lead.status || 'new');
+    setStatusDialogOpen(true);
+  };
+
+  const saveStatus = async () => {
+    if (!selectedStatus || selectedStatus === lead.status) {
+      setStatusDialogOpen(false);
+      return;
+    }
+    setSavingStatus(true);
+    try {
+      const response = await api.patch(`/leads/${lead.id}`, { status: selectedStatus });
+      onLeadUpdated?.({ ...lead, ...response.data.data, status: selectedStatus });
+      toast.success('Lead status updated');
+      setStatusDialogOpen(false);
+    } catch {
+      toast.error('Failed to update lead status');
+    } finally {
+      setSavingStatus(false);
+    }
+  };
+
+  const submitCrmRequest = async () => {
+    setSubmittingCrm(true);
+    try {
+      await api.post('/script-requests', {
+        campaign_type: 'crm_connection',
+        script_text: [
+          `CRM connection request: ${crmProvider}`,
+          `Lead: ${lead.name || lead.id}`,
+          lead.email ? `Email: ${lead.email}` : null,
+          lead.phone ? `Phone: ${lead.phone}` : null,
+          crmNotes.trim() ? `Notes: ${crmNotes.trim()}` : null,
+        ].filter(Boolean).join('\n'),
+      });
+      window.dispatchEvent(new CustomEvent('gcc-hitl-queue-changed'));
+      toast.success('CRM connection request sent to GCC Admin');
+      setCrmDialogOpen(false);
+      setCrmNotes('');
+      setCrmProvider('HubSpot');
+    } catch {
+      toast.error('Failed to submit CRM connection request');
+    } finally {
+      setSubmittingCrm(false);
+    }
+  };
 
   const statusColors: Record<string, string> = {
     new: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
+    warm: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
+    cold: 'bg-red-500/10 text-red-500 border-red-500/20',
+    success: 'bg-green-500/10 text-green-500 border-green-500/20',
+    follow_up: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
     contacted: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
     qualified: 'bg-green-500/10 text-green-500 border-green-500/20',
     converted: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
@@ -46,8 +131,8 @@ const LeadDetailsDrawer: React.FC<LeadDetailsDrawerProps> = ({ lead, isOpen, onC
             <div>
               <h2 className="text-xl font-display font-bold text-[hsl(var(--foreground))]">{lead.name || 'Unnamed Lead'}</h2>
               <div className="flex items-center gap-2 mt-1">
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${statusColors[lead.status] || 'bg-slate-500/10 text-slate-500 border-slate-500/20'} uppercase tracking-wider`}>
-                  {lead.status}
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${statusColors[leadStatus] || 'bg-slate-500/10 text-slate-500 border-slate-500/20'} uppercase tracking-wider`}>
+                  {leadStatus}
                 </span>
                 {lead.organization_name && (
                   <span className="flex items-center gap-1 text-[10px] text-[hsl(var(--muted-foreground))]">
@@ -126,16 +211,17 @@ const LeadDetailsDrawer: React.FC<LeadDetailsDrawerProps> = ({ lead, isOpen, onC
             </div>
           </section>
 
-          {/* Notes Section */}
-          <section className="space-y-4">
-            <div className="flex items-center gap-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--primary))]" />
-              <h3 className="text-xs font-mono font-bold uppercase tracking-widest text-[hsl(var(--muted-foreground))]">AI Summary & Notes</h3>
-            </div>
-            <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-4 min-h-[100px] text-xs leading-relaxed text-[hsl(var(--foreground))] whitespace-pre-wrap">
-              {lead.notes || 'No additional notes provided for this lead.'}
-            </div>
-          </section>
+          {notes && (
+            <section className="space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--primary))]" />
+                <h3 className="text-xs font-mono font-bold uppercase tracking-widest text-[hsl(var(--muted-foreground))]">AI Summary & Notes</h3>
+              </div>
+              <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-4 text-xs leading-relaxed text-[hsl(var(--foreground))] whitespace-pre-wrap">
+                {notes}
+              </div>
+            </section>
+          )}
 
           {/* Call Insights (if available) */}
           {lead.call_logs && (
@@ -152,7 +238,11 @@ const LeadDetailsDrawer: React.FC<LeadDetailsDrawerProps> = ({ lead, isOpen, onC
                     <span className="text-[10px] font-mono text-[hsl(var(--muted-foreground))] flex items-center gap-2">
                       <MessageSquare size={12} /> TRANSCRIPT EXCERPT
                     </span>
-                    <button className="text-[10px] font-bold text-[hsl(var(--primary))] hover:underline flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => onViewFullLog?.(lead.call_logs)}
+                      className="text-[10px] font-bold text-[hsl(var(--primary))] hover:underline flex items-center gap-1"
+                    >
                       VIEW FULL LOG <ExternalLink size={10} />
                     </button>
                   </div>
@@ -191,15 +281,94 @@ const LeadDetailsDrawer: React.FC<LeadDetailsDrawerProps> = ({ lead, isOpen, onC
         {/* Footer */}
         <div className="p-6 border-t border-[hsl(var(--border-v))] bg-[hsl(var(--muted))]/10">
           <div className="flex gap-3">
-            <button className="flex-1 px-4 py-2 bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-lg text-xs font-semibold hover:bg-[hsl(var(--muted))] transition-colors">
+            <button
+              type="button"
+              onClick={openStatusDialog}
+              className="flex-1 px-4 py-2 bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-lg text-xs font-semibold hover:bg-[hsl(var(--muted))] transition-colors"
+            >
               Update Status
             </button>
-            <button className="flex-1 px-4 py-2 bg-[hsl(var(--primary))] text-black rounded-lg text-xs font-semibold hover:opacity-90 transition-opacity">
+            <button
+              type="button"
+              onClick={() => setCrmDialogOpen(true)}
+              className="flex-1 px-4 py-2 bg-[hsl(var(--primary))] text-black rounded-lg text-xs font-semibold hover:opacity-90 transition-opacity"
+            >
               Sync to CRM
             </button>
           </div>
         </div>
       </div>
+
+      <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
+        <DialogContent className="sm:max-w-sm bg-[hsl(var(--card))] border-[hsl(var(--border-v))] text-[hsl(var(--foreground))]">
+          <DialogHeader>
+            <DialogTitle>Update lead status</DialogTitle>
+            <DialogDescription>Change the status shown for this lead.</DialogDescription>
+          </DialogHeader>
+          <select
+            value={selectedStatus}
+            onChange={(e) => setSelectedStatus(e.target.value)}
+            className="w-full rounded-lg border border-[hsl(var(--border-v))] bg-[hsl(var(--muted))] px-3 py-2 text-xs outline-none"
+          >
+            {LEAD_STATUS_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+          <DialogFooter>
+            <button type="button" onClick={() => setStatusDialogOpen(false)} className="px-3 py-2 rounded-lg text-xs bg-[hsl(var(--muted))]">
+              Cancel
+            </button>
+            <button type="button" onClick={saveStatus} disabled={savingStatus} className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-[hsl(var(--primary))] text-black disabled:opacity-60">
+              {savingStatus && <Loader2 size={14} className="animate-spin" />}
+              Save
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={crmDialogOpen} onOpenChange={setCrmDialogOpen}>
+        <DialogContent className="sm:max-w-md bg-[hsl(var(--card))] border-[hsl(var(--border-v))] text-[hsl(var(--foreground))]">
+          <DialogHeader>
+            <DialogTitle>Request CRM connection</DialogTitle>
+            <DialogDescription>
+              This sends a CRM connection request to GCC Admin for review.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <label className="grid gap-1">
+              <span className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))]">CRM</span>
+              <select
+                value={crmProvider}
+                onChange={(e) => setCrmProvider(e.target.value)}
+                className="w-full rounded-lg border border-[hsl(var(--border-v))] bg-[hsl(var(--muted))] px-3 py-2 text-xs outline-none"
+              >
+                {CRM_OPTIONS.map((crm) => (
+                  <option key={crm} value={crm}>{crm}</option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1">
+              <span className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))]">Notes</span>
+              <textarea
+                value={crmNotes}
+                onChange={(e) => setCrmNotes(e.target.value)}
+                rows={4}
+                placeholder="Add CRM account, pipeline, field mapping, or admin notes..."
+                className="w-full resize-none rounded-lg border border-[hsl(var(--border-v))] bg-[hsl(var(--muted))] px-3 py-2 text-xs outline-none"
+              />
+            </label>
+          </div>
+          <DialogFooter>
+            <button type="button" onClick={() => setCrmDialogOpen(false)} className="px-3 py-2 rounded-lg text-xs bg-[hsl(var(--muted))]">
+              Cancel
+            </button>
+            <button type="button" onClick={submitCrmRequest} disabled={submittingCrm} className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-[hsl(var(--primary))] text-black disabled:opacity-60">
+              {submittingCrm && <Loader2 size={14} className="animate-spin" />}
+              Submit request
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

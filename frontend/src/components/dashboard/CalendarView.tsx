@@ -535,13 +535,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({ lockedOrganizationId, embed
                     onClick={() => {
                       if (dayMeetings.length > 0) {
                         setSelectedMeeting(dayMeetings[0].id);
-                        setViewMode('agenda');
                       }
                     }}
                     onKeyDown={(e) => {
                       if ((e.key === 'Enter' || e.key === ' ') && dayMeetings.length > 0) {
                         setSelectedMeeting(dayMeetings[0].id);
-                        setViewMode('agenda');
                       }
                     }}
                   >

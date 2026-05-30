@@ -270,7 +270,7 @@ function PortalSidebarChrome({
         <div className="px-5 py-3 border-t border-[hsl(var(--border))] text-[10px] text-[hsl(var(--muted-foreground))]">
           <div className="flex items-center gap-1.5">
             <span className="gcc-tick-dot" />
-            <span>Engine active · Built for TCPA / PECR</span>
+            <span>Engine active · Built for TCPA / CAN-SPAM</span>
           </div>
         </div>
       </aside>
@@ -609,7 +609,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
             </span>
             <span className="text-[9px] font-mono text-[hsl(var(--muted-foreground))]">
-              Engine active · Built for TCPA / PECR
+              Engine active · Built for TCPA / CAN-SPAM
             </span>
           </div>
         </div>

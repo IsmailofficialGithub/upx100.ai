@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
 import AdminDataView from './AdminDataView';
 import LeadDetailsDrawer from './LeadDetailsDrawer';
-import { Eye, Mail, Phone, Calendar, ArrowRight } from 'lucide-react';
+import CallLogDetailsDrawer from './CallLogDetailsDrawer';
+import { Mail, Phone, Calendar, ArrowRight } from 'lucide-react';
 import api from '@/lib/api';
 import { toast } from 'sonner';
 import { formatNullableDate } from '@/lib/dateFormat';
 
 const LeadsView: React.FC = () => {
   const [selectedLead, setSelectedLead] = useState<any>(null);
+  const [selectedCallLog, setSelectedCallLog] = useState<any>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isCallLogDrawerOpen, setIsCallLogDrawerOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const handleViewDetail = async (lead: any) => {
     try {
@@ -21,8 +25,30 @@ const LeadsView: React.FC = () => {
     }
   };
 
+  const handleViewFullLog = async (callLog: any) => {
+    if (!callLog?.id) {
+      toast.error('No call log is linked to this lead');
+      return;
+    }
+    try {
+      const response = await api.get(`/call-logs/${callLog.id}`);
+      setSelectedCallLog({
+        ...callLog,
+        ...response.data.data,
+        agent_name: response.data.data.agent_name || selectedLead?.agent_name,
+      });
+      setIsCallLogDrawerOpen(true);
+    } catch {
+      toast.error('Failed to fetch call details');
+    }
+  };
+
   const statusColors: Record<string, string> = {
     new: 'bg-blue-500/10 text-blue-500',
+    warm: 'bg-yellow-500/10 text-yellow-500',
+    cold: 'bg-red-500/10 text-red-500',
+    success: 'bg-green-500/10 text-green-500',
+    follow_up: 'bg-amber-500/10 text-amber-500',
     contacted: 'bg-yellow-500/10 text-yellow-500',
     qualified: 'bg-green-500/10 text-green-500',
     converted: 'bg-purple-500/10 text-purple-500',
@@ -98,6 +124,7 @@ const LeadsView: React.FC = () => {
       <AdminDataView 
         title="Qualified Leads" 
         endpoint="/leads"
+        refreshKey={refreshKey}
         emptyMessage="No qualified leads yet. Once our campaigns are live, leads matching our ICP will appear here."
         columns={columns}
         renderActions={(row) => (
@@ -115,6 +142,17 @@ const LeadsView: React.FC = () => {
         lead={selectedLead}
         isOpen={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
+        onViewFullLog={handleViewFullLog}
+        onLeadUpdated={(lead) => {
+          setSelectedLead(lead);
+          setRefreshKey((key) => key + 1);
+        }}
+      />
+
+      <CallLogDetailsDrawer
+        log={selectedCallLog}
+        isOpen={isCallLogDrawerOpen}
+        onClose={() => setIsCallLogDrawerOpen(false)}
       />
     </div>
   );
