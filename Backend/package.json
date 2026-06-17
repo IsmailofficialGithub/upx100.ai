@@ -8,7 +8,7 @@
     "test": "jest",
     "test:watch": "jest --watchAll",
     "dev": "nodemon ./app/index.js",
-    "dev:all": "concurrently \"npm run dev\" \"cd ../Frontend && npm run dev\"",
+    "dev:all": "concurrently \"npm run dev\" \"cd ../frontend && npm run dev\"",
     "db:commissions": "node ./scripts/applyCommissionsMigration.mjs"
   },
   "keywords": [],
