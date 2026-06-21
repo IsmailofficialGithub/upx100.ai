@@ -4,6 +4,11 @@ import * as adminService from '../services/admin.service.js'
 import { resolveScopedTargetOrgIds } from './admin.controller.js'
 import { StatusCodes } from 'http-status-codes'
 import { parseRecordingDisclosureEnabled } from '../lib/recordingDisclosure.js'
+import {
+  getCachedAgents,
+  setCachedAgents,
+  clearAgentsCache
+} from '../redis/agentCache.js'
 
 /** Never expose vendor model ids or internal telephony ids to GCC/client UI. */
 const stripInternalAgentFields = (rows) =>
@@ -32,8 +37,21 @@ export const getAgents = async (req, res) => {
 
   // Org Admin sees everything in org, Sub-user only sees own
   const filterUserId = ['client_admin', 'sp_primary'].includes(role) ? null : userId
+
+  // 1. Try to fetch from Redis cache
+  const cached = await getCachedAgents(orgId, filterUserId)
+  if (cached) {
+    return res.json({ data: cached })
+  }
+
+  // 2. Fetch from Database
   const agents = await agentService.listAgentsByOrg(orgId, filterUserId)
-  return res.json({ data: stripInternalAgentFields(agents) })
+  const strippedAgents = stripInternalAgentFields(agents)
+
+  // 3. Cache the results in Redis
+  await setCachedAgents(orgId, filterUserId, strippedAgents)
+
+  return res.json({ data: strippedAgents })
 }
 
 export const getAgent = async (req, res) => {
@@ -125,6 +143,9 @@ export const createAgent = async (req, res) => {
     }
   }
 
+  // Invalidate agents list cache
+  await clearAgentsCache(orgId)
+
   return res.status(StatusCodes.CREATED).json({
     message: 'Agent created and activating',
     data: result.db,
@@ -161,6 +182,11 @@ export const updateAgent = async (req, res) => {
     }
   }
 
+  // Invalidate agents list cache
+  if (result.db?.organization_id) {
+    await clearAgentsCache(result.db.organization_id)
+  }
+
   return res.json({
     message: 'Agent updated',
     data: result.db,
@@ -178,7 +204,14 @@ export const deleteAgent = async (req, res) => {
     })
   }
 
+  // Get organization ID before delete to clear cache
+  const existing = await agentService.getAgentById(agentId)
+
   const result = await agentService.deleteAgent(agentId)
+
+  if (existing?.organization_id) {
+    await clearAgentsCache(existing.organization_id)
+  }
 
   return res.json({
     message: 'Agent deleted',

@@ -2,6 +2,7 @@ import { Queue, Worker } from 'bullmq'
 import Stripe from 'stripe'
 import { bullRedisConnection } from '../config/redis.js'
 import { supabaseAdmin } from '../config/supabase.js'
+import { clearOrgCache } from '../redis/billingCache.js'
 import pino from 'pino'
 
 const logger = pino({
@@ -106,6 +107,7 @@ async function handleWebhookEvent(event) {
         }, { onConflict: 'organization_id' })
 
       if (error) throw error
+      await clearOrgCache(organizationId)
       logger.info({ organizationId, subscriptionId }, 'Successfully recorded completed subscription')
       break
     }
@@ -127,6 +129,14 @@ async function handleWebhookEvent(event) {
         .eq('stripe_subscription_id', sub.id)
 
       if (error) throw error
+      const { data: subData } = await supabaseAdmin
+        .from('subscriptions')
+        .select('organization_id')
+        .eq('stripe_subscription_id', sub.id)
+        .maybeSingle()
+      if (subData?.organization_id) {
+        await clearOrgCache(subData.organization_id)
+      }
       logger.info({ subscriptionId: sub.id }, 'Successfully updated subscription details')
       break
     }
@@ -155,6 +165,14 @@ async function handleWebhookEvent(event) {
         .eq('stripe_subscription_id', sub.id)
 
       if (error) throw error
+      const { data: subData } = await supabaseAdmin
+        .from('subscriptions')
+        .select('organization_id')
+        .eq('stripe_subscription_id', sub.id)
+        .maybeSingle()
+      if (subData?.organization_id) {
+        await clearOrgCache(subData.organization_id)
+      }
       logger.info({ subscriptionId: sub.id }, 'Successfully marked subscription as canceled/downgraded')
       break
     }
@@ -193,7 +211,8 @@ async function handleWebhookEvent(event) {
         }, { onConflict: 'stripe_invoice_id' })
 
       if (error) throw error
-
+      await clearOrgCache(subData.organization_id)
+      
       // Enqueue invoice payment success email
       await paymentQueue.add('send-payment-email', {
         email: invoice.customer_email || invoice.billing_details?.email,
@@ -240,6 +259,8 @@ async function handleWebhookEvent(event) {
         .update({ status: 'past_due', updated_at: new Date().toISOString() })
         .eq('stripe_subscription_id', invoice.subscription)
 
+      await clearOrgCache(subData.organization_id)
+
       // Enqueue invoice payment failed email
       await paymentQueue.add('send-payment-email', {
         email: invoice.customer_email || invoice.billing_details?.email,
@@ -284,6 +305,8 @@ async function handleWebhookEvent(event) {
           .update({ is_default: false })
           .eq('organization_id', subData.organization_id)
           .neq('stripe_payment_method_id', pm.id)
+
+        await clearOrgCache(subData.organization_id)
       }
       break
     }

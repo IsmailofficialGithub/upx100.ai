@@ -19,7 +19,7 @@ interface TopbarProps {
 
 const Topbar: React.FC<TopbarProps> = ({ title, onMenuClick, portalShell, showTenantScope = false }) => {
   const { toggleMode, isLight } = useTheme();
-  const { isAuthenticated, logout, login, canPauseCampaigns, canExportMonthly, isGCCAdmin, isClient } = useAuth();
+  const { isAuthenticated, logout, login, canPauseCampaigns, canExportMonthly, isGCCAdmin, isClient, isGCC, isSP, user } = useAuth();
   const gccScope = useGccTenantScope();
   const [showPauseModal, setShowPauseModal] = useState(false);
   const [pausedScopes, setPausedScopes] = useState<Record<string, boolean>>({});
@@ -27,12 +27,22 @@ const Topbar: React.FC<TopbarProps> = ({ title, onMenuClick, portalShell, showTe
   const [activePlan, setActivePlan] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated || !isClient) return;
+    let targetOrgId = null;
+    if (isClient && user?.orgId) {
+      targetOrgId = user.orgId;
+    } else if ((isGCC || isSP) && gccScope.scopeOrgId && gccScope.scopeOrgId !== 'all') {
+      targetOrgId = gccScope.scopeOrgId;
+    }
+
+    if (!isAuthenticated || !targetOrgId) {
+      setActivePlan(null);
+      return;
+    }
 
     let active = true;
     const fetchPlan = async () => {
       try {
-        const res = await api.get('/billing/status');
+        const res = await api.get(`/billing/status?orgId=${targetOrgId}`);
         const planName = res.data?.data?.subscription?.package?.name || 'Free';
         if (active) {
           setActivePlan(planName);
@@ -56,7 +66,7 @@ const Topbar: React.FC<TopbarProps> = ({ title, onMenuClick, portalShell, showTe
       active = false;
       window.removeEventListener('billing-plan-updated', handlePlanUpdate);
     };
-  }, [isAuthenticated, isClient]);
+  }, [isAuthenticated, isClient, isGCC, isSP, user?.orgId, gccScope.scopeOrgId]);
   const pauseScopeKey = gccScope.scopeOrgId || 'all';
   const isPaused = Boolean(pausedScopes[pauseScopeKey]);
   const selectedOrgName = gccScope.organizations.find((org) => org.id === gccScope.scopeOrgId)?.name;
@@ -166,7 +176,7 @@ const Topbar: React.FC<TopbarProps> = ({ title, onMenuClick, portalShell, showTe
         <div className="flex items-center gap-2">
           {isAuthenticated ? (
             <>
-              {isClient && activePlan && (
+              {activePlan && (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[10px] font-extrabold uppercase bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))] border border-[hsl(var(--primary))]/20 shadow-sm shrink-0">
                   <ShieldCheck size={11} className="text-[hsl(var(--primary))]" />
                   {activePlan} Plan
