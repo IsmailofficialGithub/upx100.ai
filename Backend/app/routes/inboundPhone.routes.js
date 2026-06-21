@@ -2,6 +2,7 @@ import express from 'express'
 import * as phoneController from '../controllers/inboundPhone.controller.js'
 import { auth } from '../middlewares/auth.js'
 import { requireRole } from '../middlewares/rbac.js'
+import { enforceLimits } from '../middlewares/enforceLimits.js'
 
 const router = express.Router()
 
@@ -15,7 +16,7 @@ router.use(auth)
 router.get('/', phoneController.getNumbers)
 router.get('/:numberId/status', requireRole(['gcc_admin', 'client_admin', 'client_sub', 'sp_primary', 'sp_sub']), phoneController.checkStatus)
 
-router.post('/', requireRole(['gcc_admin', 'client_admin', 'client_sub', 'sp_primary', 'sp_sub']), phoneController.provisionNumber)
+router.post('/', requireRole(['gcc_admin', 'client_admin', 'client_sub', 'sp_primary', 'sp_sub']), enforceLimits('max_inbound_phone_numbers'), phoneController.provisionNumber)
 
 router.patch('/:numberId', requireRole(['gcc_admin', 'client_admin', 'client_sub', 'sp_primary', 'sp_sub']), phoneController.updateNumber)
 

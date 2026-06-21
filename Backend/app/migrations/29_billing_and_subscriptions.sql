@@ -162,8 +162,8 @@ INSERT INTO public.subscription_packages (
 (
   'Pro', 
   'For growing teams', 
-  'prod_pro_placeholder', 
-  'price_pro_month_placeholder', 
+  NULL, 
+  NULL, 
   4900, 
   5, 
   5, 
@@ -174,8 +174,8 @@ INSERT INTO public.subscription_packages (
 (
   'Premium', 
   'For large operations', 
-  'prod_premium_placeholder', 
-  'price_premium_month_placeholder', 
+  NULL, 
+  NULL, 
   14900, 
   20, 
   20, 
@@ -183,3 +183,4 @@ INSERT INTO public.subscription_packages (
   true, 
   50000
 );
+

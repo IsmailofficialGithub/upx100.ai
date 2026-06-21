@@ -3,6 +3,7 @@ import * as agentController from '../controllers/inboundAgent.controller.js'
 import * as knowledgeBaseController from '../controllers/knowledgeBase.controller.js'
 import { auth } from '../middlewares/auth.js'
 import { requireRole } from '../middlewares/rbac.js'
+import { enforceLimits } from '../middlewares/enforceLimits.js'
 
 const router = express.Router()
 
@@ -23,7 +24,7 @@ router.post(
 )
 router.get('/:agentId', agentController.getAgent)
 
-router.post('/', requireRole(['gcc_admin', 'client_admin', 'client_sub', 'sp_primary', 'sp_sub']), agentController.createAgent)
+router.post('/', requireRole(['gcc_admin', 'client_admin', 'client_sub', 'sp_primary', 'sp_sub']), enforceLimits('max_agents'), agentController.createAgent)
 router.patch('/:agentId', requireRole(['gcc_admin', 'client_admin', 'client_sub', 'sp_primary', 'sp_sub']), agentController.updateAgent)
 router.delete('/:agentId', requireRole(['gcc_admin', 'client_admin', 'client_sub', 'sp_primary', 'sp_sub']), agentController.deleteAgent)
 
