@@ -26,6 +26,8 @@ import VoicePersonaView from '@/components/dashboard/VoicePersonaView';
 import HitlQueueView from '@/components/dashboard/HitlQueueView';
 import CommissionsPage from '@/components/dashboard/CommissionsPage';
 import OutboundTargetsView from '@/components/dashboard/OutboundTargetsView';
+// Import BillingView for Stripe billing
+import BillingView from '@/components/dashboard/BillingView';
 import { formatNullableLocaleDate } from '@/lib/dateFormat';
 import PhoneLineStatusBadge from '@/components/shared/PhoneLineStatusBadge';
 
@@ -53,6 +55,7 @@ function App() {
             <Route path="agents" element={<AdminAgentsView />} />
             <Route path="team" element={<TeamView />} />
             <Route path="outbound-targets" element={<OutboundTargetsView />} />
+            <Route path="billing" element={<BillingView />} />
           </Route>
 
           {/* Admin Routes */}

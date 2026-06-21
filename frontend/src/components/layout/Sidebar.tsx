@@ -18,6 +18,7 @@ import {
   Shield,
   Rocket,
   Banknote,
+  CreditCard,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -170,6 +171,7 @@ const CLIENT_ADMIN_PORTAL_NAV: GccNavGroup[] = [
       { label: 'Phone Numbers', path: '/client/phone-numbers', icon: Phone },
       { label: 'AI Agent Management', path: '/client/agents', icon: Cpu },
       { label: 'Team', path: '/client/team', icon: Users },
+      { label: 'Billing & Plans', path: '/client/billing', icon: CreditCard },
     ],
   },
 ];
@@ -195,6 +197,7 @@ const CLIENT_SUB_PORTAL_NAV: GccNavGroup[] = [
     items: [
       { label: 'Phone Numbers', path: '/client/phone-numbers', icon: Phone },
       { label: 'AI Agent Management', path: '/client/agents', icon: Cpu },
+      { label: 'Billing & Plans', path: '/client/billing', icon: CreditCard },
     ],
   },
 ];

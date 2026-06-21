@@ -6,6 +6,7 @@ import helmet from 'helmet'
 import morgan from 'morgan'
 import { errorHandler } from './middlewares/error.js'
 import apiRouter from './routes/index.js'
+import { handleStripeWebhook } from './controllers/billing.controller.js'
 
 dotenv.config({ path: process.env.NODE_ENV === 'test' ? '.env.test' : '.env' })
 
@@ -15,6 +16,10 @@ const app = express()
 // Security & Logging Middlewares
 app.use(helmet())
 app.use(cors({ origin: ['http://localhost:3000'], credentials: true }))
+
+// Stripe Webhook Endpoint (MUST be registered before express.json body parser to keep raw body buffer intact)
+app.post('/api/billing/webhook', express.raw({ type: 'application/json' }), handleStripeWebhook)
+
 app.use(express.json({ limit: '8mb' }))
 
 // Conditionally use morgan to avoid noise in tests

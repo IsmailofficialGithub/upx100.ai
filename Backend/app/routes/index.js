@@ -15,6 +15,7 @@ import dashboardRoutes from './dashboard.routes.js'
 import analyticsRoutes from './analytics.routes.js'
 import commissionRoutes from './commission.routes.js'
 import outboundTargetRoutes from './outboundTarget.routes.js'
+import billingRoutes from './billing.routes.js'
 
 const router = express.Router()
 
@@ -26,6 +27,7 @@ router.use('/dashboard', dashboardRoutes)
 router.use('/analytics', analyticsRoutes)
 router.use('/commissions', commissionRoutes)
 router.use('/users', userRoutes)
+router.use('/billing', billingRoutes)
 
 router.use('/agents', agentRoutes)
 router.use('/phone-numbers', phoneRoutes)
