@@ -26,8 +26,8 @@ redis.on('error', (err) => {
 
 // Configuration for BullMQ connection options
 export const bullRedisConnection = {
-  host: redis.options.host || '127.0.0.1',
-  port: redis.options.port || 6379,
+  host: redis?.options?.host || '127.0.0.1',
+  port: redis?.options?.port || 6379,
   maxRetriesPerRequest: null // BullMQ requires this to be null
 }
 
