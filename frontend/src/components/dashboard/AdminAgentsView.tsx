@@ -967,6 +967,7 @@ const AdminAgentsView: React.FC = () => {
                           <option value="support">Support</option>
                           <option value="qualification">Lead Qualification</option>
                           <option value="receptionist">Receptionist</option>
+                          <option value="outbound">Outbound Dialer</option>
                         </select>
                       </div>
                       <div className="space-y-2">

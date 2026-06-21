@@ -16,6 +16,7 @@ const AGENT_TYPE_LABELS = {
   support: 'Support',
   qualification: 'Lead Qualification',
   receptionist: 'Receptionist',
+  outbound: 'Outbound Dialer',
 }
 
 const TONE_LABELS = {
@@ -34,6 +35,8 @@ const AGENT_TYPE_GUIDANCE = {
     'Ask structured qualification questions (need, timeline, authority, budget signals). Score fit and route or book only when criteria are met.',
   receptionist:
     'Greet warmly, identify intent quickly, route or schedule accurately, and keep calls concise while remaining helpful.',
+  outbound:
+    'Deliver concise pitches, verify interest immediately, and handle requests to be placed on the DNC list professionally.',
 }
 
 const TONE_GUIDANCE = {

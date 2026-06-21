@@ -142,7 +142,7 @@ export const updateAgent = async (req, res) => {
     })
   }
 
-  const updateBody = { ...req.body, user_id: req.user.userId }
+  const updateBody = { ...req.body }
   if (req.body.recording_disclosure_enabled !== undefined) {
     updateBody.recording_disclosure_enabled = parseRecordingDisclosureEnabled(
       req.body.recording_disclosure_enabled,

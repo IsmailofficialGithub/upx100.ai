@@ -58,6 +58,7 @@ const GCC_ADMIN_NAV: GccNavGroup[] = [
       { label: 'AI Agent Management', path: '/admin/agents', icon: Cpu },
       { label: 'Phone Numbers', path: '/admin/phone-numbers', icon: Phone },
       { label: 'Leads', path: '/admin/leads', icon: FileText },
+      { label: 'Outbound Targets', path: '/admin/outbound-targets', icon: FileText },
     ],
   },
 ];
@@ -85,6 +86,7 @@ const GCC_REVIEWER_NAV: GccNavGroup[] = [
     items: [
       { label: 'AI Agent Management', path: '/admin/agents', icon: Cpu },
       { label: 'Phone Numbers', path: '/admin/phone-numbers', icon: Phone },
+      { label: 'Outbound Targets', path: '/admin/outbound-targets', icon: FileText },
     ],
   },
 ];
@@ -111,6 +113,7 @@ const PARTNER_PRIMARY_NAV: GccNavGroup[] = [
       { label: 'Sales Performance', path: '/partner/analytics', icon: BarChart3 },
       { label: 'Call Logs', path: '/partner/call-logs', icon: Phone },
       { label: 'Leads', path: '/partner/leads', icon: FileText },
+      { label: 'Outbound Targets', path: '/partner/outbound-targets', icon: FileText },
       { label: 'Client Phone Numbers', path: '/partner/phone-numbers', icon: Phone },
       { label: 'AI Agents', path: '/partner/agents', icon: Cpu },
       { label: 'Team', path: '/partner/team', icon: Users },
@@ -134,6 +137,7 @@ const PARTNER_SUB_NAV: GccNavGroup[] = [
       { label: 'Sales Performance', path: '/partner/analytics', icon: BarChart3 },
       { label: 'Call Logs', path: '/partner/call-logs', icon: Phone },
       { label: 'Leads', path: '/partner/leads', icon: FileText },
+      { label: 'Outbound Targets', path: '/partner/outbound-targets', icon: FileText },
       { label: 'Client Phone Numbers', path: '/partner/phone-numbers', icon: Phone },
       { label: 'AI Agents', path: '/partner/agents', icon: Cpu },
       { label: 'Team', path: '/partner/team', icon: Users },
@@ -150,6 +154,7 @@ const CLIENT_ADMIN_PORTAL_NAV: GccNavGroup[] = [
       { label: 'Analytics & Insights', path: '/client/analytics', icon: BarChart3 },
       { label: 'Call Logs', path: '/client/call-logs', icon: Phone },
       { label: 'Leads', path: '/client/leads', icon: FileText },
+      { label: 'Outbound Targets', path: '/client/outbound-targets', icon: FileText },
     ],
   },
   {
@@ -178,6 +183,7 @@ const CLIENT_SUB_PORTAL_NAV: GccNavGroup[] = [
       { label: 'Analytics & Insights', path: '/client/analytics', icon: BarChart3 },
       { label: 'Call Logs', path: '/client/call-logs', icon: Phone },
       { label: 'Leads', path: '/client/leads', icon: FileText },
+      { label: 'Outbound Targets', path: '/client/outbound-targets', icon: FileText },
     ],
   },
   {
@@ -452,6 +458,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       label: 'Dashboard',
       path: `/${rolePrefix}/dashboard`,
       icon: LayoutDashboard,
+      group: 'CAMPAIGN',
+      roles: ['gcc_admin', 'gcc_reviewer', 'sp_primary', 'sp_sub', 'client_admin', 'client_sub'],
+    },
+    {
+      label: 'Outbound Targets',
+      path: `/${rolePrefix}/outbound-targets`,
+      icon: FileText,
       group: 'CAMPAIGN',
       roles: ['gcc_admin', 'gcc_reviewer', 'sp_primary', 'sp_sub', 'client_admin', 'client_sub'],
     },

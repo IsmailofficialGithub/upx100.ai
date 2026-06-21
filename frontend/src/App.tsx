@@ -25,6 +25,7 @@ import TeamView from '@/components/dashboard/TeamView';
 import VoicePersonaView from '@/components/dashboard/VoicePersonaView';
 import HitlQueueView from '@/components/dashboard/HitlQueueView';
 import CommissionsPage from '@/components/dashboard/CommissionsPage';
+import OutboundTargetsView from '@/components/dashboard/OutboundTargetsView';
 import { formatNullableLocaleDate } from '@/lib/dateFormat';
 import PhoneLineStatusBadge from '@/components/shared/PhoneLineStatusBadge';
 
@@ -51,6 +52,7 @@ function App() {
             <Route path="phone-numbers" element={<AdminPhoneNumbersView />} />
             <Route path="agents" element={<AdminAgentsView />} />
             <Route path="team" element={<TeamView />} />
+            <Route path="outbound-targets" element={<OutboundTargetsView />} />
           </Route>
 
           {/* Admin Routes */}
@@ -84,6 +86,7 @@ function App() {
                 emptyMessage="No commission records yet. Earnings populate after client payments are processed and reconciled."
               />
             } />
+            <Route path="outbound-targets" element={<OutboundTargetsView />} />
 
           </Route>
 
@@ -141,6 +144,7 @@ function App() {
               />
             } />
             <Route path="team" element={<TeamView />} />
+            <Route path="outbound-targets" element={<OutboundTargetsView />} />
           </Route>
 
         </Routes>
