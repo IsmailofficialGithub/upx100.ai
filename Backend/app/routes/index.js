@@ -14,6 +14,7 @@ import exportRoutes from './export.routes.js'
 import dashboardRoutes from './dashboard.routes.js'
 import analyticsRoutes from './analytics.routes.js'
 import commissionRoutes from './commission.routes.js'
+import outboundTargetRoutes from './outboundTarget.routes.js'
 
 const router = express.Router()
 
@@ -34,5 +35,6 @@ router.use('/campaigns', campaignRoutes)
 router.use('/script-requests', scriptRequestRoutes)
 router.use('/voice-clones', voiceCloneRoutes)
 router.use('/target-uploads', targetUploadRoutes)
+router.use('/outbound-targets', outboundTargetRoutes)
 
 export default router

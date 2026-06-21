@@ -62,6 +62,29 @@ describe('InboundAgent Service', () => {
     expect(result.db.id).toBe('mock-uuid')
   })
 
+  it('createAgent with agent_type outbound should call the creation webhook and insert into DB', async () => {
+    const mockAgentData = {
+      name: 'Outbound Agent',
+      organization_id: 'org123',
+      agent_type: 'outbound',
+      recording_disclosure_enabled: false,
+    }
+    axios.post.mockResolvedValue({ data: { id: 'external-vapi-id' } })
+
+    const result = await agentService.createAgent(mockAgentData)
+
+    expect(axios.post).toHaveBeenCalledWith(
+      'http://test-base/webhook/create_outbound_agent',
+      expect.objectContaining({
+        name: mockAgentData.name,
+        agent_type: 'outbound',
+        organization_id: mockAgentData.organization_id,
+      })
+    )
+    expect(supabaseAdmin.from).toHaveBeenCalledWith('agents')
+    expect(result.db.id).toBe('mock-uuid')
+  })
+
   it('deleteAgent should call the delete webhook and update DB status', async () => {
     const agentId = 'agent-123'
     axios.post.mockResolvedValue({ data: { status: 'deleted' } })
@@ -77,5 +100,54 @@ describe('InboundAgent Service', () => {
       })
     )
     expect(supabaseAdmin.update).toHaveBeenCalledWith(expect.objectContaining({ status: 'deleted' }))
+  })
+
+  it('updateAgent for outbound should call the edit outbound webhook', async () => {
+    const agentId = 'mock-uuid'
+    supabaseAdmin.single.mockResolvedValue({
+      data: {
+        id: 'mock-uuid',
+        agent_type: 'outbound',
+        organization_id: 'org123',
+        phone_numbers: []
+      },
+      error: null
+    })
+
+    axios.post.mockResolvedValue({ data: { success: true } })
+
+    await agentService.updateAgent(agentId, { name: 'Updated Outbound' })
+
+    expect(axios.post).toHaveBeenCalledWith(
+      'http://test-base/webhook/edit_outbound_agent',
+      expect.objectContaining({
+        agentId,
+        name: 'Updated Outbound',
+      })
+    )
+  })
+
+  it('deleteAgent for outbound should call the delete outbound webhook', async () => {
+    const agentId = 'mock-uuid'
+    supabaseAdmin.single.mockResolvedValue({
+      data: {
+        id: 'mock-uuid',
+        agent_type: 'outbound',
+        organization_id: 'org123',
+        phone_numbers: []
+      },
+      error: null
+    })
+
+    axios.post.mockResolvedValue({ data: { success: true } })
+
+    await agentService.deleteAgent(agentId)
+
+    expect(axios.post).toHaveBeenCalledWith(
+      'http://test-base/webhook/delete_outbound_agent',
+      expect.objectContaining({
+        agentId,
+      })
+    )
   })
 })

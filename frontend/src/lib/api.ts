@@ -29,6 +29,7 @@ const GCC_SCOPE_QUERY_PATHS = [
   '/admin/voice-clones',
   '/commissions',
   '/agents',
+  '/outbound-targets',
 ];
 
 function mergeGccTenantScopeParam(config: import('axios').InternalAxiosRequestConfig) {

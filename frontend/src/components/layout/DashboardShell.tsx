@@ -34,6 +34,7 @@ const gccPortalAdminTitles: Record<string, string> = {
   '/admin/agents': 'AI Agent Management',
   '/admin/phone-numbers': 'Phone Numbers',
   '/admin/leads': 'Leads',
+  '/admin/outbound-targets': 'Outbound Targets',
 };
 
 const partnerPortalTitles: Record<string, string> = {
@@ -48,6 +49,7 @@ const partnerPortalTitles: Record<string, string> = {
   '/partner/phone-numbers': 'Client Phone Numbers',
   '/partner/agents': 'AI Agents',
   '/partner/team': 'Team',
+  '/partner/outbound-targets': 'Outbound Targets',
 };
 
 /** GCC routes where the top-bar org picker filters list APIs below. */
@@ -63,6 +65,7 @@ const GCC_TENANT_SCOPE_PATHS = new Set([
   '/admin/user',
   '/admin/sales-partners',
   '/admin/commissions',
+  '/admin/outbound-targets',
 ]);
 
 const clientPortalTitles: Record<string, string> = {
@@ -76,6 +79,7 @@ const clientPortalTitles: Record<string, string> = {
   '/client/phone-numbers': 'Phone Numbers',
   '/client/agents': 'AI Agent Management',
   '/client/team': 'Team',
+  '/client/outbound-targets': 'Outbound Targets',
 };
 
 const DashboardShell: React.FC = () => {

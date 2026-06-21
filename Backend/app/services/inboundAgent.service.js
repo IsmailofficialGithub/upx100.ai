@@ -8,7 +8,10 @@ import { enrichAgentPayload } from '../lib/agentPrompt.js'
  */
 
 export const createAgent = async (agentData) => {
-  const webhookUrl = `${process.env.REACT_APP_WEBHOOK_BASE_URL}${process.env.REACT_APP_WEBHOOK_CREATE_AGENT}`
+  const webhookPath = agentData.agent_type === 'outbound'
+    ? '/webhook/create_outbound_agent'
+    : process.env.REACT_APP_WEBHOOK_CREATE_AGENT
+  const webhookUrl = `${process.env.REACT_APP_WEBHOOK_BASE_URL}${webhookPath}`
 
   const enriched = enrichAgentPayload(agentData)
 
@@ -94,7 +97,10 @@ export const updateAgent = async (agentId, updateData) => {
 
   if (fetchError || !existing) throw fetchError || new Error('Agent not found')
 
-  const webhookUrl = `${process.env.REACT_APP_WEBHOOK_BASE_URL}${process.env.REACT_APP_WEBHOOK_EDIT_AGENT}`
+  const webhookPath = existing.agent_type === 'outbound'
+    ? '/webhook/edit_outbound_agent'
+    : process.env.REACT_APP_WEBHOOK_EDIT_AGENT
+  const webhookUrl = `${process.env.REACT_APP_WEBHOOK_BASE_URL}${webhookPath}`
 
   const enriched = enrichAgentPayload(updateData, existing)
 
@@ -165,10 +171,13 @@ export const updateAgent = async (agentId, updateData) => {
 }
 
 export const deleteAgent = async (agentId) => {
-  const webhookUrl = `${process.env.REACT_APP_WEBHOOK_BASE_URL}${process.env.REACT_APP_WEBHOOK_DELETE_AGENT}`
-
   const existing = await getAgentById(agentId)
   if (!existing) throw new Error('Agent not found')
+
+  const webhookPath = existing.agent_type === 'outbound'
+    ? '/webhook/delete_outbound_agent'
+    : process.env.REACT_APP_WEBHOOK_DELETE_AGENT
+  const webhookUrl = `${process.env.REACT_APP_WEBHOOK_BASE_URL}${webhookPath}`
 
   // 1. Trigger external automation
   const webhookResponse = await axios.post(webhookUrl, {
