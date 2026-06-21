@@ -67,7 +67,7 @@ const Topbar: React.FC<TopbarProps> = ({ title, onMenuClick, portalShell, showTe
     : { scopeOrgId: gccScope.scopeOrgId, organizationId: gccScope.scopeOrgId };
 
   const handleLogin = () => {
-    login('client_admin');
+    login('client_admin', 'password');
   };
 
   const handlePause = async (reason: string) => {

@@ -81,7 +81,7 @@ const BillingView: React.FC = () => {
       const statusRes = await api.get('/billing/status');
       setSubStatus(statusRes.data?.data?.subscription || null);
       setPaymentMethod(statusRes.data?.data?.payment_method || null);
-      
+
       // Dispatch custom event to sync with Topbar active plan display
       window.dispatchEvent(new Event('billing-plan-updated'));
 
@@ -518,12 +518,7 @@ const BillingView: React.FC = () => {
                 )}
               </button>
             ) : (
-              <button
-                onClick={handleScrollToPlans}
-                className="mt-3 py-1.5 px-4 rounded-xl bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/90 text-[hsl(var(--primary-foreground))] text-xs font-semibold shadow-md transition-all active:scale-[0.98]"
-              >
-                Upgrade Plan
-              </button>
+              <p>No invoices available</p>
             )}
           </div>
         )}
