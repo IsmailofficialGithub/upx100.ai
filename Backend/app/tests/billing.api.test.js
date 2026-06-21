@@ -155,6 +155,24 @@ describe('Billing and Payment API', () => {
     })
   })
 
+  describe('GET /api/billing/packages', () => {
+    it('should return packages list', async () => {
+      supabaseAdmin.order.mockResolvedValueOnce({
+        data: [
+          { id: 'pkg_1', name: 'Free', amount_cents: 0 }
+        ],
+        error: null
+      })
+
+      const res = await request(app)
+        .get('/api/billing/packages')
+      
+      expect(res.statusCode).toEqual(200)
+      expect(res.body.data).toHaveLength(1)
+      expect(res.body.data[0]).toHaveProperty('name', 'Free')
+    })
+  })
+
   describe('POST /api/billing/webhook (Public raw body endpoint)', () => {
     it('should reject requests with missing Stripe signature', async () => {
       const res = await request(app)

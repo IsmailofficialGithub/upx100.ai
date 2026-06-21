@@ -15,6 +15,9 @@ router.use(auth)
 router.post('/checkout', requireRole(['gcc_admin', 'client_admin']), billingController.checkout)
 router.post('/portal', requireRole(['gcc_admin', 'client_admin']), billingController.portal)
 
+// Retrieve active billing packages
+router.get('/packages', requireRole(['gcc_admin', 'gcc_reviewer', 'client_admin', 'client_sub']), billingController.getPackages)
+
 // Sub-users, admins, and reviewers can view the subscription status
 router.get('/status', requireRole(['gcc_admin', 'gcc_reviewer', 'client_admin', 'client_sub']), billingController.status)
 

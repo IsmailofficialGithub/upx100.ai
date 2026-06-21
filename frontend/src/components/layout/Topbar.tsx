@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
-import { Menu, Moon, Sun, Download, Pause, Play, LogOut, Loader2 } from 'lucide-react';
+import { Menu, Moon, Sun, Download, Pause, Play, LogOut, Loader2, ShieldCheck } from 'lucide-react';
 import api from '@/lib/api';
 import { toast } from 'sonner';
 import { downloadMonthlyExportPdf, type MonthlyExportPayload } from '@/lib/exportMonthlyPdf';
@@ -19,11 +19,44 @@ interface TopbarProps {
 
 const Topbar: React.FC<TopbarProps> = ({ title, onMenuClick, portalShell, showTenantScope = false }) => {
   const { toggleMode, isLight } = useTheme();
-  const { isAuthenticated, logout, login, canPauseCampaigns, canExportMonthly, isGCCAdmin } = useAuth();
+  const { isAuthenticated, logout, login, canPauseCampaigns, canExportMonthly, isGCCAdmin, isClient } = useAuth();
   const gccScope = useGccTenantScope();
   const [showPauseModal, setShowPauseModal] = useState(false);
   const [pausedScopes, setPausedScopes] = useState<Record<string, boolean>>({});
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [activePlan, setActivePlan] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isAuthenticated || !isClient) return;
+
+    let active = true;
+    const fetchPlan = async () => {
+      try {
+        const res = await api.get('/billing/status');
+        const planName = res.data?.data?.subscription?.package?.name || 'Free';
+        if (active) {
+          setActivePlan(planName);
+        }
+      } catch (err) {
+        console.error('Failed to fetch active plan in topbar', err);
+        if (active) {
+          setActivePlan('Free');
+        }
+      }
+    };
+
+    fetchPlan();
+
+    const handlePlanUpdate = () => {
+      fetchPlan();
+    };
+    window.addEventListener('billing-plan-updated', handlePlanUpdate);
+
+    return () => {
+      active = false;
+      window.removeEventListener('billing-plan-updated', handlePlanUpdate);
+    };
+  }, [isAuthenticated, isClient]);
   const pauseScopeKey = gccScope.scopeOrgId || 'all';
   const isPaused = Boolean(pausedScopes[pauseScopeKey]);
   const selectedOrgName = gccScope.organizations.find((org) => org.id === gccScope.scopeOrgId)?.name;
@@ -133,6 +166,12 @@ const Topbar: React.FC<TopbarProps> = ({ title, onMenuClick, portalShell, showTe
         <div className="flex items-center gap-2">
           {isAuthenticated ? (
             <>
+              {isClient && activePlan && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[10px] font-extrabold uppercase bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))] border border-[hsl(var(--primary))]/20 shadow-sm shrink-0">
+                  <ShieldCheck size={11} className="text-[hsl(var(--primary))]" />
+                  {activePlan} Plan
+                </span>
+              )}
               <button
                 onClick={toggleMode}
                 className={`p-2 rounded-lg hover:bg-[hsl(var(--muted))] transition-colors ${

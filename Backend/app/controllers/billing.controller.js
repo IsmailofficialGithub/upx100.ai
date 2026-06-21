@@ -15,6 +15,25 @@ const logger = pino({
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder')
 
 /**
+ * Fetch all active subscription packages/tiers from the database
+ */
+export const getPackages = async (req, res, next) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('subscription_packages')
+      .select('*')
+      .eq('is_active', true)
+      .order('amount_cents', { ascending: true })
+
+    if (error) throw error
+    return res.json({ data })
+  } catch (err) {
+    logger.error({ err }, 'Fetching subscription packages failed')
+    next(err)
+  }
+}
+
+/**
  * Initiate checkout session for a billing package
  */
 export const checkout = async (req, res, next) => {

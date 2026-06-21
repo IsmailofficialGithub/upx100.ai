@@ -7,7 +7,7 @@
 -- Table A: Subscription Packages (Pricing / Tiers / Limits)
 CREATE TABLE public.subscription_packages (
   id                        uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  name                      text NOT NULL,
+  name                      text NOT NULL UNIQUE,
   description               text,
   stripe_product_id         text UNIQUE,
   stripe_price_id           text UNIQUE,
