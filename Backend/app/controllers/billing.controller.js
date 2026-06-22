@@ -75,6 +75,37 @@ export const checkout = async (req, res, next) => {
   }
 }
 
+export const confirmCheckout = async (req, res, next) => {
+  try {
+    const { sessionId } = req.body
+    if (!sessionId) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        error: { code: 'MISSING_SESSION_ID', message: 'sessionId is required' }
+      })
+    }
+
+    const result = await stripeService.confirmCheckoutSession({
+      organizationId: req.user.orgId,
+      sessionId
+    })
+
+    return res.json({ data: result })
+  } catch (err) {
+    if (err.code === 'CHECKOUT_SESSION_FORBIDDEN') {
+      return res.status(StatusCodes.FORBIDDEN).json({
+        error: { code: err.code, message: err.message }
+      })
+    }
+    if (err.code === 'CHECKOUT_SESSION_INCOMPLETE') {
+      return res.status(StatusCodes.CONFLICT).json({
+        error: { code: err.code, message: err.message }
+      })
+    }
+    logger.error({ err }, 'Checkout session confirmation failed')
+    next(err)
+  }
+}
+
 /**
  * Initiate customer billing portal session
  */

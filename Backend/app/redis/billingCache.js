@@ -19,11 +19,9 @@ export const getCachedPackages = async () => {
   try {
     const cached = await redis.get('billing:packages')
     if (cached) {
-      console.log('[REDIS ACTION] getCachedPackages -> HIT')
       logger.info('REDIS ACTION: getCachedPackages -> HIT')
       return JSON.parse(cached)
     }
-    console.log('[REDIS ACTION] getCachedPackages -> MISS')
     logger.info('REDIS ACTION: getCachedPackages -> MISS')
     return null
   } catch (err) {
@@ -43,7 +41,6 @@ export const setCachedPackages = async (packages) => {
   }
   try {
     await redis.set('billing:packages', JSON.stringify(packages), 'EX', 3600) // 1 hour
-    console.log('[REDIS ACTION] setCachedPackages -> SET')
     logger.info('REDIS ACTION: setCachedPackages -> SET')
   } catch (err) {
     console.error('[REDIS ERROR] setCachedPackages failed:', err)
@@ -62,11 +59,9 @@ export const getCachedBillingStatus = async (orgId) => {
   try {
     const cached = await redis.get(`org:billing:${orgId}`)
     if (cached) {
-      console.log(`[REDIS ACTION] getCachedBillingStatus (orgId: ${orgId}) -> HIT`)
       logger.info({ orgId }, 'REDIS ACTION: getCachedBillingStatus -> HIT')
       return JSON.parse(cached)
     }
-    console.log(`[REDIS ACTION] getCachedBillingStatus (orgId: ${orgId}) -> MISS`)
     logger.info({ orgId }, 'REDIS ACTION: getCachedBillingStatus -> MISS')
     return null
   } catch (err) {
@@ -86,7 +81,6 @@ export const setCachedBillingStatus = async (orgId, statusData) => {
   }
   try {
     await redis.set(`org:billing:${orgId}`, JSON.stringify(statusData), 'EX', 600) // 10 minutes
-    console.log(`[REDIS ACTION] setCachedBillingStatus (orgId: ${orgId}) -> SET`)
     logger.info({ orgId }, 'REDIS ACTION: setCachedBillingStatus -> SET')
   } catch (err) {
     console.error(`[REDIS ERROR] setCachedBillingStatus (orgId: ${orgId}) failed:`, err)
@@ -105,11 +99,9 @@ export const getCachedLimits = async (orgId) => {
   try {
     const cached = await redis.get(`org:limits:${orgId}`)
     if (cached) {
-      console.log(`[REDIS ACTION] getCachedLimits (orgId: ${orgId}) -> HIT`)
       logger.info({ orgId }, 'REDIS ACTION: getCachedLimits -> HIT')
       return JSON.parse(cached)
     }
-    console.log(`[REDIS ACTION] getCachedLimits (orgId: ${orgId}) -> MISS`)
     logger.info({ orgId }, 'REDIS ACTION: getCachedLimits -> MISS')
     return null
   } catch (err) {
@@ -129,7 +121,6 @@ export const setCachedLimits = async (orgId, limits) => {
   }
   try {
     await redis.set(`org:limits:${orgId}`, JSON.stringify(limits), 'EX', 600) // 10 minutes
-    console.log(`[REDIS ACTION] setCachedLimits (orgId: ${orgId}) -> SET`)
     logger.info({ orgId }, 'REDIS ACTION: setCachedLimits -> SET')
   } catch (err) {
     console.error(`[REDIS ERROR] setCachedLimits (orgId: ${orgId}) failed:`, err)
@@ -149,7 +140,6 @@ export const clearOrgCache = async (orgId) => {
   try {
     await redis.del(`org:limits:${orgId}`)
     await redis.del(`org:billing:${orgId}`)
-    console.log(`[REDIS ACTION] clearOrgCache (orgId: ${orgId}) -> DEL org:limits & org:billing`)
     logger.info({ orgId }, 'Successfully invalidated Redis caches for organization')
   } catch (err) {
     console.error(`[REDIS ERROR] clearOrgCache (orgId: ${orgId}) failed:`, err)

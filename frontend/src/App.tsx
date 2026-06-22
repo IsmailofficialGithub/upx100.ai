@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { AuthProvider } from '@/context/AuthContext';
 import { GccTenantScopeProvider } from '@/context/GccTenantScopeContext';
@@ -31,6 +31,11 @@ import BillingView from '@/components/dashboard/BillingView';
 import { formatNullableLocaleDate } from '@/lib/dateFormat';
 import PhoneLineStatusBadge from '@/components/shared/PhoneLineStatusBadge';
 
+const LegacyBillingRedirect = () => {
+  const { search } = useLocation();
+  return <Navigate to={`/client/billing${search}`} replace />;
+};
+
 function App() {
   return (
     <ThemeProvider>
@@ -41,6 +46,7 @@ function App() {
 
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/billing" element={<LegacyBillingRedirect />} />
           
           {/* Client Routes */}
           <Route path="/client" element={<DashboardShell />}>

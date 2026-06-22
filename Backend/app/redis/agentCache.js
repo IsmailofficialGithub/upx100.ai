@@ -20,11 +20,9 @@ export const getCachedAgents = async (orgId, userId = null) => {
   try {
     const cached = await redis.get(key)
     if (cached) {
-      console.log(`[REDIS ACTION] getCachedAgents (${key}) -> HIT`)
       logger.info({ key }, 'REDIS ACTION: getCachedAgents -> HIT')
       return JSON.parse(cached)
     }
-    console.log(`[REDIS ACTION] getCachedAgents (${key}) -> MISS`)
     logger.info({ key }, 'REDIS ACTION: getCachedAgents -> MISS')
     return null
   } catch (err) {
@@ -45,7 +43,6 @@ export const setCachedAgents = async (orgId, userId, agents) => {
   const key = `org:agents:${orgId || 'null'}:${userId || 'all'}`
   try {
     await redis.set(key, JSON.stringify(agents), 'EX', 600) // 10 minutes cache
-    console.log(`[REDIS ACTION] setCachedAgents (${key}) -> SET`)
     logger.info({ key }, 'REDIS ACTION: setCachedAgents -> SET')
   } catch (err) {
     console.error(`[REDIS ERROR] setCachedAgents (${key}) failed:`, err)
@@ -66,10 +63,7 @@ export const clearAgentsCache = async (orgId) => {
     const keys = await redis.keys(pattern)
     if (keys.length > 0) {
       await redis.del(...keys)
-      console.log(`[REDIS ACTION] clearAgentsCache (pattern: ${pattern}) -> DEL ${keys.length} keys`)
       logger.info({ pattern, count: keys.length }, 'Successfully cleared matching agents caches in Redis')
-    } else {
-      console.log(`[REDIS ACTION] clearAgentsCache (pattern: ${pattern}) -> NO KEYS FOUND`)
     }
   } catch (err) {
     console.error(`[REDIS ERROR] clearAgentsCache (orgId: ${orgId}) failed:`, err)

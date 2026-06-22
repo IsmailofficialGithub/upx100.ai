@@ -13,9 +13,14 @@ dotenv.config({ path: process.env.NODE_ENV === 'test' ? '.env.test' : '.env' })
 // Create Express app
 const app = express()
 
+const allowedOrigins = (process.env.CORS_ORIGINS || process.env.FRONTEND_URL || 'http://localhost:3000')
+  .split(',')
+  .map((origin) => origin.trim().replace(/\/+$/, ''))
+  .filter(Boolean)
+
 // Security & Logging Middlewares
 app.use(helmet())
-app.use(cors({ origin: ['http://localhost:3000'], credentials: true }))
+app.use(cors({ origin: allowedOrigins, credentials: true }))
 
 // Stripe Webhook Endpoint (MUST be registered before express.json body parser to keep raw body buffer intact)
 app.post('/api/billing/webhook', express.raw({ type: 'application/json' }), handleStripeWebhook)
