@@ -24,6 +24,18 @@ export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
 })
 
 /**
+ * Dedicated client for Auth flows that create or replace an in-memory session.
+ * Keeping this separate prevents a signed-in user's JWT from being used by
+ * service-role database queries on supabaseAdmin.
+ */
+export const supabaseAuth = createClient(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
+  }
+})
+
+/**
  * Supabase client that runs queries as the **end user** (JWT in Authorization header).
  * Row Level Security policies apply. Requires SUPABASE_ANON_KEY.
  *

@@ -13,6 +13,7 @@ router.use(auth)
 
 // Only clients or admins can manage checkout/portal subscriptions
 router.post('/checkout', requireRole(['gcc_admin', 'client_admin']), billingController.checkout)
+router.post('/checkout/confirm', requireRole(['gcc_admin', 'client_admin']), billingController.confirmCheckout)
 router.post('/portal', requireRole(['gcc_admin', 'client_admin']), billingController.portal)
 
 // Retrieve active billing packages

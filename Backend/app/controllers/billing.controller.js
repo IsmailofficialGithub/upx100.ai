@@ -4,6 +4,12 @@ import { supabaseAdmin } from '../config/supabase.js'
 import { paymentQueue } from '../queues/payment.queue.js'
 import { StatusCodes } from 'http-status-codes'
 import pino from 'pino'
+import {
+  getCachedPackages,
+  setCachedPackages,
+  getCachedBillingStatus,
+  setCachedBillingStatus
+} from '../redis/billingCache.js'
 
 const logger = pino({
   transport: {
@@ -19,6 +25,13 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder'
  */
 export const getPackages = async (req, res, next) => {
   try {
+    // 1. Try to fetch from Redis cache service
+    const cached = await getCachedPackages()
+    if (cached) {
+      return res.json({ data: cached })
+    }
+
+    // 2. Fetch from Database
     const { data, error } = await supabaseAdmin
       .from('subscription_packages')
       .select('*')
@@ -26,6 +39,10 @@ export const getPackages = async (req, res, next) => {
       .order('amount_cents', { ascending: true })
 
     if (error) throw error
+
+    // 3. Cache the results in Redis
+    await setCachedPackages(data)
+
     return res.json({ data })
   } catch (err) {
     logger.error({ err }, 'Fetching subscription packages failed')
@@ -58,6 +75,37 @@ export const checkout = async (req, res, next) => {
   }
 }
 
+export const confirmCheckout = async (req, res, next) => {
+  try {
+    const { sessionId } = req.body
+    if (!sessionId) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        error: { code: 'MISSING_SESSION_ID', message: 'sessionId is required' }
+      })
+    }
+
+    const result = await stripeService.confirmCheckoutSession({
+      organizationId: req.user.orgId,
+      sessionId
+    })
+
+    return res.json({ data: result })
+  } catch (err) {
+    if (err.code === 'CHECKOUT_SESSION_FORBIDDEN') {
+      return res.status(StatusCodes.FORBIDDEN).json({
+        error: { code: err.code, message: err.message }
+      })
+    }
+    if (err.code === 'CHECKOUT_SESSION_INCOMPLETE') {
+      return res.status(StatusCodes.CONFLICT).json({
+        error: { code: err.code, message: err.message }
+      })
+    }
+    logger.error({ err }, 'Checkout session confirmation failed')
+    next(err)
+  }
+}
+
 /**
  * Initiate customer billing portal session
  */
@@ -76,9 +124,30 @@ export const portal = async (req, res, next) => {
  */
 export const status = async (req, res, next) => {
   try {
-    const orgId = req.user.orgId
+    let orgId = req.user.orgId
 
-    // Fetch subscription details joined with package limits
+    // Allow GCC Admins and Resellers/Partners to scope to a specific organization ID
+    const userRole = req.user?.role
+    const isGcc = userRole === 'gcc_admin' || userRole === 'gcc_reviewer'
+    const isSp = userRole === 'sp_primary' || userRole === 'sp_sub'
+
+    if ((isGcc || isSp) && req.query.orgId) {
+      orgId = req.query.orgId
+    }
+
+    if (!orgId) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        error: { code: 'MISSING_ORG_ID', message: 'orgId is required' }
+      })
+    }
+
+    // 1. Try to get from Redis cache service
+    const cached = await getCachedBillingStatus(orgId)
+    if (cached) {
+      return res.json({ data: cached })
+    }
+
+    // 2. Fetch subscription details joined with package limits
     const { data: sub, error } = await supabaseAdmin
       .from('subscriptions')
       .select('*, package:subscription_packages(*)')
@@ -95,12 +164,15 @@ export const status = async (req, res, next) => {
       .eq('is_default', true)
       .maybeSingle()
 
-    return res.json({
-      data: {
-        subscription: sub || null,
-        payment_method: card || null
-      }
-    })
+    const result = {
+      subscription: sub || null,
+      payment_method: card || null
+    }
+
+    // 3. Cache the result in Redis
+    await setCachedBillingStatus(orgId, result)
+
+    return res.json({ data: result })
   } catch (err) {
     logger.error({ err }, 'Fetching billing status failed')
     next(err)

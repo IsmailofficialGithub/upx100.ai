@@ -1,8 +1,18 @@
 import Stripe from 'stripe'
 import { supabaseAdmin } from '../config/supabase.js'
+import { clearOrgCache } from '../redis/billingCache.js'
 
 // Initialize Stripe instance
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder')
+
+const getFrontendUrl = () => {
+  const configuredUrl = process.env.FRONTEND_URL?.trim()
+  if (configuredUrl) return configuredUrl.replace(/\/+$/, '')
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('FRONTEND_URL is required in production')
+  }
+  return 'http://localhost:3000'
+}
 
 /**
  * Creates or retrieves a Stripe Customer for an Organization
@@ -58,6 +68,8 @@ export const getOrCreateCustomer = async (organizationId, customerEmail) => {
  * Creates a Stripe Checkout Session for a specific package dynamic price
  */
 export const createCheckoutSession = async ({ organizationId, packageId, customerEmail }) => {
+  const frontendUrl = getFrontendUrl()
+
   // Fetch package details from database to get dynamic price and name
   const { data: pkg, error: pkgError } = await supabaseAdmin
     .from('subscription_packages')
@@ -95,8 +107,8 @@ export const createCheckoutSession = async ({ organizationId, packageId, custome
       quantity: 1
     }],
     mode: 'subscription',
-    success_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/billing?success=true&session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/billing?success=false`,
+    success_url: `${frontendUrl}/client/billing?success=true&session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${frontendUrl}/client/billing?success=false`,
     client_reference_id: organizationId,
     metadata: {
       package_id: packageId
@@ -114,9 +126,64 @@ export const createCheckoutSession = async ({ organizationId, packageId, custome
 }
 
 /**
+ * Verify a completed Checkout Session and synchronize its subscription.
+ * This gives the return page an immediate result while Stripe webhooks remain
+ * the source of truth for later subscription lifecycle changes.
+ */
+export const confirmCheckoutSession = async ({ organizationId, sessionId }) => {
+  const session = await stripe.checkout.sessions.retrieve(sessionId, {
+    expand: ['subscription']
+  })
+
+  if (session.client_reference_id !== organizationId) {
+    const error = new Error('Checkout session does not belong to this organization')
+    error.code = 'CHECKOUT_SESSION_FORBIDDEN'
+    throw error
+  }
+
+  if (session.status !== 'complete' || session.payment_status !== 'paid') {
+    const error = new Error('Checkout payment is not complete')
+    error.code = 'CHECKOUT_SESSION_INCOMPLETE'
+    throw error
+  }
+
+  const subscription = typeof session.subscription === 'string'
+    ? await stripe.subscriptions.retrieve(session.subscription)
+    : session.subscription
+
+  if (!subscription) {
+    throw new Error('Stripe subscription was not returned for this Checkout Session')
+  }
+
+  const { error } = await supabaseAdmin
+    .from('subscriptions')
+    .upsert({
+      organization_id: organizationId,
+      stripe_customer_id: typeof session.customer === 'string' ? session.customer : session.customer?.id,
+      stripe_subscription_id: subscription.id,
+      status: subscription.status,
+      stripe_price_id: subscription.items.data[0]?.price?.id || null,
+      package_id: session.metadata?.package_id || null,
+      current_period_start: subscription.current_period_start
+        ? new Date(subscription.current_period_start * 1000).toISOString()
+        : null,
+      current_period_end: subscription.current_period_end
+        ? new Date(subscription.current_period_end * 1000).toISOString()
+        : null,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'organization_id' })
+
+  if (error) throw error
+  await clearOrgCache(organizationId)
+
+  return { status: subscription.status }
+}
+
+/**
  * Creates a Stripe Billing Portal Session for subscription and payment card updates
  */
 export const createPortalSession = async (organizationId) => {
+  const frontendUrl = getFrontendUrl()
   const { data: sub, error } = await supabaseAdmin
     .from('subscriptions')
     .select('stripe_customer_id')
@@ -129,7 +196,7 @@ export const createPortalSession = async (organizationId) => {
 
   const session = await stripe.billingPortal.sessions.create({
     customer: sub.stripe_customer_id,
-    return_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/billing`
+    return_url: `${frontendUrl}/client/billing`
   }, {
     idempotencyKey: `portal-${organizationId}-${Date.now()}`
   })

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 import { toast } from 'sonner';
@@ -73,6 +73,7 @@ const BillingView: React.FC = () => {
   // Active resource usage
   const [agentUsage, setAgentUsage] = useState(0);
   const [phoneUsage, setPhoneUsage] = useState(0);
+  const returnHandled = useRef(false);
 
   const fetchBillingData = async () => {
     try {
@@ -81,9 +82,6 @@ const BillingView: React.FC = () => {
       const statusRes = await api.get('/billing/status');
       setSubStatus(statusRes.data?.data?.subscription || null);
       setPaymentMethod(statusRes.data?.data?.payment_method || null);
-
-      // Dispatch custom event to sync with Topbar active plan display
-      window.dispatchEvent(new Event('billing-plan-updated'));
 
       // 2. Fetch Invoices History
       const invoicesRes = await api.get('/billing/invoices');
@@ -109,7 +107,33 @@ const BillingView: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchBillingData();
+    if (returnHandled.current) return;
+    returnHandled.current = true;
+
+    const loadAfterCheckoutReturn = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const checkoutSucceeded = params.get('success') === 'true';
+      const sessionId = params.get('session_id');
+
+      if (checkoutSucceeded && sessionId) {
+        try {
+          await api.post('/billing/checkout/confirm', { sessionId });
+          toast.success('Payment successful. Your plan is now active.');
+          window.dispatchEvent(new Event('billing-plan-updated'));
+        } catch (err: any) {
+          console.error('Failed to confirm Checkout Session', err);
+          toast.error(err.response?.data?.error?.message || 'Payment succeeded, but plan activation is still processing.');
+        }
+        window.history.replaceState({}, '', window.location.pathname);
+      } else if (params.get('success') === 'false') {
+        toast.info('Checkout was canceled.');
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+
+      await fetchBillingData();
+    };
+
+    void loadAfterCheckoutReturn();
   }, []);
 
   // Trigger Checkout Redirect

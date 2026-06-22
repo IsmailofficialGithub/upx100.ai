@@ -31,6 +31,7 @@ jest.mock('../middlewares/auth.js', () => ({
 // Mock Stripe Service
 jest.mock('../services/stripe.service.js', () => ({
   createCheckoutSession: jest.fn(),
+  confirmCheckoutSession: jest.fn(),
   createPortalSession: jest.fn()
 }))
 
@@ -105,6 +106,23 @@ describe('Billing and Payment API', () => {
         organizationId: 'org123',
         packageId: 'package-pro-123',
         customerEmail: 'client@example.com'
+      })
+    })
+  })
+
+  describe('POST /api/billing/checkout/confirm', () => {
+    it('should confirm the session for the authenticated organization', async () => {
+      stripeService.confirmCheckoutSession.mockResolvedValue({ status: 'active' })
+
+      const res = await request(app)
+        .post('/api/billing/checkout/confirm')
+        .send({ sessionId: 'cs_test_123' })
+
+      expect(res.statusCode).toEqual(200)
+      expect(res.body.data.status).toBe('active')
+      expect(stripeService.confirmCheckoutSession).toHaveBeenCalledWith({
+        organizationId: 'org123',
+        sessionId: 'cs_test_123'
       })
     })
   })

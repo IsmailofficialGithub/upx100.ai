@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '../config/supabase.js'
-import redis from '../config/redis.js'
+import { getCachedLimits, setCachedLimits } from '../redis/billingCache.js'
 import { StatusCodes } from 'http-status-codes'
 import pino from 'pino'
 
@@ -23,18 +23,8 @@ export const enforceLimits = (limitKey) => {
         return next()
       }
 
-      const cacheKey = `org:limits:${orgId}`
-      let limits = null
-
-      // 1. Attempt to fetch limits from Redis cache
-      try {
-        const cached = await redis.get(cacheKey)
-        if (cached) {
-          limits = JSON.parse(cached)
-        }
-      } catch (err) {
-        logger.warn({ err }, 'Failed to fetch limit cache from Redis')
-      }
+      // 1. Attempt to fetch limits from Redis Cache Service
+      let limits = await getCachedLimits(orgId)
 
       // 2. Fallback to Database if cache is empty
       if (!limits) {
@@ -70,12 +60,8 @@ export const enforceLimits = (limitKey) => {
             allow_voice_cloning: activePackage.allow_voice_cloning
           }
 
-          // Cache limits in Redis for 10 minutes
-          try {
-            await redis.set(cacheKey, JSON.stringify(limits), 'EX', 600)
-          } catch (err) {
-            logger.warn({ err }, 'Failed to write limit cache to Redis')
-          }
+          // Cache limits in Redis
+          await setCachedLimits(orgId, limits)
         }
       }
 
