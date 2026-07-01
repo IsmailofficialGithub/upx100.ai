@@ -28,6 +28,7 @@ import CommissionsPage from '@/components/dashboard/CommissionsPage';
 import OutboundTargetsView from '@/components/dashboard/OutboundTargetsView';
 // Import BillingView for Stripe billing
 import BillingView from '@/components/dashboard/BillingView';
+import AdminPaymentsView from '@/components/dashboard/AdminPaymentsView';
 import { formatNullableLocaleDate } from '@/lib/dateFormat';
 import PhoneLineStatusBadge from '@/components/shared/PhoneLineStatusBadge';
 
@@ -95,12 +96,10 @@ function App() {
                 emptyMessage="No commission records yet. Earnings populate after client payments are processed and reconciled."
               />
             } />
+            <Route path="payments" element={<AdminPaymentsView />} />
             <Route path="outbound-targets" element={<OutboundTargetsView />} />
 
           </Route>
-
-
-
 
           {/* Partner Routes */}
           <Route path="/partner" element={<DashboardShell />}>

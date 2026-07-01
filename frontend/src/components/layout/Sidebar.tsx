@@ -51,7 +51,10 @@ const GCC_ADMIN_NAV: GccNavGroup[] = [
   },
   {
     label: 'Finance',
-    items: [{ label: 'Revenue & Payments', path: '/admin/commissions', icon: BarChart3 }],
+    items: [
+      { label: 'Revenue & Payments', path: '/admin/commissions', icon: BarChart3 },
+      { label: 'Payments', path: '/admin/payments', icon: CreditCard },
+    ],
   },
   {
     label: 'System',

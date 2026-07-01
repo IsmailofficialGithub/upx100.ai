@@ -12,6 +12,8 @@ import {
   Zap,
   Globe,
   Building2,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 
 const Login = () => {
@@ -23,6 +25,7 @@ const Login = () => {
     clearAuth();
   }, [clearAuth]);
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showcaseId, setShowcaseId] = useState(loginShowcaseCompanies[0].id);
   const activeShowcase = loginShowcaseCompanies.find((c) => c.id === showcaseId) ?? loginShowcaseCompanies[0];
@@ -35,10 +38,16 @@ const Login = () => {
       toast.success('Welcome back!');
       
       // Dynamic redirection based on role
+      const searchParams = new URLSearchParams(window.location.search);
+      const redirectUrl = searchParams.get('redirect');
       const savedAuth = localStorage.getItem('up100x_auth');
       if (savedAuth) {
         const { user } = JSON.parse(savedAuth);
-        if (user.role.startsWith('gcc_')) {
+        const isClient = !user.role.startsWith('gcc_') && !user.role.startsWith('sp_');
+        
+        if (redirectUrl && isClient) {
+          navigate(redirectUrl);
+        } else if (user.role.startsWith('gcc_')) {
           navigate('/admin/dashboard');
         } else if (user.role.startsWith('sp_')) {
           navigate('/partner/dashboard');
@@ -208,13 +217,21 @@ const Login = () => {
                   <div className="relative group">
                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))] group-focus-within:text-[hsl(var(--primary))] transition-colors" size={18} />
                     <input 
-                      type="password" 
+                      type={showPassword ? 'text' : 'password'} 
                       required
                       placeholder="••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-sm focus:outline-none focus:border-[hsl(var(--primary))]/50 focus:ring-4 focus:ring-[hsl(var(--primary))]/5 transition-all"
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-12 text-sm focus:outline-none focus:border-[hsl(var(--primary))]/50 focus:ring-4 focus:ring-[hsl(var(--primary))]/5 transition-all"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors focus:outline-none"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
                   </div>
                 </div>
 

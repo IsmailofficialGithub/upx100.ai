@@ -1,13 +1,14 @@
-﻿import React, { useState, useEffect } from 'react';
-import { X, Building2, Calculator, FileEdit, CalendarDays } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Building2, Calculator, FileEdit, CalendarDays, CreditCard } from 'lucide-react';
 import type { ClientOrg } from './EditClientModal';
 import RoiCalculator from '@/components/shared/RoiCalculator';
 import ClientScriptEditor from '@/components/dashboard/ClientScriptEditor';
 import CalendarView from '@/components/dashboard/CalendarView';
+import ClientSubscriptionManager from '@/components/dashboard/ClientSubscriptionManager';
 import { currencyCodeForSource, currencySourceFromRegion } from '@/lib/currency';
 import { useAuth } from '@/context/AuthContext';
 
-export type DrawerTab = 'roi' | 'scripts' | 'calendar';
+export type DrawerTab = 'roi' | 'scripts' | 'calendar' | 'subscription';
 
 type Props = {
   org: ClientOrg;
@@ -94,6 +95,17 @@ const ClientDetailDrawer: React.FC<Props> = ({ org, isOpen, onClose, initialTab 
             >
               <CalendarDays size={12} /> Calendar
             </button>
+            <button
+              type="button"
+              onClick={() => setTab('subscription')}
+              className={`flex items-center gap-1.5 px-3 py-2 text-[10px] font-mono uppercase tracking-wide rounded-t-md border-b-2 transition-colors whitespace-nowrap ${
+                tab === 'subscription'
+                  ? 'border-[hsl(var(--primary))] text-[hsl(var(--foreground))]'
+                  : 'border-transparent text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
+              }`}
+            >
+              <CreditCard size={12} /> Subscription
+            </button>
           </div>
         )}
 
@@ -102,6 +114,8 @@ const ClientDetailDrawer: React.FC<Props> = ({ org, isOpen, onClose, initialTab 
             <ClientScriptEditor organizationId={org.id} organizationName={org.name} />
           ) : isGCC && tab === 'calendar' ? (
             <CalendarView lockedOrganizationId={org.id} embedded />
+          ) : isGCC && tab === 'subscription' ? (
+            <ClientSubscriptionManager organizationId={org.id} organizationName={org.name} />
           ) : (
             <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-4">
               <RoiCalculator

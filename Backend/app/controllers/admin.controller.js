@@ -277,3 +277,161 @@ export const deleteOrganization = async (req, res) => {
   res.status(StatusCodes.OK).json({ message: 'Organization deleted' });
 };
 
+export const updateOrganizationSubscription = async (req, res, next) => {
+  try {
+    const { orgId } = req.params;
+    const { packageId, status, currentPeriodEnd } = req.body;
+
+    if (!packageId) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        error: { code: 'BAD_REQUEST', message: 'packageId is required' }
+      });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('subscriptions')
+      .upsert({
+        organization_id: orgId,
+        package_id: packageId,
+        status: status || 'active',
+        current_period_start: new Date().toISOString(),
+        current_period_end: currentPeriodEnd ? new Date(currentPeriodEnd).toISOString() : null,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'organization_id' })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Clear caches in Redis
+    try {
+      const { clearOrgCache } = await import('../redis/billingCache.js');
+      await clearOrgCache(orgId);
+    } catch (cacheErr) {
+      console.error('[AdminController] Failed to clear Redis cache for subscription update:', cacheErr);
+    }
+
+    return res.status(StatusCodes.OK).json({ data });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getSubscriptions = async (req, res) => {
+  const { data, error } = await adminService.getAllSubscriptions(req.query.search);
+  if (error) return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error });
+  res.status(StatusCodes.OK).json({ data });
+};
+
+export const updateSubscriptionPackage = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { amount_cents, max_inbound_phone_numbers, max_agents, allow_voice_cloning, max_lead_upload_rows } = req.body;
+
+    const updates = {};
+    if (amount_cents !== undefined) updates.amount_cents = Number(amount_cents);
+    if (max_inbound_phone_numbers !== undefined) updates.max_inbound_phone_numbers = Number(max_inbound_phone_numbers);
+    if (max_agents !== undefined) updates.max_agents = Number(max_agents);
+    if (allow_voice_cloning !== undefined) updates.allow_voice_cloning = Boolean(allow_voice_cloning);
+    if (max_lead_upload_rows !== undefined) updates.max_lead_upload_rows = Number(max_lead_upload_rows);
+    updates.updated_at = new Date().toISOString();
+
+    const { data, error } = await supabaseAdmin
+      .from('subscription_packages')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Clear packages cache in Redis
+    try {
+      const redis = (await import('../config/redis.js')).default;
+      if (redis.status === 'ready') {
+        await redis.del('billing:packages');
+        console.log('[REDIS ACTION] Invalidated billing:packages cache');
+      }
+    } catch (cacheErr) {
+      console.error('[AdminController] Failed to clear Redis packages cache:', cacheErr);
+    }
+
+    return res.status(StatusCodes.OK).json({ data });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const createSubscriptionPackage = async (req, res, next) => {
+  try {
+    const { name, description, amount_cents, max_inbound_phone_numbers, max_agents, allow_voice_cloning, max_lead_upload_rows } = req.body;
+
+    if (!name || amount_cents === undefined) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        error: { code: 'BAD_REQUEST', message: 'name and amount_cents are required' }
+      });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('subscription_packages')
+      .insert([{
+        name,
+        description: description || '',
+        amount_cents: Number(amount_cents),
+        interval: 'month',
+        currency: 'usd',
+        max_inbound_phone_numbers: max_inbound_phone_numbers !== undefined ? Number(max_inbound_phone_numbers) : 1,
+        max_agents: max_agents !== undefined ? Number(max_agents) : 1,
+        allow_voice_cloning: allow_voice_cloning !== undefined ? Boolean(allow_voice_cloning) : false,
+        max_lead_upload_rows: max_lead_upload_rows !== undefined ? Number(max_lead_upload_rows) : 100
+      }])
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Clear packages cache in Redis
+    try {
+      const redis = (await import('../config/redis.js')).default;
+      if (redis.status === 'ready') {
+        await redis.del('billing:packages');
+        console.log('[REDIS ACTION] Invalidated billing:packages cache');
+      }
+    } catch (cacheErr) {
+      console.error('[AdminController] Failed to clear Redis packages cache:', cacheErr);
+    }
+
+    return res.status(StatusCodes.CREATED).json({ data });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const deleteSubscriptionPackage = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const { error } = await supabaseAdmin
+      .from('subscription_packages')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+
+    // Clear packages cache in Redis
+    try {
+      const redis = (await import('../config/redis.js')).default;
+      if (redis.status === 'ready') {
+        await redis.del('billing:packages');
+        console.log('[REDIS ACTION] Invalidated billing:packages cache');
+      }
+    } catch (cacheErr) {
+      console.error('[AdminController] Failed to clear Redis packages cache:', cacheErr);
+    }
+
+    return res.status(StatusCodes.OK).json({ message: 'Package deleted' });
+  } catch (err) {
+    next(err);
+  }
+};
+
