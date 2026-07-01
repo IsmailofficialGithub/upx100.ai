@@ -598,3 +598,45 @@ export const deleteOrganization = async (id) => {
   return await supabaseAdmin.from('organizations').delete().eq('id', id);
 };
 
+export const getAllSubscriptions = async (searchTerm = '') => {
+  let orgsQuery = supabaseAdmin
+    .from('organizations')
+    .select('id, name, country_code, created_at')
+    .order('created_at', { ascending: false });
+
+  if (searchTerm && typeof searchTerm === 'string' && searchTerm.trim() !== '') {
+    orgsQuery = orgsQuery.ilike('name', `%${searchTerm.trim()}%`);
+  }
+
+  const { data: orgs, error: orgError } = await orgsQuery;
+  if (orgError) return { data: null, error: orgError };
+
+  if (!orgs || orgs.length === 0) {
+    return { data: [], error: null };
+  }
+
+  const orgIds = orgs.map(o => o.id);
+
+  const { data: subs, error: subError } = await supabaseAdmin
+    .from('subscriptions')
+    .select('*, subscription_packages(name, amount_cents, interval)')
+    .in('organization_id', orgIds);
+
+  if (subError) return { data: null, error: subError };
+
+  const subMap = {};
+  (subs || []).forEach(sub => {
+    subMap[sub.organization_id] = sub;
+  });
+
+  const result = orgs.map(org => ({
+    id: org.id,
+    name: org.name,
+    country_code: org.country_code,
+    created_at: org.created_at,
+    subscription: subMap[org.id] || null
+  }));
+
+  return { data: result, error: null };
+};
+

@@ -36,6 +36,10 @@ router.get('/organizations', requireRole(readElevated), adminController.getOrgan
 router.post('/organizations', requireRole(['gcc_admin']), adminController.createOrganization);
 router.patch('/organizations/:id', requireRole(['gcc_admin']), adminController.updateOrganization);
 router.delete('/organizations/:id', requireRole(['gcc_admin']), adminController.deleteOrganization);
+router.patch('/organizations/:orgId/subscription', requireRole(['gcc_admin']), adminController.updateOrganizationSubscription);
+router.patch('/packages/:id', requireRole(['gcc_admin']), adminController.updateSubscriptionPackage);
+router.post('/packages', requireRole(['gcc_admin']), adminController.createSubscriptionPackage);
+router.delete('/packages/:id', requireRole(['gcc_admin']), adminController.deleteSubscriptionPackage);
 
 const gccScriptEditors = ['gcc_admin', 'gcc_reviewer'];
 router.get('/organizations/:orgId/agents', requireRole(gccScriptEditors), orgScriptController.getOrgAgentsForScript);
@@ -50,6 +54,7 @@ router.get(
   orgScriptController.getScriptAuditLog,
 );
 
+router.get('/subscriptions', requireRole(readElevated), adminController.getSubscriptions);
 router.get('/call-logs', requireRole(readElevated), adminController.getCallLogs);
 router.post('/call-logs/delete', requireRole(['gcc_admin']), adminController.deleteCallLogs);
 router.get('/leads', requireRole(readElevated), adminController.getLeads);

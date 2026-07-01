@@ -8,6 +8,9 @@ const router = express.Router()
 // Note: The webhook route (POST /api/billing/webhook) is registered directly in app.js 
 // to ensure it consumes raw request body buffers for Stripe signature verification.
 
+// Expose public packages route for the landing page
+router.get('/public/packages', billingController.getPackages)
+
 // All billing endpoints here require authentication
 router.use(auth)
 

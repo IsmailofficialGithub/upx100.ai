@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '@/context/ThemeContext';
 import { pricingPlans } from '@/data/mockData';
+import api from '@/lib/api';
 import {
   BarChart3, Phone, Users, Briefcase, Stethoscope, Wrench, ChevronRight, Play, Check, Menu, X, Moon, Sun, Globe,
 } from 'lucide-react';
@@ -11,7 +12,20 @@ const LandingPage: React.FC = () => {
   const { isLight, toggleMode, isUK, currencySymbol } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [dbPackages, setDbPackages] = useState<any[]>([]);
   const heroRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const fetchPublicPackages = async () => {
+      try {
+        const res = await api.get('/billing/public/packages');
+        setDbPackages(res.data?.data || []);
+      } catch (err) {
+        console.error('Failed to fetch public billing packages', err);
+      }
+    };
+    fetchPublicPackages();
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50);
@@ -27,7 +41,7 @@ const LandingPage: React.FC = () => {
     );
     document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
     return () => observer.disconnect();
-  }, []);
+  }, [dbPackages]);
 
   const navLinks = [
     { label: 'How It Works', href: '#how-it-works' },
@@ -382,54 +396,78 @@ const LandingPage: React.FC = () => {
           <p className="text-[11px] font-mono uppercase text-[hsl(var(--primary))] tracking-[0.2em] mb-3 reveal">PRICING</p>
           <h2 className="text-3xl md:text-[42px] font-display font-bold text-[hsl(var(--foreground))] mb-12 reveal">Simple. Predictable. Scalable.</h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {pricingPlans.map((plan, i) => (
-              <div
-                key={i}
-                className={`reveal relative rounded-xl p-6 ${
-                  plan.highlighted
-                    ? 'bg-gradient-to-b from-[hsl(var(--primary))]/10 to-transparent border-2 border-[hsl(var(--primary))]/40'
-                    : 'bg-[hsl(var(--card))] border border-[hsl(var(--border-v))]'
-                }`}
-                style={{ transitionDelay: `${i * 100}ms` }}
-              >
-                {plan.highlighted && (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-[hsl(var(--primary))] text-black text-[10px] font-mono font-bold rounded-full">
-                    MOST POPULAR
-                  </span>
-                )}
-                <h3 className="text-lg font-display font-semibold text-[hsl(var(--foreground))] mb-1">{plan.name}</h3>
-                <p className="text-[13px] text-[hsl(var(--muted-foreground))] mb-4">{plan.description}</p>
-                <div className="mb-6">
-                  {plan.price > 0 ? (
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-3xl font-bold font-display text-[hsl(var(--foreground))]">{currencySymbol}{plan.price.toLocaleString()}</span>
-                      <span className="text-sm text-[hsl(var(--muted-foreground))]">/month</span>
-                    </div>
-                  ) : (
-                    <span className="text-3xl font-bold font-display text-[hsl(var(--foreground))]">Custom</span>
-                  )}
-                </div>
-                <ul className="space-y-2.5 mb-6">
-                  {plan.features.map((f, fi) => (
-                    <li key={fi} className="flex items-start gap-2 text-[13px] text-[hsl(var(--muted-foreground))]">
-                      <Check size={14} className="text-[hsl(var(--primary))] flex-shrink-0 mt-0.5" />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-                <button
-                  onClick={() => navigate('/client/dashboard')}
-                  className={`w-full py-3 rounded-lg text-sm font-semibold transition-opacity ${
+          <div className={`grid grid-cols-1 gap-6 ${
+            (dbPackages.length > 0 ? dbPackages.length : 3) === 4
+              ? 'md:grid-cols-2 lg:grid-cols-4'
+              : 'md:grid-cols-3'
+          }`}>
+            {(dbPackages.length > 0
+              ? dbPackages.map((pkg) => ({
+                  name: pkg.name,
+                  price: pkg.amount_cents / 100,
+                  description: pkg.description || 'Custom tailored subscription plan',
+                  features: [
+                    `${pkg.max_inbound_phone_numbers} Inbound Phone Line${pkg.max_inbound_phone_numbers > 1 ? 's' : ''}`,
+                    `Up to ${pkg.max_agents} Active AI Agent${pkg.max_agents > 1 ? 's' : ''}`,
+                    pkg.allow_voice_cloning ? 'Voice Cloning Allowed' : 'Standard Voice Library Only',
+                    `Up to ${pkg.max_lead_upload_rows.toLocaleString()} Leads Upload Rows`,
+                    'Real-time Analytics Portal Access',
+                    'Compliance TPS/DNC scrubbing',
+                  ],
+                  highlighted: pkg.name === 'Pro' || pkg.name === 'Full Outbound',
+                }))
+              : pricingPlans
+            ).map((plan, i) => {
+              const isFreePlan = plan.price === 0 && (plan.name.toLowerCase().includes('free') || plan.name.toLowerCase().includes('basic'));
+              const isCustomPlan = plan.price === 0 && !isFreePlan;
+              return (
+                <div
+                  key={i}
+                  className={`reveal relative rounded-xl p-6 ${
                     plan.highlighted
-                      ? 'bg-[hsl(var(--primary))] text-black hover:opacity-90'
-                      : 'border border-[hsl(var(--border-v))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]'
+                      ? 'bg-gradient-to-b from-[hsl(var(--primary))]/10 to-transparent border-2 border-[hsl(var(--primary))]/40'
+                      : 'bg-[hsl(var(--card))] border border-[hsl(var(--border-v))]'
                   }`}
+                  style={{ transitionDelay: `${i * 100}ms` }}
                 >
-                  {plan.price === 0 ? 'Contact Sales' : 'Get Started'}
-                </button>
-              </div>
-            ))}
+                  {plan.highlighted && (
+                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-[hsl(var(--primary))] text-black text-[10px] font-mono font-bold rounded-full">
+                      MOST POPULAR
+                    </span>
+                  )}
+                  <h3 className="text-lg font-display font-semibold text-[hsl(var(--foreground))] mb-1">{plan.name}</h3>
+                  <p className="text-[13px] text-[hsl(var(--muted-foreground))] mb-4">{plan.description}</p>
+                  <div className="mb-6">
+                    {!isCustomPlan ? (
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-3xl font-bold font-display text-[hsl(var(--foreground))]">{currencySymbol}{plan.price.toLocaleString()}</span>
+                        <span className="text-sm text-[hsl(var(--muted-foreground))]">/month</span>
+                      </div>
+                    ) : (
+                      <span className="text-3xl font-bold font-display text-[hsl(var(--foreground))]">Custom</span>
+                    )}
+                  </div>
+                  <ul className="space-y-2.5 mb-6">
+                    {plan.features.map((f, fi) => (
+                      <li key={fi} className="flex items-start gap-2 text-[13px] text-[hsl(var(--muted-foreground))]">
+                        <Check size={14} className="text-[hsl(var(--primary))] flex-shrink-0 mt-0.5" />
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                  <button
+                    onClick={() => navigate('/login?redirect=/client/billing')}
+                    className={`w-full py-3 rounded-lg text-sm font-semibold transition-opacity ${
+                      plan.highlighted
+                        ? 'bg-[hsl(var(--primary))] text-black hover:opacity-90'
+                        : 'border border-[hsl(var(--border-v))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]'
+                    }`}
+                  >
+                    {isCustomPlan ? 'Contact Sales' : 'Get Started'}
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
