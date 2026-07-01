@@ -12,6 +12,7 @@ jest.mock('../middlewares/auth.js', () => ({
 // Mock Redis & BullMQ
 jest.mock('ioredis', () => {
   return jest.fn().mockImplementation(() => ({
+    status: 'ready',
     on: jest.fn(),
     get: jest.fn(),
     set: jest.fn()
