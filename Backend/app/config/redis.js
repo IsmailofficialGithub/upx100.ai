@@ -19,9 +19,9 @@ if (process.env.NODE_ENV === 'test') {
   redis = {
     status: 'ready',
     on: () => {},
-    get: async () => null,
-    set: async () => 'OK',
-    del: async () => 1,
+    get: jest.fn().mockResolvedValue(null),
+    set: jest.fn().mockResolvedValue('OK'),
+    del: jest.fn().mockResolvedValue(1),
     options: { host: '127.0.0.1', port: 6379 }
   }
 } else {

@@ -4,6 +4,9 @@ import * as voiceService from '../services/voiceClone.service.js'
 import { auth } from '../middlewares/auth.js'
 
 jest.mock('../services/voiceClone.service.js')
+jest.mock('../middlewares/enforceLimits.js', () => ({
+  enforceLimits: () => (req, res, next) => next()
+}))
 jest.mock('../middlewares/auth.js', () => ({
   auth: jest.fn((req, res, next) => {
     req.user = { role: 'client_admin', orgId: 'org123', userId: 'user123' }
