@@ -3,7 +3,10 @@ import { ThemeProvider } from '@/context/ThemeContext';
 import { AuthProvider } from '@/context/AuthContext';
 import { GccTenantScopeProvider } from '@/context/GccTenantScopeContext';
 import { Toaster } from 'sonner';
-import LandingPage from '@/components/landing/LandingPage';
+import MarketingHomePage from '@/marketing/pages/MarketingHomePage';
+import IndustriesPage from '@/marketing/pages/IndustriesPage';
+import CategoryHubPage from '@/marketing/pages/CategoryHubPage';
+import VerticalPage from '@/marketing/pages/VerticalPage';
 
 import Login from '@/pages/auth/login';
 import DashboardShell from '@/components/layout/DashboardShell';
@@ -45,7 +48,10 @@ function App() {
         <Toaster position="top-right" richColors />
         <Routes>
 
-          <Route path="/" element={<LandingPage />} />
+          <Route path="/" element={<MarketingHomePage />} />
+          <Route path="/industries" element={<IndustriesPage />} />
+          <Route path="/industries/:categorySlug" element={<CategoryHubPage />} />
+          <Route path="/industries/:categorySlug/:verticalSlug" element={<VerticalPage />} />
           <Route path="/login" element={<Login />} />
           <Route path="/billing" element={<LegacyBillingRedirect />} />
           
