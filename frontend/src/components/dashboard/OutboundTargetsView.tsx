@@ -4,20 +4,20 @@ import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
 import api from '@/lib/api';
 import { formatNullableLocaleDate } from '@/lib/dateFormat';
-import { 
-  Upload, 
-  Download, 
-  Plus, 
-  Loader2, 
-  Trash2, 
-  Edit2, 
-  X, 
-  Phone, 
-  Mail, 
-  User, 
-  FileText, 
-  ChevronDown, 
-  ChevronUp, 
+import {
+  Upload,
+  Download,
+  Plus,
+  Loader2,
+  Trash2,
+  Edit2,
+  X,
+  Phone,
+  Mail,
+  User,
+  FileText,
+  ChevronDown,
+  ChevronUp,
   ArrowRight,
   Play,
   AlertTriangle
@@ -58,15 +58,15 @@ const OutboundTargetsView: React.FC = () => {
   const [refreshKey, setRefreshKey] = useState(0);
   const [agents, setAgents] = useState<AgentChoice[]>([]);
   const [orgChoices, setOrgChoices] = useState<OrgChoice[]>([]);
-  
+
   // Scopes & Modals State
   const [selectedOrgId, setSelectedOrgId] = useState('');
   const [selectedAgentId, setSelectedAgentId] = useState('');
-  
+
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  
+
   // Single Target Form State
   const [singlePhone, setSinglePhone] = useState('');
   const [singleName, setSingleName] = useState('');
@@ -105,7 +105,7 @@ const OutboundTargetsView: React.FC = () => {
       (a) =>
         a.agent_type === 'outbound' &&
         (a.status === 'active' || a.status === 'ready') &&
-        a.organization_id === organizationId
+        (a.organization_id === organizationId || a.organization_id === null || a.organization_id === '00000000-0000-4000-a000-000000000003')
     );
   }, [agents, organizationId]);
 
@@ -115,7 +115,7 @@ const OutboundTargetsView: React.FC = () => {
       (a) =>
         a.agent_type === 'outbound' &&
         (a.status === 'active' || a.status === 'ready') &&
-        (!targetOrg || a.organization_id === targetOrg)
+        (!targetOrg || a.organization_id === targetOrg || a.organization_id === null || a.organization_id === '00000000-0000-4000-a000-000000000003')
     );
   }, [agents, user?.orgId, singleOrgId]);
 
@@ -125,7 +125,7 @@ const OutboundTargetsView: React.FC = () => {
       (a) =>
         a.agent_type === 'outbound' &&
         (a.status === 'active' || a.status === 'ready') &&
-        (!targetOrg || a.organization_id === targetOrg)
+        (!targetOrg || a.organization_id === targetOrg || a.organization_id === null || a.organization_id === '00000000-0000-4000-a000-000000000003')
     );
   }, [agents, user?.orgId, bulkOrgId]);
 
@@ -135,7 +135,7 @@ const OutboundTargetsView: React.FC = () => {
       (a) =>
         a.agent_type === 'outbound' &&
         (a.status === 'active' || a.status === 'ready') &&
-        (!targetOrg || a.organization_id === targetOrg)
+        (!targetOrg || a.organization_id === targetOrg || a.organization_id === null || a.organization_id === '00000000-0000-4000-a000-000000000003')
     );
   }, [agents, editingTarget?.organization_id]);
 
@@ -305,7 +305,7 @@ const OutboundTargetsView: React.FC = () => {
     reader.onload = (e) => {
       const text = e.target?.result as string;
       const lines = text.split('\n').filter((l) => l.trim());
-      
+
       // Parse header to find column indices
       const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
       const phoneIdx = headers.indexOf('phone');
@@ -328,7 +328,7 @@ const OutboundTargetsView: React.FC = () => {
           const nameVal = nameIdx !== -1 ? cols[nameIdx]?.trim() || '' : '';
           const emailVal = emailIdx !== -1 ? cols[emailIdx]?.trim() || '' : '';
           const statusVal = statusIdx !== -1 ? cols[statusIdx]?.trim() || 'outbound' : 'outbound';
-          
+
           return {
             name: nameVal,
             phone: phoneVal,
@@ -772,11 +772,10 @@ const OutboundTargetsView: React.FC = () => {
                 onDragLeave={() => setDragOver(false)}
                 onDrop={handleFileDrop}
                 onClick={() => fileInputRef.current?.click()}
-                className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
-                  dragOver
+                className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${dragOver
                     ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5'
                     : 'border-[hsl(var(--border-v))] hover:border-[hsl(var(--primary))]/50 hover:bg-[hsl(var(--secondary))]'
-                }`}
+                  }`}
               >
                 <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={handleFileSelect} />
                 <Upload size={24} className="mx-auto mb-2 text-[hsl(var(--muted-foreground))]" />

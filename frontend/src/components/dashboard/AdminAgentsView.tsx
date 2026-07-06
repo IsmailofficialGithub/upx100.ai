@@ -122,11 +122,12 @@ const AdminAgentsView: React.FC = () => {
   const navigate = useNavigate();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
   
   // Search states
-  const [searchTerm, setSearchTerm] = useState('');
   const [orgSearch, setOrgSearch] = useState('');
   const [userSearch, setUserSearch] = useState('');
   const [orgs, setOrgs] = useState<Organization[]>([]);
@@ -355,6 +356,7 @@ const AdminAgentsView: React.FC = () => {
       return !!formData.goal && !!formData.script;
     }
     if (currentStep === 4) {
+      if (formData.agent_type === 'outbound') return true;
       return !!formData.phone_number_id;
     }
     return true;
@@ -406,7 +408,7 @@ const AdminAgentsView: React.FC = () => {
         toast.error('Select an industry vertical.', { id: loadingToast });
         return;
       }
-      if (!formData.phone_number_id) {
+      if (!formData.phone_number_id && formData.agent_type !== 'outbound') {
         toast.error('Assign a phone number before saving.', { id: loadingToast });
         return;
       }
@@ -472,7 +474,7 @@ const AdminAgentsView: React.FC = () => {
     }
   };
 
-  const openModal = (agent?: Agent) => {
+  const openModal = (agent?: any, defaultType: string = 'sales') => {
     if (agent) {
       setEditingAgent(agent);
       setFormData({
@@ -530,7 +532,7 @@ const AdminAgentsView: React.FC = () => {
         welcome_message: '',
         instruction_voice: '',
         language: 'english',
-        agent_type: 'sales',
+        agent_type: defaultType,
         tone: 'professional',
         fallback_number: '',
         fallback_enabled: false,
@@ -548,11 +550,18 @@ const AdminAgentsView: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const filteredAgents = agents.filter(a => 
-    a.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (Array.isArray(a.organizations) ? a.organizations[0]?.name : a.organizations?.name)?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    a.id.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredAgents = agents.filter(a => {
+    const matchesSearch = a.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (Array.isArray(a.organizations) ? a.organizations[0]?.name : a.organizations?.name)?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      a.id.toLowerCase().includes(searchTerm.toLowerCase());
+      
+    const isInbound = a.agent_type !== 'outbound';
+    const matchesType = typeFilter === 'all' || 
+                        (typeFilter === 'inbound' && isInbound) || 
+                        (typeFilter === 'outbound' && !isInbound);
+                        
+    return matchesSearch && matchesType;
+  });
 
   if (isLoading) {
     return (
@@ -585,13 +594,30 @@ const AdminAgentsView: React.FC = () => {
               className="w-full bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-lg py-2 pl-10 pr-4 text-xs focus:outline-none focus:border-[hsl(var(--primary))]/50"
             />
           </div>
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] text-[hsl(var(--foreground))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[hsl(var(--primary))]/50 appearance-none min-w-[120px]"
+          >
+            <option value="all">All Types</option>
+            <option value="inbound">Inbound</option>
+            <option value="outbound">Outbound</option>
+          </select>
           {isGCCAdmin && (
-            <button 
-              onClick={() => openModal()}
-              className="flex items-center gap-2 px-4 py-2 bg-[hsl(var(--primary))] text-black rounded-lg text-xs font-semibold hover:opacity-90 transition-opacity"
-            >
-              <Plus size={14} /> Create Agent
-            </button>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => openModal(null, 'sales')}
+                className="flex items-center gap-1.5 px-4 py-2 bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] hover:border-[hsl(var(--primary))/50] text-[hsl(var(--foreground))] rounded-lg text-xs font-semibold transition-all"
+              >
+                <Plus size={14} /> Create Inbound Agent
+              </button>
+              <button 
+                onClick={() => openModal(null, 'outbound')}
+                className="flex items-center gap-1.5 px-4 py-2 bg-[hsl(var(--primary))] text-black rounded-lg text-xs font-semibold hover:opacity-90 transition-opacity"
+              >
+                <Plus size={14} /> Create Outbound Agent
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -601,6 +627,7 @@ const AdminAgentsView: React.FC = () => {
           <thead className="bg-[hsl(var(--muted))] border-b border-[hsl(var(--border-v))]">
             <tr>
               <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Agent</th>
+              <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Type</th>
               {isAdminView && <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Organization</th>}
               <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Agent ID</th>
               <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Status</th>
@@ -621,6 +648,15 @@ const AdminAgentsView: React.FC = () => {
                       <p className="text-[10px] text-[hsl(var(--muted-foreground))] font-mono">ID: {agent.id.slice(0, 8)}</p>
                     </div>
                   </div>
+                </td>
+                <td className="px-4 py-4">
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-medium border ${
+                    agent.agent_type === 'outbound' 
+                      ? 'bg-blue-500/10 text-blue-500 border-blue-500/20' 
+                      : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                  }`}>
+                    {agent.agent_type === 'outbound' ? 'Outbound' : 'Inbound'}
+                  </span>
                 </td>
                 {isAdminView && (
                     <td className="px-4 py-4">
@@ -710,7 +746,7 @@ const AdminAgentsView: React.FC = () => {
             <div className="flex flex-col flex-1 min-h-0">
               <div className="shrink-0 px-6 pt-4 pb-2 border-b border-[hsl(var(--border-v))]/50">
               <div className="flex items-center gap-2">
-                {[1, 2, 3, 4].map((step) => (
+                {Array.from({ length: formData.agent_type === 'outbound' ? 3 : 4 }, (_, i) => i + 1).map((step) => (
                   <div key={step} className="flex items-center gap-2">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
                       currentStep === step 
@@ -719,11 +755,11 @@ const AdminAgentsView: React.FC = () => {
                     }`}>
                       {currentStep > step ? <Check size={14} /> : step}
                     </div>
-                    {step < 4 && <div className={`w-12 h-0.5 rounded ${currentStep > step ? 'bg-emerald-500' : 'bg-[hsl(var(--muted))]'}`} />}
+                    {step < (formData.agent_type === 'outbound' ? 3 : 4) && <div className={`w-12 h-0.5 rounded ${currentStep > step ? 'bg-emerald-500' : 'bg-[hsl(var(--muted))]'}`} />}
                   </div>
                 ))}
                 <div className="ml-auto text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] tracking-wider">
-                  Step {currentStep} of 4: {
+                  Step {currentStep} of {formData.agent_type === 'outbound' ? 3 : 4}: {
                     currentStep === 1 ? 'Identity' : 
                     currentStep === 2 ? 'Personality' : 
                     currentStep === 3 ? 'Intelligence & RAG' : 'Telephony'
@@ -1180,7 +1216,7 @@ const AdminAgentsView: React.FC = () => {
                   </div>
                 )}
 
-                {currentStep === 4 && (
+                {currentStep === 4 && formData.agent_type !== 'outbound' && (
                   <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
                     <div className="p-4 bg-[hsl(var(--primary))]/5 border border-[hsl(var(--primary))]/10 rounded-xl">
                       <div className="flex items-start gap-3">
@@ -1196,13 +1232,13 @@ const AdminAgentsView: React.FC = () => {
                     
                     <div className="space-y-2">
                       <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
-                        <Phone size={12} /> Assign Phone Number *
+                        <Phone size={12} /> Assign Phone Number {formData.agent_type !== 'outbound' ? '*' : <span className="normal-case font-normal text-[hsl(var(--muted-foreground))]">(optional)</span>}
                       </label>
                       <select 
                         value={formData.phone_number_id}
                         onChange={e => setFormData({ ...formData, phone_number_id: e.target.value })}
-                        disabled={isLoadingNumbers || !isGCCAdmin && !formData.organization_id && (user?.orgId && user.orgId !== '00000000-0000-4000-a000-000000000003')}
-                        required
+                        disabled={isLoadingNumbers || (!isGCCAdmin && !formData.organization_id && (user?.orgId && user.orgId !== '00000000-0000-4000-a000-000000000003'))}
+                        required={formData.agent_type !== 'outbound'}
                         className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))] transition-all appearance-none disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <option value="" disabled>Select a number...</option>
@@ -1287,7 +1323,7 @@ const AdminAgentsView: React.FC = () => {
                     {currentStep === 1 ? 'Cancel' : 'Back'}
                   </button>
                   
-                  {currentStep < 4 ? (
+                  {currentStep < (formData.agent_type === 'outbound' ? 3 : 4) ? (
                     <button
                       type="button"
                       onClick={handleNext}

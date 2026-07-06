@@ -72,6 +72,8 @@ export const createAgent = async (agentData) => {
     recording_disclosure_message: enriched.recording_disclosure_message,
   }
 
+  console.log(`[createAgent] Calling webhook: ${webhookUrl}`)
+  console.log(`[createAgent] Payload:`, JSON.stringify(finalPayload, null, 2))
   const webhookResponse = await axios.post(webhookUrl, finalPayload)
 
   // Update vapi_id if webhook returned one

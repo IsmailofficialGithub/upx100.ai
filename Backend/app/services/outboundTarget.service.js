@@ -80,8 +80,17 @@ export const createOutboundTarget = async (payload, initiateCall = false) => {
 
   if (error) throw error
 
+  const targetWebhookUrl = `${process.env.REACT_APP_WEBHOOK_BASE_URL}/webhook/c50c815b-8c98-4eef-b56e-8c8e8a4708ca`
+  console.log("[createOutboundTarget] Calling webhook: ", targetWebhookUrl)
+  console.log("[createOutboundTarget] Payload: ", data)
+  try {
+    await axios.post(targetWebhookUrl, data)
+  } catch (webhookError) {
+    console.error('[createOutboundTarget] creation webhook failed:', webhookError.message)
+  }
+
   if (initiateCall && data.agent_id) {
-    const webhookUrl = `${process.env.REACT_APP_WEBHOOK_BASE_URL}${process.env.REACT_APP_WEBHOOK_OUTBOUND_CALL || '/webhook/outbound_call'}`
+    const webhookUrl = `${process.env.REACT_APP_WEBHOOK_BASE_URL}${process.out.REACT_APP_WEBHOOK_OUTBOUND_CALL || '/webhook/outbound_call'}`
     try {
       await axios.post(webhookUrl, {
         id: data.id,
