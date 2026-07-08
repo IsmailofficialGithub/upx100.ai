@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import axios from 'axios';
-import api from '@/lib/api';
+import api, { getApiBaseUrl } from '@/lib/api';
 import { clearGccTenantScopeStorage } from '@/lib/gccTenantScope';
 import {
   clearSessionAndRedirectToLogin,
@@ -124,7 +124,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let cancelled = false;
     const bootstrap = async () => {
       try {
-        const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+        const baseURL = getApiBaseUrl();
         const res = await axios.post(
           `${baseURL}/auth/refresh`,
           { refresh_token: stored.session.refresh_token },

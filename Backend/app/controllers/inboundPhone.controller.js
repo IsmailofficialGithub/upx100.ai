@@ -9,6 +9,7 @@ export const getNumbers = async (req, res) => {
   const { role, orgId, userId } = req.user
   const rawOrg = req.query?.organization_id
   const forAgentId = req.query?.for_agent_id || null
+  const forAgentType = req.query?.for_agent_type || null
   const assignableOnly =
     req.query?.assignable === '1' || req.query?.assignable === 'true'
 
@@ -21,6 +22,7 @@ export const getNumbers = async (req, res) => {
     numbers = await phoneService.listAllNumbers({
       organizationId: orgFilter,
       forAgentId,
+      forAgentType,
       assignableOnly,
     })
   } else {
@@ -30,6 +32,7 @@ export const getNumbers = async (req, res) => {
       (orgId && orgId !== '00000000-0000-4000-a000-000000000003' ? orgId : null)
     numbers = await phoneService.listNumbersByOrg(effectiveOrg, filterUserId, {
       forAgentId,
+      forAgentType,
       assignableOnly,
     })
   }

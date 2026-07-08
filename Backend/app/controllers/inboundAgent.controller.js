@@ -121,11 +121,35 @@ export const createAgent = async (req, res) => {
     })
   }
 
+  const isOutbound = req.body.agent_type === 'outbound'
+  if (isOutbound && !req.body.phone_number_id) {
+    return res.status(StatusCodes.BAD_REQUEST).json({
+      error: { message: 'phone_number_id is required for outbound agents.' },
+    })
+  }
+
+  let assignedPhone = null
+  if (req.body.phone_number_id) {
+    assignedPhone = await phoneService.getNumberById(req.body.phone_number_id)
+    if (!assignedPhone) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        error: { message: 'Selected phone number was not found.' },
+      })
+    }
+    if (assignedPhone.organization_id !== orgId) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        error: { message: 'Phone number must belong to the same organization as the agent.' },
+      })
+    }
+  }
+
   const agentData = {
     ...req.body,
     organization_id: orgId,
     industry_vertical: industryVertical,
     recording_disclosure_enabled: parseRecordingDisclosureEnabled(req.body.recording_disclosure_enabled, true),
+    phone_number_id: assignedPhone?.id ?? null,
+    phone_number: assignedPhone?.phone_number ?? null,
     user_id: ['gcc_admin', 'client_admin', 'sp_primary'].includes(req.user.role)
       ? (req.body.user_id || req.user.userId)
       : req.user.userId
@@ -139,7 +163,11 @@ export const createAgent = async (req, res) => {
       await phoneService.bindNumberToAgent(req.body.phone_number_id, result.db.id)
     } catch (bindError) {
       console.error('[Error] Failed to bind number during agent creation:', bindError)
-      // We don't fail the whole request since the agent was created successfully
+      return res.status(StatusCodes.BAD_GATEWAY).json({
+        error: {
+          message: 'Agent was created but phone assignment failed. Edit the agent to assign a line.',
+        },
+      })
     }
   }
 

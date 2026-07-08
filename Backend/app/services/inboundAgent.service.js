@@ -2,14 +2,14 @@ import axios from 'axios'
 import { supabaseAdmin } from '../config/supabase.js'
 import { enrichAgentPayload } from '../lib/agentPrompt.js'
 
-/**
- * Inbound Agent Service
- * Handles AI Bot lifecycle by interacting with external webhooks and the local database.
- */
+const AGENT_PHONE_SELECT =
+  'inbound_line:phone_numbers!phone_numbers_inbound_agent_id_fkey(id, phone_number, inbound_agent_id), outbound_line:phone_numbers!phone_numbers_outbound_agent_id_fkey(id, phone_number, outbound_agent_id)'
+
+const AGENT_LIST_SELECT = `*, organizations:organizations!agents_organization_id_fkey(name), ${AGENT_PHONE_SELECT}`
 
 export const createAgent = async (agentData) => {
   const webhookPath = agentData.agent_type === 'outbound'
-    ? '/webhook/create_outbound_agent'
+    ? (process.env.REACT_APP_WEBHOOK_CREATE_OUTBOUND_AGENT || '/webhook/create_outbound_agent')
     : process.env.REACT_APP_WEBHOOK_CREATE_AGENT
   const webhookUrl = `${process.env.REACT_APP_WEBHOOK_BASE_URL}${webhookPath}`
 
@@ -62,6 +62,8 @@ export const createAgent = async (agentData) => {
     ...enriched,
     organization_id: enriched.organization_id || null,
     id: data.id,
+    phone_number_id: agentData.phone_number_id ?? null,
+    phone_number: agentData.phone_number ?? null,
     fallback_number: metadata.fallback_config.number,
     fallback_enabled: metadata.fallback_config.enabled,
     knowledge_base_url: insertData.knowledge_base_url ?? null,
@@ -100,7 +102,7 @@ export const updateAgent = async (agentId, updateData) => {
   if (fetchError || !existing) throw fetchError || new Error('Agent not found')
 
   const webhookPath = existing.agent_type === 'outbound'
-    ? '/webhook/edit_outbound_agent'
+    ? (process.env.REACT_APP_WEBHOOK_EDIT_OUTBOUND_AGENT || '/webhook/edit_outbound_agent')
     : process.env.REACT_APP_WEBHOOK_EDIT_AGENT
   const webhookUrl = `${process.env.REACT_APP_WEBHOOK_BASE_URL}${webhookPath}`
 
@@ -177,7 +179,7 @@ export const deleteAgent = async (agentId) => {
   if (!existing) throw new Error('Agent not found')
 
   const webhookPath = existing.agent_type === 'outbound'
-    ? '/webhook/delete_outbound_agent'
+    ? (process.env.REACT_APP_WEBHOOK_DELETE_OUTBOUND_AGENT || '/webhook/delete_outbound_agent')
     : process.env.REACT_APP_WEBHOOK_DELETE_AGENT
   const webhookUrl = `${process.env.REACT_APP_WEBHOOK_BASE_URL}${webhookPath}`
 
@@ -197,12 +199,13 @@ export const deleteAgent = async (agentId) => {
 
   if (error) throw error
 
-  // 3. Unbind any phone number linked to this agent
+  // 3. Unbind any phone number linked to this agent (inbound or outbound slot)
+  const bindingColumn = existing.agent_type === 'outbound' ? 'outbound_agent_id' : 'inbound_agent_id'
   await supabaseAdmin
     .schema('inbound')
     .from('phone_numbers')
-    .update({ agent_id: null })
-    .eq('agent_id', agentId)
+    .update({ [bindingColumn]: null })
+    .eq(bindingColumn, agentId)
 
   return { success: true, webhook: webhookResponse.data }
 }
@@ -211,7 +214,7 @@ export const getAgentById = async (agentId) => {
   const { data, error } = await supabaseAdmin
     .schema('inbound')
     .from('agents')
-    .select('*, organizations:organizations!agents_organization_id_fkey(name), phone_numbers:phone_numbers!phone_numbers_agent_id_fkey(id, phone_number, agent_id)')
+    .select(AGENT_LIST_SELECT)
     .eq('id', agentId)
     .single()
 
@@ -219,23 +222,30 @@ export const getAgentById = async (agentId) => {
     if (error.code === 'PGRST116') return null;
     throw error;
   }
-  return {
-    ...data,
-    phone_number_id: resolveAgentPhoneNumberId(data.phone_numbers),
-  }
+  return mapAgentWithPhone(data)
 }
 
-function resolveAgentPhoneNumberId(phoneNumbers) {
-  if (!phoneNumbers) return null
-  if (Array.isArray(phoneNumbers)) return phoneNumbers[0]?.id || null
-  return phoneNumbers.id || null
+function resolveAgentPhoneNumberId(agent) {
+  if (!agent) return null
+  const line = agent.agent_type === 'outbound' ? agent.outbound_line : agent.inbound_line
+  if (!line) return null
+  if (Array.isArray(line)) return line[0]?.id || null
+  return line.id || null
+}
+
+function mapAgentWithPhone(agent) {
+  const { inbound_line: _inbound, outbound_line: _outbound, ...rest } = agent
+  return {
+    ...rest,
+    phone_number_id: resolveAgentPhoneNumberId(agent),
+  }
 }
 
 export const listAgentsByOrg = async (orgId, userId = null) => {
   let query = supabaseAdmin
     .schema('inbound')
     .from('agents')
-    .select('*, organizations:organizations!agents_organization_id_fkey(name), phone_numbers:phone_numbers!phone_numbers_agent_id_fkey(id, phone_number, agent_id)')
+    .select(AGENT_LIST_SELECT)
     .is('deleted_at', null)
 
   if (orgId && orgId !== 'null' && orgId !== '00000000-0000-4000-a000-000000000003') {
@@ -251,22 +261,16 @@ export const listAgentsByOrg = async (orgId, userId = null) => {
   const { data, error } = await query
 
   if (error) throw error
-  return data.map((agent) => ({
-    ...agent,
-    phone_number_id: resolveAgentPhoneNumberId(agent.phone_numbers),
-  }))
+  return data.map((agent) => mapAgentWithPhone(agent))
 }
 
 export const listAllAgents = async () => {
   const { data, error } = await supabaseAdmin
     .schema('inbound')
     .from('agents')
-    .select('*, organizations:organizations!agents_organization_id_fkey(name), phone_numbers:phone_numbers!phone_numbers_agent_id_fkey(id, phone_number, agent_id)')
+    .select(AGENT_LIST_SELECT)
     .is('deleted_at', null)
 
   if (error) throw error
-  return data.map((agent) => ({
-    ...agent,
-    phone_number_id: resolveAgentPhoneNumberId(agent.phone_numbers),
-  }))
+  return data.map((agent) => mapAgentWithPhone(agent))
 }

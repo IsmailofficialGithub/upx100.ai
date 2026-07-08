@@ -2,10 +2,12 @@ import axios from 'axios'
 import { StatusCodes } from 'http-status-codes'
 import { supabaseAdmin } from '../config/supabase.js'
 import {
+  agentBindingColumn,
   assertAgentPhoneSameOrg,
   assertOrgNotReassigned,
   assertOrganizationRequired,
   assertPhoneExclusiveToOrg,
+  normalizeAgentType,
   normalizeLineStatus,
   sanitizePhoneForApi,
   sanitizePhonesForApi,
@@ -13,7 +15,7 @@ import {
 
 /** PostgREST select that avoids optional/broken profile embeds. */
 const PHONE_LIST_SELECT =
-  '*, organizations:organizations!phone_numbers_organization_id_fkey(id, name), agents:agents!phone_numbers_agent_id_fkey(id, name)'
+  '*, organizations:organizations!phone_numbers_organization_id_fkey(id, name), inbound_agent:agents!phone_numbers_inbound_agent_id_fkey(id, name, agent_type), outbound_agent:agents!phone_numbers_outbound_agent_id_fkey(id, name, agent_type)'
 
 const ASSIGNABLE_STATUSES = ['active', 'porting']
 
@@ -96,12 +98,26 @@ export const provisionNumber = async (numberData) => {
   return { db: sanitizePhoneForApi(data), webhook: webhookResponse.data }
 }
 
-export const unbindAllNumbersFromAgent = async (agentId) => {
+const resolveAgentType = (agent) => normalizeAgentType(agent?.agent_type)
+
+export const unbindAllNumbersFromAgent = async (agentId, agentType = null) => {
+  let bindingType = agentType
+  if (!bindingType) {
+    const { data: agent } = await supabaseAdmin
+      .schema('inbound')
+      .from('agents')
+      .select('agent_type')
+      .eq('id', agentId)
+      .maybeSingle()
+    bindingType = resolveAgentType(agent)
+  }
+
+  const column = agentBindingColumn(bindingType)
   const { error } = await supabaseAdmin
     .schema('inbound')
     .from('phone_numbers')
-    .update({ agent_id: null })
-    .eq('agent_id', agentId)
+    .update({ [column]: null })
+    .eq(column, agentId)
 
   if (error) throw error
 }
@@ -122,7 +138,7 @@ export const bindNumberToAgent = async (numberId, agentId) => {
   const { data: agent, error: agentError } = await supabaseAdmin
     .schema('inbound')
     .from('agents')
-    .select('id, organization_id, name, deleted_at')
+    .select('id, organization_id, name, deleted_at, agent_type')
     .eq('id', agentId)
     .single()
 
@@ -134,13 +150,16 @@ export const bindNumberToAgent = async (numberId, agentId) => {
 
   assertAgentPhoneSameOrg(agent, existing)
 
-  // One inbound line per agent: release any other number currently bound to this agent.
-  await unbindAllNumbersFromAgent(agentId)
+  const bindingType = resolveAgentType(agent)
 
+  // One line per agent (per type): release any other number currently bound to this agent.
+  await unbindAllNumbersFromAgent(agentId, bindingType)
+
+  const column = agentBindingColumn(bindingType)
   const { data, error } = await supabaseAdmin
     .schema('inbound')
     .from('phone_numbers')
-    .update({ agent_id: agentId })
+    .update({ [column]: agentId })
     .eq('id', numberId)
     .select(PHONE_LIST_SELECT)
     .single()
@@ -288,7 +307,6 @@ export const updateNumber = async (numberId, updateData) => {
     call_forwarding_enabled: updateData.call_forwarding_enabled !== undefined ? updateData.call_forwarding_enabled : existing.call_forwarding_enabled,
     call_forwarding_number: updateData.call_forwarding_number !== undefined ? updateData.call_forwarding_number : existing.call_forwarding_number,
     call_forwarding_reason: updateData.call_forwarding_reason !== undefined ? updateData.call_forwarding_reason : existing.call_forwarding_reason,
-    agent_id: updateData.agent_id !== undefined ? updateData.agent_id : existing.agent_id,
     metadata: {
       ...(existing.metadata || {}),
       user_id: updateData.user_id !== undefined ? updateData.user_id : existing.user_id,
@@ -417,8 +435,27 @@ export const requestPort = async (numberId, portData) => {
   return sanitizePhoneForApi(data)
 }
 
+const buildAssignableFilter = async (forAgentId, forAgentType) => {
+  let bindingType = normalizeAgentType(forAgentType)
+  if (forAgentId) {
+    const { data: agent } = await supabaseAdmin
+      .schema('inbound')
+      .from('agents')
+      .select('agent_type')
+      .eq('id', forAgentId)
+      .maybeSingle()
+    if (agent) bindingType = resolveAgentType(agent)
+  }
+
+  const column = agentBindingColumn(bindingType)
+  if (forAgentId) {
+    return { column, filter: `${column}.is.null,${column}.eq.${forAgentId}` }
+  }
+  return { column, filter: null }
+}
+
 export const listNumbersByOrg = async (orgId, userId = null, options = {}) => {
-  const { forAgentId = null, assignableOnly = false } = options
+  const { forAgentId = null, forAgentType = null, assignableOnly = false } = options
 
   let query = supabaseAdmin
     .schema('inbound')
@@ -437,10 +474,11 @@ export const listNumbersByOrg = async (orgId, userId = null, options = {}) => {
 
   if (assignableOnly) {
     query = query.in('status', ASSIGNABLE_STATUSES)
-    // Editing: unassigned lines + line already on this agent.
-    // Creating: all active/porting lines for the org (may reassign from another agent).
-    if (forAgentId) {
-      query = query.or(`agent_id.is.null,agent_id.eq.${forAgentId}`)
+    // Editing: unassigned for this agent type + line already on this agent.
+    // Creating: all active/porting lines for the org (may reassign from another same-type agent).
+    const { filter } = await buildAssignableFilter(forAgentId, forAgentType)
+    if (filter) {
+      query = query.or(filter)
     }
   }
 
@@ -466,10 +504,15 @@ export const getNumberById = async (numberId) => {
 }
 
 export const listAllNumbers = async (options = {}) => {
-  const { forAgentId = null, organizationId = null, assignableOnly = false } = options
+  const {
+    forAgentId = null,
+    forAgentType = null,
+    organizationId = null,
+    assignableOnly = false,
+  } = options
 
   if (organizationId) {
-    return listNumbersByOrg(organizationId, null, { forAgentId, assignableOnly })
+    return listNumbersByOrg(organizationId, null, { forAgentId, forAgentType, assignableOnly })
   }
 
   let query = supabaseAdmin
@@ -479,8 +522,9 @@ export const listAllNumbers = async (options = {}) => {
 
   if (assignableOnly) {
     query = query.in('status', ASSIGNABLE_STATUSES)
-    if (forAgentId) {
-      query = query.or(`agent_id.is.null,agent_id.eq.${forAgentId}`)
+    const { filter } = await buildAssignableFilter(forAgentId, forAgentType)
+    if (filter) {
+      query = query.or(filter)
     }
   }
 

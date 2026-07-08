@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import AdminDataView from './AdminDataView';
+import CallLogDetailsDrawer from './CallLogDetailsDrawer';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
 import api from '@/lib/api';
 import { formatNullableLocaleDate } from '@/lib/dateFormat';
+import { getPhoneValidationError, normalizeE164Phone } from '@/lib/phoneNumber';
 import {
   Upload,
   Download,
-  Plus,
   Loader2,
   Trash2,
   Edit2,
@@ -18,15 +20,24 @@ import {
   FileText,
   ChevronDown,
   ChevronUp,
-  ArrowRight,
+  ChevronLeft,
+  ChevronRight,
   Play,
-  AlertTriangle
+  AlertTriangle,
+  Search,
+  ArrowRight,
 } from 'lucide-react';
+
+type CallLogSummary = {
+  id: string;
+};
 
 type OutboundTargetRow = {
   id: string;
   organization_id: string;
   agent_id: string | null;
+  campaign_id: string | null;
+  call_log_id?: string | null;
   name: string | null;
   phone: string;
   email: string | null;
@@ -35,6 +46,36 @@ type OutboundTargetRow = {
   user_id: string | null;
   agents?: {
     name: string;
+  } | null;
+  outbound_campaigns?: {
+    id: string;
+    name: string;
+  } | null;
+  call_logs?: CallLogSummary | CallLogSummary[] | null;
+};
+
+function resolveCallLogId(row: OutboundTargetRow): string | null {
+  if (row.call_log_id) return row.call_log_id;
+  if (!row.call_logs) return null;
+  const log = Array.isArray(row.call_logs) ? row.call_logs[0] : row.call_logs;
+  return log?.id || null;
+}
+
+type OutboundCampaignRow = {
+  id: string;
+  name: string;
+  organization_id: string;
+  agent_id: string;
+  status: string;
+  created_at: string;
+  agents?: {
+    id: string;
+    name: string;
+  } | null;
+  outbound_targets?: Array<{ count: number }>;
+  organizations?: {
+    id: string;
+    name: string | null;
   } | null;
 };
 
@@ -52,30 +93,39 @@ type OrgChoice = {
 };
 
 const CSV_PREVIEW_ROWS = 10;
+const CAMPAIGNS_PER_PAGE = 10;
 
 const OutboundTargetsView: React.FC = () => {
+  const location = useLocation();
+  const isAdminView = location.pathname.startsWith('/admin');
   const { user, isSP, isGCC } = useAuth();
   const [refreshKey, setRefreshKey] = useState(0);
   const [agents, setAgents] = useState<AgentChoice[]>([]);
   const [orgChoices, setOrgChoices] = useState<OrgChoice[]>([]);
-
-  // Scopes & Modals State
-  const [selectedOrgId, setSelectedOrgId] = useState('');
-  const [selectedAgentId, setSelectedAgentId] = useState('');
+  const [campaigns, setCampaigns] = useState<OutboundCampaignRow[]>([]);
+  const [isLoadingCampaigns, setIsLoadingCampaigns] = useState(true);
+  const [selectedCampaignFilter, setSelectedCampaignFilter] = useState('');
+  const [campaignSearch, setCampaignSearch] = useState('');
+  const [campaignFilterOrg, setCampaignFilterOrg] = useState('');
+  const [campaignFilterAgent, setCampaignFilterAgent] = useState('');
+  const [campaignPage, setCampaignPage] = useState(1);
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [isCampaignModalOpen, setIsCampaignModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
-  // Single Target Form State
+  // Campaign Form State
+  const [campaignName, setCampaignName] = useState('');
+  const [campaignAgentId, setCampaignAgentId] = useState('');
+  const [campaignOrgId, setCampaignOrgId] = useState('');
+
+  // Quick Call Form State
   const [singlePhone, setSinglePhone] = useState('');
+  const [singlePhoneError, setSinglePhoneError] = useState('');
   const [singleName, setSingleName] = useState('');
-  const [singleEmail, setSingleEmail] = useState('');
-  const [singleStatus, setSingleStatus] = useState('outbound');
   const [singleAgentId, setSingleAgentId] = useState('');
   const [singleOrgId, setSingleOrgId] = useState('');
   const [isSavingSingle, setIsSavingSingle] = useState(false);
-  const [initiateCall, setInitiateCall] = useState(false);
 
   // Edit Target Form State
   const [editingTarget, setEditingTarget] = useState<OutboundTargetRow | null>(null);
@@ -85,19 +135,19 @@ const OutboundTargetsView: React.FC = () => {
   const [editStatus, setEditStatus] = useState('outbound');
   const [editAgentId, setEditAgentId] = useState('');
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [selectedLog, setSelectedLog] = useState<Record<string, unknown> | null>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   // Bulk Import State
   const [csvFileName, setCsvFileName] = useState('');
   const [csvData, setCsvData] = useState<Array<{ name: string; phone: string; email: string; status: string }> | null>(null);
   const [showAllCsvRows, setShowAllCsvRows] = useState(false);
   const [isUploadingBulk, setIsUploadingBulk] = useState(false);
-  const [bulkAgentId, setBulkAgentId] = useState('');
-  const [bulkOrgId, setBulkOrgId] = useState('');
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Compute active organization context
-  const organizationId = user?.orgId || selectedOrgId;
+  // Compute active organization context for modals and agent warnings
+  const organizationId = user?.orgId || campaignFilterOrg || orgChoices[0]?.id || '';
 
   // Filter agents by type and status, and organization scope
   const activeOutboundAgents = useMemo(() => {
@@ -120,14 +170,14 @@ const OutboundTargetsView: React.FC = () => {
   }, [agents, user?.orgId, singleOrgId]);
 
   const bulkOrgAgents = useMemo(() => {
-    const targetOrg = user?.orgId || bulkOrgId;
+    const targetOrg = user?.orgId || campaignOrgId;
     return agents.filter(
       (a) =>
         a.agent_type === 'outbound' &&
         (a.status === 'active' || a.status === 'ready') &&
         (!targetOrg || a.organization_id === targetOrg || a.organization_id === null || a.organization_id === '00000000-0000-4000-a000-000000000003')
     );
-  }, [agents, user?.orgId, bulkOrgId]);
+  }, [agents, user?.orgId, campaignOrgId]);
 
   const editOrgAgents = useMemo(() => {
     const targetOrg = editingTarget?.organization_id;
@@ -154,12 +204,9 @@ const OutboundTargetsView: React.FC = () => {
     };
   }, []);
 
-  // Load organizations for GCC/SP selectors
+  // Load organizations for GCC/SP selectors and campaign filters
   useEffect(() => {
-    if (user?.orgId) {
-      setSelectedOrgId(user.orgId);
-      return;
-    }
+    if (user?.orgId) return;
     if (!user || (!isSP && !isGCC)) return;
     let cancelled = false;
     api.get('/admin/organizations')
@@ -167,7 +214,6 @@ const OutboundTargetsView: React.FC = () => {
         const rows = res.data?.data || [];
         if (!cancelled && rows.length) {
           setOrgChoices(rows);
-          setSelectedOrgId(rows[0].id);
         }
       })
       .catch((err) => console.error('Failed to load organizations', err));
@@ -176,33 +222,96 @@ const OutboundTargetsView: React.FC = () => {
     };
   }, [user, isSP, isGCC]);
 
+  const loadCampaigns = () => {
+    setIsLoadingCampaigns(true);
+    api.get('/outbound-campaigns')
+      .then((res) => setCampaigns(res.data?.data || []))
+      .catch((err) => console.error('Failed to load campaigns', err))
+      .finally(() => setIsLoadingCampaigns(false));
+  };
+
+  useEffect(() => {
+    loadCampaigns();
+  }, [refreshKey]);
+
+  const outboundAgentsForFilter = useMemo(() => {
+    return agents.filter(
+      (a) => a.agent_type === 'outbound' && (a.status === 'active' || a.status === 'ready')
+    );
+  }, [agents]);
+
+  const filteredCampaigns = useMemo(() => {
+    let rows = campaigns;
+    const q = campaignSearch.trim().toLowerCase();
+    if (q) {
+      rows = rows.filter(
+        (c) =>
+          c.name.toLowerCase().includes(q) ||
+          (c.agents?.name || '').toLowerCase().includes(q) ||
+          (c.organizations?.name || '').toLowerCase().includes(q)
+      );
+    }
+    if (campaignFilterOrg) {
+      rows = rows.filter((c) => c.organization_id === campaignFilterOrg);
+    }
+    if (campaignFilterAgent) {
+      rows = rows.filter((c) => c.agent_id === campaignFilterAgent);
+    }
+    return rows;
+  }, [campaigns, campaignSearch, campaignFilterOrg, campaignFilterAgent]);
+
+  const campaignPageCount = Math.max(1, Math.ceil(filteredCampaigns.length / CAMPAIGNS_PER_PAGE));
+
+  const paginatedCampaigns = useMemo(() => {
+    const start = (campaignPage - 1) * CAMPAIGNS_PER_PAGE;
+    return filteredCampaigns.slice(start, start + CAMPAIGNS_PER_PAGE);
+  }, [filteredCampaigns, campaignPage]);
+
+  useEffect(() => {
+    setCampaignPage(1);
+  }, [campaignSearch, campaignFilterOrg, campaignFilterAgent]);
+
+  useEffect(() => {
+    if (campaignPage > campaignPageCount) {
+      setCampaignPage(campaignPageCount);
+    }
+  }, [campaignPage, campaignPageCount]);
+
+  const showOrgColumn = isGCC || isSP || orgChoices.length > 1;
+
   // Set default form orgs when modals open
   useEffect(() => {
     if (isAddModalOpen) {
       setSingleOrgId(organizationId || (orgChoices[0]?.id ?? ''));
       setSingleAgentId('');
       setSinglePhone('');
+      setSinglePhoneError('');
       setSingleName('');
-      setSingleEmail('');
-      setSingleStatus('outbound');
-      setInitiateCall(false);
     }
   }, [isAddModalOpen, organizationId, orgChoices]);
 
   useEffect(() => {
-    if (isBulkModalOpen) {
-      setBulkOrgId(organizationId || (orgChoices[0]?.id ?? ''));
-      setBulkAgentId('');
+    if (isCampaignModalOpen) {
+      setCampaignOrgId(organizationId || (orgChoices[0]?.id ?? ''));
+      setCampaignAgentId('');
+      setCampaignName('');
       setCsvData(null);
       setCsvFileName('');
     }
-  }, [isBulkModalOpen, organizationId, orgChoices]);
+  }, [isCampaignModalOpen, organizationId, orgChoices]);
 
-  // Handle Single Target Submit
+  // Handle Single Target Submit (Quick Call)
   const handleAddSingle = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!singlePhone.trim()) {
-      toast.error('Phone number is required');
+    const phoneError = getPhoneValidationError(singlePhone);
+    if (phoneError) {
+      setSinglePhoneError(phoneError);
+      toast.error(phoneError);
+      return;
+    }
+    setSinglePhoneError('');
+    if (!singleAgentId) {
+      toast.error('Select an outbound agent');
       return;
     }
     const targetOrg = user?.orgId || singleOrgId;
@@ -214,15 +323,15 @@ const OutboundTargetsView: React.FC = () => {
     setIsSavingSingle(true);
     try {
       await api.post('/outbound-targets', {
-        phone: singlePhone.trim(),
+        phone: normalizeE164Phone(singlePhone),
         name: singleName.trim() || null,
-        email: singleEmail.trim() || null,
-        status: singleStatus,
-        agent_id: singleAgentId || null,
+        email: null,
+        status: 'initiate',
+        agent_id: singleAgentId,
         organization_id: targetOrg,
-        initiate_call: initiateCall,
+        initiate_call: true,
       });
-      toast.success('Outbound target added successfully');
+      toast.success('Call initiated successfully');
       setIsAddModalOpen(false);
       setRefreshKey((k) => k + 1);
     } catch (error: any) {
@@ -346,30 +455,54 @@ const OutboundTargetsView: React.FC = () => {
 
   const handleBulkUpload = async () => {
     if (!csvData || csvData.length === 0) return;
-    const targetOrg = user?.orgId || bulkOrgId;
+    const targetOrg = user?.orgId || campaignOrgId;
     if (!targetOrg) {
-      toast.error('Select an organization before importing.');
+      toast.error('Select an organization before creating a campaign.');
+      return;
+    }
+    if (!campaignName.trim()) {
+      toast.error('Campaign name is required');
+      return;
+    }
+    if (!campaignAgentId) {
+      toast.error('Select an outbound agent for this campaign');
       return;
     }
 
     setIsUploadingBulk(true);
     try {
-      await api.post('/outbound-targets/bulk', {
+      await api.post('/outbound-campaigns', {
+        name: campaignName.trim(),
         organization_id: targetOrg,
-        agent_id: bulkAgentId || null,
+        agent_id: campaignAgentId,
         targets: csvData,
       });
-      toast.success(`${csvData.length} targets imported successfully`);
+      toast.success(`Campaign "${campaignName.trim()}" created with ${csvData.length} numbers`);
       setCsvData(null);
       setCsvFileName('');
-      setIsBulkModalOpen(false);
+      setIsCampaignModalOpen(false);
       setRefreshKey((k) => k + 1);
     } catch (error: any) {
-      toast.error('Failed to import target list');
+      toast.error(error.response?.data?.error?.message || 'Failed to create campaign');
     } finally {
       setIsUploadingBulk(false);
     }
   };
+
+  const handleDeleteCampaign = async (id: string, name: string) => {
+    if (!window.confirm(`Delete campaign "${name}"? Numbers will remain but will no longer be linked to this campaign.`)) return;
+    try {
+      await api.delete(`/outbound-campaigns/${id}`);
+      toast.success('Campaign deleted');
+      if (selectedCampaignFilter === id) setSelectedCampaignFilter('');
+      setRefreshKey((k) => k + 1);
+    } catch {
+      toast.error('Failed to delete campaign');
+    }
+  };
+
+  const campaignTargetCount = (row: OutboundCampaignRow) =>
+    row.outbound_targets?.[0]?.count ?? 0;
 
   const downloadCsvTemplate = () => {
     const header = 'Phone,Name,Email,Status';
@@ -388,9 +521,32 @@ const OutboundTargetsView: React.FC = () => {
   // Status Styling Configuration
   const statusColors: Record<string, string> = {
     outbound: 'bg-blue-500/10 text-blue-500 border border-blue-500/20',
+    initiate: 'bg-violet-500/10 text-violet-500 border border-violet-500/20',
     pending: 'bg-amber-500/10 text-amber-500 border border-amber-500/20',
     called: 'bg-green-500/10 text-green-500 border border-green-500/20',
     failed: 'bg-red-500/10 text-red-500 border border-red-500/20',
+  };
+
+  const handleViewTargetLog = async (row: OutboundTargetRow) => {
+    const callLogId = resolveCallLogId(row);
+    if (!callLogId) {
+      toast.error('No call log linked yet for this target');
+      return;
+    }
+
+    try {
+      const response = await api.get(`/call-logs/${callLogId}`);
+      const detail = response.data.data;
+      setSelectedLog({
+        ...detail,
+        agent_name: detail.agent_name || row.agents?.name,
+        caller_number: detail.caller_number || row.phone,
+        call_type: detail.call_type || 'outbound',
+      });
+      setIsDrawerOpen(true);
+    } catch {
+      toast.error('Failed to fetch call details');
+    }
   };
 
   // Define Table Columns
@@ -437,6 +593,17 @@ const OutboundTargetsView: React.FC = () => {
       )
     },
     {
+      key: 'campaign_name',
+      label: 'Campaign',
+      render: (_: any, row: OutboundTargetRow) => (
+        row.outbound_campaigns?.name ? (
+          <span className="text-xs text-[hsl(var(--foreground))]">{row.outbound_campaigns.name}</span>
+        ) : (
+          <span className="text-[hsl(var(--muted-foreground))]/40 italic text-xs">—</span>
+        )
+      )
+    },
+    {
       key: 'agent_name',
       label: 'Agent Assignment',
       render: (_: any, row: OutboundTargetRow) => (
@@ -467,25 +634,25 @@ const OutboundTargetsView: React.FC = () => {
       {/* Top Banner and Quick-action buttons */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between w-full max-w-[1400px] mx-auto bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-5 shadow-sm">
         <div>
-          <h2 className="text-lg font-display font-semibold text-[hsl(var(--foreground))]">Outbound Calling Lists</h2>
+          <h2 className="text-lg font-display font-semibold text-[hsl(var(--foreground))]">Outbound Calling</h2>
           <p className="text-[11px] text-[hsl(var(--muted-foreground))] leading-relaxed mt-1">
-            Manage target numbers for outbound campaigns. Add single profiles or bulk upload CSV templates directly to the dialing queues.
+            Create named campaigns linked to outbound agents and upload number lists, or place a single quick call.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
           <button
             type="button"
-            onClick={() => setIsAddModalOpen(true)}
-            className="flex items-center gap-1.5 px-4 py-2 bg-[hsl(var(--muted))] hover:bg-[hsl(var(--border-v))] border border-[hsl(var(--border-v))] text-[hsl(var(--foreground))] rounded-lg text-xs font-semibold transition-colors"
+            onClick={() => setIsCampaignModalOpen(true)}
+            className="flex items-center gap-1.5 px-4 py-2 bg-[hsl(var(--primary))] text-black rounded-lg text-xs font-semibold hover:opacity-95 transition-opacity"
           >
-            <Plus size={14} /> Add Target
+            <Upload size={14} /> Create Campaign
           </button>
           <button
             type="button"
-            onClick={() => setIsBulkModalOpen(true)}
-            className="flex items-center gap-1.5 px-4 py-2 bg-[hsl(var(--primary))] text-black rounded-lg text-xs font-semibold hover:opacity-95 transition-opacity"
+            onClick={() => setIsAddModalOpen(true)}
+            className="flex items-center gap-1.5 px-4 py-2 bg-[hsl(var(--muted))] hover:bg-[hsl(var(--border-v))] border border-[hsl(var(--border-v))] text-[hsl(var(--foreground))] rounded-lg text-xs font-semibold transition-colors"
           >
-            <Upload size={14} /> Import CSV
+            <Play size={14} /> Quick Call
           </button>
         </div>
       </div>
@@ -503,53 +670,260 @@ const OutboundTargetsView: React.FC = () => {
         </div>
       )}
 
-      {/* Global organization scope filter */}
-      {showOrgPicker && (
-        <div className="max-w-[1400px] mx-auto flex items-center gap-2.5 text-xs border border-[hsl(var(--border-v))] bg-[hsl(var(--card))] rounded-xl px-5 py-3 shadow-sm">
-          <span className="text-[hsl(var(--muted-foreground))]">Filter Scope</span>
-          <select
-            value={selectedOrgId}
-            onChange={(e) => setSelectedOrgId(e.target.value)}
-            className="rounded-lg border border-[hsl(var(--border-v))] bg-[hsl(var(--secondary))] text-[hsl(var(--foreground))] px-3 py-1.5 text-xs min-w-[14rem] focus:outline-none focus:border-[hsl(var(--primary))]"
-          >
-            {orgChoices.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
+      {/* Campaigns list */}
+      <div className="max-w-[1400px] mx-auto bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl overflow-hidden shadow-sm">
+        <div className="flex flex-col gap-4 px-5 py-4 border-b border-[hsl(var(--border-v))]">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-[hsl(var(--foreground))]">Campaigns</h3>
+              <p className="text-[10px] text-[hsl(var(--muted-foreground))] mt-0.5">
+                {filteredCampaigns.length} of {campaigns.length} campaigns
+              </p>
+            </div>
+            <div className="relative w-full sm:max-w-xs">
+              <Search
+                size={14}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))]"
+              />
+              <input
+                type="text"
+                value={campaignSearch}
+                onChange={(e) => setCampaignSearch(e.target.value)}
+                placeholder="Search campaigns, orgs, agents…"
+                className="w-full bg-[hsl(var(--secondary))] border border-[hsl(var(--border-v))] rounded-lg py-2 pl-9 pr-3 text-xs focus:outline-none focus:border-[hsl(var(--primary))]"
+              />
+            </div>
+          </div>
 
-      {/* Main Targets Table List */}
-      <div className="relative">
+          <div className="flex flex-wrap items-center gap-2">
+            {showOrgColumn && orgChoices.length > 0 && (
+              <select
+                value={campaignFilterOrg}
+                onChange={(e) => setCampaignFilterOrg(e.target.value)}
+                className="rounded-lg border border-[hsl(var(--border-v))] bg-[hsl(var(--secondary))] text-[hsl(var(--foreground))] px-3 py-1.5 text-xs min-w-[10rem] focus:outline-none focus:border-[hsl(var(--primary))]"
+              >
+                <option value="">All organizations</option>
+                {orgChoices.map((o) => (
+                  <option key={o.id} value={o.id}>{o.name}</option>
+                ))}
+              </select>
+            )}
+            <select
+              value={campaignFilterAgent}
+              onChange={(e) => setCampaignFilterAgent(e.target.value)}
+              className="rounded-lg border border-[hsl(var(--border-v))] bg-[hsl(var(--secondary))] text-[hsl(var(--foreground))] px-3 py-1.5 text-xs min-w-[10rem] focus:outline-none focus:border-[hsl(var(--primary))]"
+            >
+              <option value="">All agents</option>
+              {outboundAgentsForFilter.map((a) => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+            {(campaignSearch || campaignFilterOrg || campaignFilterAgent) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setCampaignSearch('');
+                  setCampaignFilterOrg('');
+                  setCampaignFilterAgent('');
+                }}
+                className="text-[10px] font-semibold text-[hsl(var(--primary))] hover:underline px-2"
+              >
+                Clear filters
+              </button>
+            )}
+          </div>
+        </div>
+
+        {isLoadingCampaigns ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="animate-spin text-[hsl(var(--primary))]" size={20} />
+          </div>
+        ) : filteredCampaigns.length === 0 ? (
+          <p className="px-5 py-10 text-center text-xs text-[hsl(var(--muted-foreground))]">
+            {campaigns.length === 0
+              ? 'No campaigns yet. Create one by selecting an outbound agent, naming the campaign, and uploading numbers.'
+              : 'No campaigns match your filters. Try adjusting search or filters.'}
+          </p>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left">
+                <thead className="border-b border-[hsl(var(--border-v))] bg-[hsl(var(--muted))]/40">
+                  <tr>
+                    <th className="px-5 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Campaign</th>
+                    {showOrgColumn && (
+                      <th className="px-5 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Organization</th>
+                    )}
+                    <th className="px-5 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Agent</th>
+                    <th className="px-5 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Numbers</th>
+                    <th className="px-5 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Created</th>
+                    <th className="px-5 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))] text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedCampaigns.map((c) => (
+                    <tr key={c.id} className="border-b border-[hsl(var(--border))] last:border-0 hover:bg-[hsl(var(--muted))]/30">
+                      <td className="px-5 py-3 font-semibold text-[hsl(var(--foreground))]">{c.name}</td>
+                      {showOrgColumn && (
+                        <td className="px-5 py-3">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-[hsl(var(--secondary))] border border-[hsl(var(--border-v))] text-[hsl(var(--foreground))]">
+                            {c.organizations?.name || user?.entityName || '—'}
+                          </span>
+                        </td>
+                      )}
+                      <td className="px-5 py-3">
+                        <span className="font-mono text-xs border border-[hsl(var(--border-v))] px-2 py-0.5 bg-[hsl(var(--secondary))] rounded">
+                          {c.agents?.name || '—'}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3 font-mono">{campaignTargetCount(c)}</td>
+                      <td className="px-5 py-3 text-[10px] font-mono text-[hsl(var(--muted-foreground))]">
+                        {formatNullableLocaleDate(c.created_at)}
+                      </td>
+                      <td className="px-5 py-3 text-right">
+                        <div className="inline-flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedCampaignFilter(c.id)}
+                            className="text-[10px] font-semibold text-[hsl(var(--primary))] hover:underline"
+                          >
+                            View targets
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteCampaign(c.id, c.name)}
+                            className="p-1 text-[hsl(var(--muted-foreground))] hover:text-red-500"
+                            title="Delete campaign"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {campaignPageCount > 1 && (
+              <div className="flex items-center justify-between gap-3 px-5 py-3 border-t border-[hsl(var(--border-v))] bg-[hsl(var(--muted))]/20">
+                <span className="text-[10px] font-mono text-[hsl(var(--muted-foreground))]">
+                  Page {campaignPage} of {campaignPageCount}
+                  {' · '}
+                  Showing {(campaignPage - 1) * CAMPAIGNS_PER_PAGE + 1}–
+                  {Math.min(campaignPage * CAMPAIGNS_PER_PAGE, filteredCampaigns.length)} of {filteredCampaigns.length}
+                </span>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    disabled={campaignPage <= 1}
+                    onClick={() => setCampaignPage((p) => Math.max(1, p - 1))}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium border border-[hsl(var(--border-v))] bg-[hsl(var(--secondary))] disabled:opacity-40 hover:bg-[hsl(var(--muted))]"
+                  >
+                    <ChevronLeft size={14} /> Prev
+                  </button>
+                  <button
+                    type="button"
+                    disabled={campaignPage >= campaignPageCount}
+                    onClick={() => setCampaignPage((p) => Math.min(campaignPageCount, p + 1))}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium border border-[hsl(var(--border-v))] bg-[hsl(var(--secondary))] disabled:opacity-40 hover:bg-[hsl(var(--muted))]"
+                  >
+                    Next <ChevronRight size={14} />
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Dialing Targets */}
+      <div className="relative max-w-[1400px] mx-auto">
         <AdminDataView
           title="Dialing Targets"
           endpoint="/outbound-targets"
           refreshKey={refreshKey}
-          emptyMessage="No outbound targets registered. Add a number or upload a target CSV list to get started."
+          emptyMessage="No outbound targets registered. Create a campaign or place a quick call to get started."
           columns={columns}
           onDelete={handleDelete}
+          filtersActive={Boolean(selectedCampaignFilter || campaignFilterOrg)}
+          emptyFilteredMessage="No targets match the current filters."
+          rowFilter={(row) => {
+            if (selectedCampaignFilter && row.campaign_id !== selectedCampaignFilter) return false;
+            if (campaignFilterOrg && row.organization_id !== campaignFilterOrg) return false;
+            return true;
+          }}
+          toolbar={
+            selectedCampaignFilter || campaignFilterOrg ? (
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-[hsl(var(--muted-foreground))]">Filtering targets</span>
+                {selectedCampaignFilter && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCampaignFilter('')}
+                    className="text-[hsl(var(--primary))] font-semibold hover:underline"
+                  >
+                    Clear campaign
+                  </button>
+                )}
+                {campaignFilterOrg && (
+                  <button
+                    type="button"
+                    onClick={() => setCampaignFilterOrg('')}
+                    className="text-[hsl(var(--primary))] font-semibold hover:underline"
+                  >
+                    Clear org
+                  </button>
+                )}
+              </div>
+            ) : undefined
+          }
           renderActions={(row) => (
-            <button
-              onClick={() => startEdit(row)}
-              className="p-1.5 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] transition-colors"
-              title="Edit Target"
-            >
-              <Edit2 size={14} />
-            </button>
+            <div className="flex items-center gap-2">
+              {resolveCallLogId(row) && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleViewTargetLog(row);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[hsl(var(--muted))] hover:bg-[hsl(var(--primary))]/10 hover:text-[hsl(var(--primary))] text-[hsl(var(--muted-foreground))] rounded-lg transition-all text-[10px] font-bold group"
+                >
+                  LOGS
+                  <ArrowRight size={10} className="transition-transform group-hover:translate-x-0.5" />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  startEdit(row);
+                }}
+                className="p-1.5 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] transition-colors"
+                title="Edit Target"
+              >
+                <Edit2 size={14} />
+              </button>
+            </div>
           )}
+        />
+
+        <CallLogDetailsDrawer
+          log={selectedLog}
+          isOpen={isDrawerOpen}
+          onClose={() => setIsDrawerOpen(false)}
+          isInternalView={isAdminView}
         />
       </div>
 
-      {/* MODAL 1: ADD SINGLE TARGET */}
+      {/* MODAL 1: QUICK CALL */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
           <div className="bg-[hsl(var(--card))] border border border-[hsl(var(--border-v))] rounded-xl w-full max-w-md shadow-2xl flex flex-col overflow-hidden animate-fade-in-up">
             <header className="flex items-start justify-between gap-4 px-6 pt-6 pb-4 border-b border-[hsl(var(--border-v))]">
               <div>
-                <h3 className="text-base font-display font-semibold">Add Single Target</h3>
-                <p className="text-[10px] text-[hsl(var(--muted-foreground))] mt-1">Insert a single number directly to the campaign queue.</p>
+                <h3 className="text-base font-display font-semibold">Quick Call</h3>
+                <p className="text-[10px] text-[hsl(var(--muted-foreground))] mt-1">Select an outbound agent, enter a number, and initiate a call immediately.</p>
               </div>
               <button
                 type="button"
@@ -581,21 +955,7 @@ const OutboundTargetsView: React.FC = () => {
 
               <div>
                 <label className="block text-[10px] font-mono uppercase tracking-wider text-[hsl(var(--muted-foreground))] mb-1.5">
-                  Phone Number *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. +15550199"
-                  value={singlePhone}
-                  onChange={(e) => setSinglePhone(e.target.value)}
-                  className="w-full bg-[hsl(var(--secondary))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[hsl(var(--primary))]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-mono uppercase tracking-wider text-[hsl(var(--muted-foreground))] mb-1.5">
-                  Full Name
+                  Name
                 </label>
                 <input
                   type="text"
@@ -608,71 +968,52 @@ const OutboundTargetsView: React.FC = () => {
 
               <div>
                 <label className="block text-[10px] font-mono uppercase tracking-wider text-[hsl(var(--muted-foreground))] mb-1.5">
-                  Email Address
+                  Phone Number *
                 </label>
                 <input
-                  type="email"
-                  placeholder="e.g. john@example.com"
-                  value={singleEmail}
-                  onChange={(e) => setSingleEmail(e.target.value)}
-                  className="w-full bg-[hsl(var(--secondary))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[hsl(var(--primary))]"
+                  type="tel"
+                  required
+                  placeholder="e.g. +15550123456"
+                  value={singlePhone}
+                  onChange={(e) => {
+                    setSinglePhone(e.target.value);
+                    if (singlePhoneError) setSinglePhoneError('');
+                  }}
+                  onBlur={() => {
+                    const error = getPhoneValidationError(singlePhone);
+                    setSinglePhoneError(error || '');
+                  }}
+                  className={`w-full bg-[hsl(var(--secondary))] border rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[hsl(var(--primary))] ${
+                    singlePhoneError
+                      ? 'border-red-500'
+                      : 'border-[hsl(var(--border-v))]'
+                  }`}
                 />
+                {singlePhoneError ? (
+                  <p className="text-[10px] text-red-500 mt-1">{singlePhoneError}</p>
+                ) : (
+                  <p className="text-[9px] text-[hsl(var(--muted-foreground))] mt-1 italic">
+                    Include country code (E.164), e.g. +15550123456
+                  </p>
+                )}
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] font-mono uppercase tracking-wider text-[hsl(var(--muted-foreground))] mb-1.5">
-                    Agent Assignment
-                  </label>
-                  <select
-                    value={singleAgentId}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setSingleAgentId(val);
-                      if (val) {
-                        setInitiateCall(true);
-                      }
-                    }}
-                    className="w-full bg-[hsl(var(--secondary))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[hsl(var(--primary))]"
-                  >
-                    <option value="">None</option>
-                    {singleOrgAgents.map((a) => (
-                      <option key={a.id} value={a.id}>{a.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-mono uppercase tracking-wider text-[hsl(var(--muted-foreground))] mb-1.5">
-                    Initial Status
-                  </label>
-                  <select
-                    value={singleStatus}
-                    onChange={(e) => setSingleStatus(e.target.value)}
-                    className="w-full bg-[hsl(var(--secondary))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[hsl(var(--primary))]"
-                  >
-                    <option value="outbound">Outbound</option>
-                    <option value="pending">Pending</option>
-                    <option value="called">Called</option>
-                    <option value="failed">Failed</option>
-                  </select>
-                </div>
+              <div>
+                <label className="block text-[10px] font-mono uppercase tracking-wider text-[hsl(var(--muted-foreground))] mb-1.5">
+                  Outbound Agent *
+                </label>
+                <select
+                  value={singleAgentId}
+                  onChange={(e) => setSingleAgentId(e.target.value)}
+                  required
+                  className="w-full bg-[hsl(var(--secondary))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[hsl(var(--primary))]"
+                >
+                  <option value="">Select agent…</option>
+                  {singleOrgAgents.map((a) => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </select>
               </div>
-
-              {singleAgentId && (
-                <div className="flex items-center gap-2 px-1">
-                  <input
-                    type="checkbox"
-                    id="initiateCall"
-                    checked={initiateCall}
-                    onChange={(e) => setInitiateCall(e.target.checked)}
-                    className="rounded border-[hsl(var(--border-v))] w-4 h-4 text-[hsl(var(--primary))] bg-[hsl(var(--secondary))] focus:ring-0 cursor-pointer"
-                  />
-                  <label htmlFor="initiateCall" className="text-xs text-[hsl(var(--foreground))] cursor-pointer select-none">
-                    Initiate Call Immediately
-                  </label>
-                </div>
-              )}
 
               <div className="flex items-center gap-3 pt-4 border-t border-[hsl(var(--border-v))]">
                 <button
@@ -689,7 +1030,7 @@ const OutboundTargetsView: React.FC = () => {
                   className="inline-flex items-center gap-1.5 px-5 py-2 bg-[hsl(var(--primary))] text-black rounded-lg text-xs font-semibold hover:opacity-90 disabled:opacity-50"
                 >
                   {isSavingSingle && <Loader2 size={12} className="animate-spin" />}
-                  Save Target
+                  Call Now
                 </button>
               </div>
             </form>
@@ -697,18 +1038,18 @@ const OutboundTargetsView: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL 2: BULK CSV IMPORT */}
-      {isBulkModalOpen && (
+      {/* MODAL 2: CREATE CAMPAIGN */}
+      {isCampaignModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
           <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl w-full max-w-2xl shadow-2xl flex flex-col overflow-hidden animate-fade-in-up max-h-[90vh]">
             <header className="flex items-start justify-between gap-4 px-6 pt-6 pb-4 border-b border-[hsl(var(--border-v))]">
               <div>
-                <h3 className="text-base font-display font-semibold">Bulk Target Upload</h3>
-                <p className="text-[10px] text-[hsl(var(--muted-foreground))] mt-1">Upload target records bulk list from a simple template file.</p>
+                <h3 className="text-base font-display font-semibold">Create Campaign</h3>
+                <p className="text-[10px] text-[hsl(var(--muted-foreground))] mt-1">Select an outbound agent, name the campaign, and upload a list of numbers.</p>
               </div>
               <button
                 type="button"
-                onClick={() => setIsBulkModalOpen(false)}
+                onClick={() => setIsCampaignModalOpen(false)}
                 className="p-1 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
               >
                 <X size={18} />
@@ -717,7 +1058,7 @@ const OutboundTargetsView: React.FC = () => {
 
             <div className="p-6 space-y-4 overflow-y-auto">
               <div className="flex justify-between items-center bg-[hsl(var(--secondary))] p-3 border border-[hsl(var(--border-v))] rounded-lg">
-                <span className="text-[10px] font-mono text-[hsl(var(--muted-foreground))] uppercase">Upload template</span>
+                <span className="text-[10px] font-mono text-[hsl(var(--muted-foreground))] uppercase">Number list template</span>
                 <button
                   type="button"
                   onClick={downloadCsvTemplate}
@@ -731,11 +1072,11 @@ const OutboundTargetsView: React.FC = () => {
                 {showOrgPicker && (
                   <div>
                     <label className="block text-[10px] font-mono uppercase tracking-wider text-[hsl(var(--muted-foreground))] mb-1.5">
-                      Target Organization
+                      Organization *
                     </label>
                     <select
-                      value={bulkOrgId}
-                      onChange={(e) => setBulkOrgId(e.target.value)}
+                      value={campaignOrgId}
+                      onChange={(e) => setCampaignOrgId(e.target.value)}
                       required
                       className="w-full bg-[hsl(var(--secondary))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[hsl(var(--primary))]"
                     >
@@ -746,16 +1087,31 @@ const OutboundTargetsView: React.FC = () => {
                   </div>
                 )}
 
-                <div>
+                <div className={showOrgPicker ? '' : 'col-span-2'}>
                   <label className="block text-[10px] font-mono uppercase tracking-wider text-[hsl(var(--muted-foreground))] mb-1.5">
-                    Link to Agent Campaign (Optional)
+                    Campaign Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Q1 Sales Outreach"
+                    value={campaignName}
+                    onChange={(e) => setCampaignName(e.target.value)}
+                    className="w-full bg-[hsl(var(--secondary))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[hsl(var(--primary))]"
+                  />
+                </div>
+
+                <div className="col-span-2">
+                  <label className="block text-[10px] font-mono uppercase tracking-wider text-[hsl(var(--muted-foreground))] mb-1.5">
+                    Outbound Agent *
                   </label>
                   <select
-                    value={bulkAgentId}
-                    onChange={(e) => setBulkAgentId(e.target.value)}
+                    value={campaignAgentId}
+                    onChange={(e) => setCampaignAgentId(e.target.value)}
+                    required
                     className="w-full bg-[hsl(var(--secondary))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[hsl(var(--primary))]"
                   >
-                    <option value="">None (Global Dialing Pool)</option>
+                    <option value="">Select agent…</option>
                     {bulkOrgAgents.map((a) => (
                       <option key={a.id} value={a.id}>{a.name}</option>
                     ))}
@@ -837,7 +1193,7 @@ const OutboundTargetsView: React.FC = () => {
               <div className="flex items-center gap-3 pt-4 border-t border-[hsl(var(--border-v))]">
                 <button
                   type="button"
-                  onClick={() => setIsBulkModalOpen(false)}
+                  onClick={() => setIsCampaignModalOpen(false)}
                   className="px-4 py-2 bg-[hsl(var(--muted))] hover:bg-[hsl(var(--border-v))] text-[hsl(var(--foreground))] rounded-lg text-xs font-semibold"
                 >
                   Cancel
@@ -846,11 +1202,11 @@ const OutboundTargetsView: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleBulkUpload}
-                  disabled={!csvData || isUploadingBulk}
+                  disabled={!csvData || isUploadingBulk || !campaignName.trim() || !campaignAgentId}
                   className="inline-flex items-center gap-1.5 px-5 py-2 bg-[hsl(var(--primary))] text-black rounded-lg text-xs font-semibold hover:opacity-90 disabled:opacity-50"
                 >
                   {isUploadingBulk && <Loader2 size={12} className="animate-spin" />}
-                  Import Records
+                  Create Campaign
                 </button>
               </div>
             </div>

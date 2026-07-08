@@ -150,6 +150,7 @@ export const createOutboundTarget = async (req, res) => {
     const payload = {
       organization_id: organizationId,
       agent_id: body.agent_id ?? null,
+      campaign_id: body.campaign_id ?? null,
       name: body.name ?? null,
       phone,
       email: body.email ?? null,
@@ -198,6 +199,7 @@ export const createOutboundTargetsBulk = async (req, res) => {
       payloads.push({
         organization_id: organizationId,
         agent_id: body.agent_id ?? null,
+        campaign_id: body.campaign_id ?? null,
         name: item.name ?? null,
         phone,
         email: item.email ?? null,
@@ -249,6 +251,7 @@ export const updateOutboundTarget = async (req, res) => {
     if (body.email !== undefined) updateData.email = body.email
     if (body.status !== undefined) updateData.status = body.status
     if (body.agent_id !== undefined) updateData.agent_id = body.agent_id
+    if (body.campaign_id !== undefined) updateData.campaign_id = body.campaign_id
 
     if (!Object.keys(updateData).length) {
       return res.status(StatusCodes.BAD_REQUEST).json({

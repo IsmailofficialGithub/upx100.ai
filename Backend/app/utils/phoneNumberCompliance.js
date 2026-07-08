@@ -109,10 +109,24 @@ export function assertAgentPhoneSameOrg(agent, phoneRow) {
   }
 }
 
-export function isAssignableToAgent(phoneRow, agentId) {
+export function normalizeAgentType(agentType) {
+  return agentType === 'outbound' ? 'outbound' : 'inbound'
+}
+
+export function agentBindingColumn(agentType) {
+  return normalizeAgentType(agentType) === 'outbound' ? 'outbound_agent_id' : 'inbound_agent_id'
+}
+
+export function phoneAgentIdForType(phoneRow, agentType) {
+  if (!phoneRow) return null
+  return phoneRow[agentBindingColumn(agentType)] ?? null
+}
+
+export function isAssignableToAgent(phoneRow, agentId, agentType = 'inbound') {
   if (!phoneRow) return false
   const status = normalizeLineStatus(phoneRow)
   if (status === 'suspended') return false
-  if (!phoneRow.agent_id) return true
-  return phoneRow.agent_id === agentId
+  const boundId = phoneAgentIdForType(phoneRow, agentType)
+  if (!boundId) return true
+  return boundId === agentId
 }

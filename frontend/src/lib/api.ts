@@ -6,8 +6,20 @@ import {
   isPublicAuthRequest,
 } from '@/lib/authSession';
 
+/** Ensures API calls always hit `/api/...` on the backend (not `/admin/...` at server root). */
+export function getApiBaseUrl(): string {
+  const raw =
+    import.meta.env.VITE_API_URL ||
+    import.meta.env.VITE_BACKEND_BASE_URL ||
+    'http://localhost:5000';
+  const trimmed = String(raw).trim().replace(/\/+$/, '');
+  if (!trimmed) return 'http://localhost:5000/api';
+  if (trimmed.endsWith('/api')) return trimmed;
+  return `${trimmed}/api`;
+}
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+  baseURL: getApiBaseUrl(),
   headers: {
     'Content-Type': 'application/json',
   },
@@ -30,6 +42,7 @@ const GCC_SCOPE_QUERY_PATHS = [
   '/commissions',
   '/agents',
   '/outbound-targets',
+  '/outbound-campaigns',
 ];
 
 function mergeGccTenantScopeParam(config: import('axios').InternalAxiosRequestConfig) {
@@ -120,7 +133,7 @@ api.interceptors.response.use(
 
             isRefreshing = true;
 
-            const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+            const baseURL = getApiBaseUrl();
             const res = await axios.post(`${baseURL}/auth/refresh`, { refresh_token }, {
               headers: { 'Content-Type': 'application/json' }
             });

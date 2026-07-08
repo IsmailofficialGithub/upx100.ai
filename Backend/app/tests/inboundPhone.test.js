@@ -59,13 +59,14 @@ describe('InboundPhone Service', () => {
           id: 'phone1',
           phone_number: '+15551212',
           organization_id: 'org1',
-          agent_id: null,
+          inbound_agent_id: null,
+          outbound_agent_id: null,
           status: 'active',
         },
         error: null,
       })
       .mockResolvedValueOnce({
-        data: { id: 'agent1', organization_id: 'org1', name: 'Agent', deleted_at: null },
+        data: { id: 'agent1', organization_id: 'org1', name: 'Agent', deleted_at: null, agent_type: 'inbound' },
         error: null,
       })
       .mockResolvedValueOnce({
@@ -73,7 +74,8 @@ describe('InboundPhone Service', () => {
           id: 'phone1',
           phone_number: '+15551212',
           organization_id: 'org1',
-          agent_id: 'agent1',
+          inbound_agent_id: 'agent1',
+          outbound_agent_id: null,
           status: 'active',
         },
         error: null,

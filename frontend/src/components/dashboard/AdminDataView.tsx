@@ -24,6 +24,8 @@ interface AdminDataViewProps {
   emptyFilteredMessage?: string;
   /** Click row body to open detail (action cells use stopPropagation). */
   onRowClick?: (row: any) => void;
+  /** Highlight the selected row when a detail panel is open. */
+  selectedRowId?: string;
   /** When set, replaces default search (visible column keys only). Query is lowercased. */
   matchSearch?: (row: any, queryLower: string) => boolean;
   searchPlaceholder?: string;
@@ -45,6 +47,7 @@ const AdminDataView: React.FC<AdminDataViewProps> = ({
   filtersActive,
   emptyFilteredMessage,
   onRowClick,
+  selectedRowId,
   matchSearch,
   searchPlaceholder,
   refreshKey = 0,
@@ -197,7 +200,11 @@ const AdminDataView: React.FC<AdminDataViewProps> = ({
                 <tr
                   key={row.id || idx}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
-                  className={`border-b border-[hsl(var(--border))] last:border-b-0 hover:bg-[hsl(var(--muted))]/40 transition-colors ${onRowClick ? 'cursor-pointer' : ''}`}
+                  className={`border-b border-[hsl(var(--border))] last:border-b-0 hover:bg-[hsl(var(--muted))]/40 transition-colors ${onRowClick ? 'cursor-pointer' : ''} ${
+                    selectedRowId && row.id === selectedRowId
+                      ? 'bg-[hsl(var(--primary))]/10 hover:bg-[hsl(var(--primary))]/15'
+                      : ''
+                  }`}
                 >
                   {columns.map((col) => (
                     <td
@@ -208,13 +215,16 @@ const AdminDataView: React.FC<AdminDataViewProps> = ({
                     </td>
                   ))}
                   {(onEdit || onDelete || renderActions) && (
-                    <td className="px-4 sm:px-5 py-3.5 text-right">
+                    <td className="px-4 sm:px-5 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="inline-flex items-center justify-end gap-1">
                         {renderActions && renderActions(row)}
                         {onEdit && (
                           <button
                             type="button"
-                            onClick={() => onEdit(row)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onEdit(row);
+                            }}
                             className="p-1.5 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] transition-colors"
                           >
                             <Edit2 size={14} />
@@ -223,7 +233,10 @@ const AdminDataView: React.FC<AdminDataViewProps> = ({
                         {onDelete && (
                           <button
                             type="button"
-                            onClick={() => onDelete(row.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDelete(row.id);
+                            }}
                             className="p-1.5 text-[hsl(var(--muted-foreground))] hover:text-red-500 transition-colors"
                           >
                             <Trash2 size={14} />

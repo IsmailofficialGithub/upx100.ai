@@ -68,6 +68,8 @@ describe('InboundAgent Service', () => {
       organization_id: 'org123',
       agent_type: 'outbound',
       recording_disclosure_enabled: false,
+      phone_number_id: 'phone-1',
+      phone_number: '+15550199',
     }
     axios.post.mockResolvedValue({ data: { id: 'external-vapi-id' } })
 
@@ -79,6 +81,8 @@ describe('InboundAgent Service', () => {
         name: mockAgentData.name,
         agent_type: 'outbound',
         organization_id: mockAgentData.organization_id,
+        phone_number_id: 'phone-1',
+        phone_number: '+15550199',
       })
     )
     expect(supabaseAdmin.from).toHaveBeenCalledWith('agents')

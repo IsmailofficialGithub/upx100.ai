@@ -412,7 +412,7 @@ export const getAllPhoneNumbers = async (targetOrgIds = null) => {
   let query = supabaseAdmin
     .schema('inbound')
     .from('phone_numbers')
-    .select('*, organizations!phone_numbers_organization_id_fkey(name), agents(name)')
+    .select('*, organizations!phone_numbers_organization_id_fkey(name), inbound_agent:agents!phone_numbers_inbound_agent_id_fkey(name), outbound_agent:agents!phone_numbers_outbound_agent_id_fkey(name)')
     .order('created_at', { ascending: false });
 
   if (targetOrgIds) {

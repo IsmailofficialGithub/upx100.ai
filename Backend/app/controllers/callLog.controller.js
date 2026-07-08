@@ -1,4 +1,5 @@
 import * as callLogService from '../services/callLog.service.js'
+import * as outboundTargetService from '../services/outboundTarget.service.js'
 import * as userService from '../services/user.service.js'
 import { createSupabaseForRequest, supabaseAdmin } from '../config/supabase.js'
 import { StatusCodes } from 'http-status-codes'
@@ -90,6 +91,9 @@ export const handleVapiWebhook = async (req, res) => {
       call_direction: mapVapiCallDirection(callData.type),
     }
 
+    const outboundTargetId =
+      meta.outbound_target_id ?? meta.outboundTargetId ?? meta.target_id ?? null
+
     if (!logData.organization_id && logData.agent_id) {
       const { data: agentRow } = await supabaseAdmin
         .schema('inbound')
@@ -103,7 +107,14 @@ export const handleVapiWebhook = async (req, res) => {
     }
 
     try {
-      await callLogService.createCallLog(logData)
+      const created = await callLogService.createCallLog(logData)
+      if (outboundTargetId && created?.id) {
+        try {
+          await outboundTargetService.linkCallLogToTarget(outboundTargetId, created.id)
+        } catch (linkError) {
+          console.error('Failed to link call log to outbound target:', linkError.message)
+        }
+      }
     } catch (error) {
       console.error('Webhook processing error:', error)
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Error saving log' })

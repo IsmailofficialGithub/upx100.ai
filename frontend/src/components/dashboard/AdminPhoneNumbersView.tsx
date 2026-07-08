@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import api from '@/lib/api';
 import { Loader2, Building2, User, Hash, Tag, Globe, RefreshCw, Search, ChevronDown, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -346,8 +346,7 @@ const AdminPhoneNumbersView: React.FC = () => {
   const handleCheckStatus = async (id: string) => {
     const toastId = toast.loading('Checking number status...');
     try {
-      const endpoint = isAdminView ? '/admin/phone-numbers' : '/phone-numbers';
-      const response = await api.get(`${endpoint}/${id}/status`);
+      const response = await api.get(`/phone-numbers/${id}/status`);
       toast.success(`Status updated: ${response.data.status || 'Active'}`, { id: toastId });
       setRefreshKey(prev => prev + 1);
     } catch (error) {
@@ -401,10 +400,25 @@ const AdminPhoneNumbersView: React.FC = () => {
           { key: 'label', label: 'Label' },
           {
             key: 'agents',
-            label: 'Agent',
-            render: (val: { name?: string } | null) => (
-              <span className="text-[11px]">{val?.name || '—'}</span>
-            ),
+            label: 'Agents',
+            render: (_val: unknown, row: {
+              inbound_agent?: { name?: string } | { name?: string }[] | null;
+              outbound_agent?: { name?: string } | { name?: string }[] | null;
+            }) => {
+              const inboundName = Array.isArray(row.inbound_agent)
+                ? row.inbound_agent[0]?.name
+                : row.inbound_agent?.name;
+              const outboundName = Array.isArray(row.outbound_agent)
+                ? row.outbound_agent[0]?.name
+                : row.outbound_agent?.name;
+              if (!inboundName && !outboundName) return <span className="text-[11px]">—</span>;
+              return (
+                <div className="text-[11px] space-y-0.5">
+                  {inboundName && <div>In: {inboundName}</div>}
+                  {outboundName && <div>Out: {outboundName}</div>}
+                </div>
+              );
+            },
           },
         ].filter(col => {
           if (col.key === 'profiles' && isClient) return false;

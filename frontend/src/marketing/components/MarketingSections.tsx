@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { toast } from 'sonner';
+import api from '@/lib/api';
 import { PATH_CARDS } from '../types';
 
 export function PathCards() {
@@ -81,6 +83,39 @@ export function PainCards({ points }: { points: { title: string; stat?: string; 
 
 export function DemoCallForm({ id = 'demo' }: { id?: string }) {
   const [consent, setConsent] = useState(false);
+  const [phone, setPhone] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    const trimmed = phone.trim();
+    if (!trimmed) {
+      toast.error('Please enter your phone number');
+      return;
+    }
+    if (!consent) {
+      toast.error('Please accept the consent checkbox to continue');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await api.post('/marketing/landing-call', {
+        phone: trimmed,
+        consent: true,
+        source: id === 'demo' ? 'landing_page' : `landing_page_${id}`,
+      });
+      toast.success('Calling you now — pick up in a few seconds!');
+      setPhone('');
+      setConsent(false);
+    } catch (error: unknown) {
+      const message =
+        (error as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error
+          ?.message || 'Could not start your demo call. Please try again.';
+      toast.error(message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div id={id} className="bg-up-dark-1 border border-up-dark-4 rounded-xl p-8 md:p-9">
@@ -91,6 +126,8 @@ export function DemoCallForm({ id = 'demo' }: { id?: string }) {
         id={`phone-${id}`}
         type="tel"
         placeholder="+1 (000) 000-0000"
+        value={phone}
+        onChange={(e) => setPhone(e.target.value)}
         className="w-full px-4 py-3.5 bg-up-dark-2 border border-up-dark-4 rounded-md text-white font-mono text-sm outline-none focus:border-up-green mb-4"
       />
       <div className="flex gap-3 items-start mb-5">
@@ -107,14 +144,15 @@ export function DemoCallForm({ id = 'demo' }: { id?: string }) {
       </div>
       <button
         type="button"
-        disabled={!consent}
+        disabled={!consent || isSubmitting}
+        onClick={handleSubmit}
         className={`w-full py-3.5 rounded-lg font-display font-bold text-sm transition-all ${
-          consent
+          consent && !isSubmitting
             ? 'bg-up-green text-black cursor-pointer hover:shadow-[0_0_32px_rgba(0,255,136,0.15)]'
             : 'bg-[#333] text-[#666] opacity-30 cursor-not-allowed'
         }`}
       >
-        Call Me Now →
+        {isSubmitting ? 'Starting call…' : 'Call Me Now →'}
       </button>
       <p className="font-mono text-[10px] text-[#555] text-center mt-3">Takes ~15 seconds. No obligation. No follow-up spam.</p>
     </div>

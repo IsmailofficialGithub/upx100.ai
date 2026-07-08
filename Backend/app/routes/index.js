@@ -15,7 +15,9 @@ import dashboardRoutes from './dashboard.routes.js'
 import analyticsRoutes from './analytics.routes.js'
 import commissionRoutes from './commission.routes.js'
 import outboundTargetRoutes from './outboundTarget.routes.js'
+import outboundCampaignRoutes from './outboundCampaign.routes.js'
 import billingRoutes from './billing.routes.js'
+import marketingRoutes from './marketing.routes.js'
 
 const router = express.Router()
 
@@ -28,6 +30,7 @@ router.use('/analytics', analyticsRoutes)
 router.use('/commissions', commissionRoutes)
 router.use('/users', userRoutes)
 router.use('/billing', billingRoutes)
+router.use('/marketing', marketingRoutes)
 
 router.use('/agents', agentRoutes)
 router.use('/phone-numbers', phoneRoutes)
@@ -38,5 +41,6 @@ router.use('/script-requests', scriptRequestRoutes)
 router.use('/voice-clones', voiceCloneRoutes)
 router.use('/target-uploads', targetUploadRoutes)
 router.use('/outbound-targets', outboundTargetRoutes)
+router.use('/outbound-campaigns', outboundCampaignRoutes)
 
 export default router

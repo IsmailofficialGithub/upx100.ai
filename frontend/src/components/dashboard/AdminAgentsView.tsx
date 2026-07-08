@@ -303,6 +303,8 @@ const AdminAgentsView: React.FC = () => {
           assignable: 'true',
         });
         if (editingAgent?.id) params.set('for_agent_id', editingAgent.id);
+        const agentType = formData.agent_type || editingAgent?.agent_type;
+        if (agentType) params.set('for_agent_type', agentType);
         const response = await api.get(`/phone-numbers?${params.toString()}`);
         setAvailableNumbers(response.data.data ?? []);
       } catch (error) {
@@ -313,7 +315,7 @@ const AdminAgentsView: React.FC = () => {
       }
     };
     fetchNumbers();
-  }, [formData.organization_id, editingAgent?.id, isGCC, gccScope.scopeOrgId]);
+  }, [formData.organization_id, formData.agent_type, editingAgent?.id, editingAgent?.agent_type, isGCC, gccScope.scopeOrgId]);
 
   // Click outside to close search dropdown
   useEffect(() => {
@@ -329,10 +331,19 @@ const AdminAgentsView: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOrgSearchOpen, isUserSearchOpen]);
 
+  const selectedAgentType = formData.agent_type || editingAgent?.agent_type || 'inbound';
   const selectedNumberDetails = availableNumbers.find(n => n.id === formData.phone_number_id);
+  const boundAgentIdForType =
+    selectedAgentType === 'outbound'
+      ? selectedNumberDetails?.outbound_agent_id
+      : selectedNumberDetails?.inbound_agent_id;
+  const otherTypeAgentId =
+    selectedAgentType === 'outbound'
+      ? selectedNumberDetails?.inbound_agent_id
+      : selectedNumberDetails?.outbound_agent_id;
   const isNumberAssignedToOtherAgent =
-    selectedNumberDetails?.agent_id &&
-    selectedNumberDetails.agent_id !== editingAgent?.id;
+    boundAgentIdForType &&
+    boundAgentIdForType !== editingAgent?.id;
 
   const isStepValid = () => {
     if (currentStep === 1) {
@@ -356,7 +367,6 @@ const AdminAgentsView: React.FC = () => {
       return !!formData.goal && !!formData.script;
     }
     if (currentStep === 4) {
-      if (formData.agent_type === 'outbound') return true;
       return !!formData.phone_number_id;
     }
     return true;
@@ -408,7 +418,7 @@ const AdminAgentsView: React.FC = () => {
         toast.error('Select an industry vertical.', { id: loadingToast });
         return;
       }
-      if (!formData.phone_number_id && formData.agent_type !== 'outbound') {
+      if (!formData.phone_number_id) {
         toast.error('Assign a phone number before saving.', { id: loadingToast });
         return;
       }
@@ -746,7 +756,7 @@ const AdminAgentsView: React.FC = () => {
             <div className="flex flex-col flex-1 min-h-0">
               <div className="shrink-0 px-6 pt-4 pb-2 border-b border-[hsl(var(--border-v))]/50">
               <div className="flex items-center gap-2">
-                {Array.from({ length: formData.agent_type === 'outbound' ? 3 : 4 }, (_, i) => i + 1).map((step) => (
+                {Array.from({ length: 4 }, (_, i) => i + 1).map((step) => (
                   <div key={step} className="flex items-center gap-2">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
                       currentStep === step 
@@ -755,11 +765,11 @@ const AdminAgentsView: React.FC = () => {
                     }`}>
                       {currentStep > step ? <Check size={14} /> : step}
                     </div>
-                    {step < (formData.agent_type === 'outbound' ? 3 : 4) && <div className={`w-12 h-0.5 rounded ${currentStep > step ? 'bg-emerald-500' : 'bg-[hsl(var(--muted))]'}`} />}
+                    {step < 4 && <div className={`w-12 h-0.5 rounded ${currentStep > step ? 'bg-emerald-500' : 'bg-[hsl(var(--muted))]'}`} />}
                   </div>
                 ))}
                 <div className="ml-auto text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] tracking-wider">
-                  Step {currentStep} of {formData.agent_type === 'outbound' ? 3 : 4}: {
+                  Step {currentStep} of 4: {
                     currentStep === 1 ? 'Identity' : 
                     currentStep === 2 ? 'Personality' : 
                     currentStep === 3 ? 'Intelligence & RAG' : 'Telephony'
@@ -1216,7 +1226,7 @@ const AdminAgentsView: React.FC = () => {
                   </div>
                 )}
 
-                {currentStep === 4 && formData.agent_type !== 'outbound' && (
+                {currentStep === 4 && (
                   <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
                     <div className="p-4 bg-[hsl(var(--primary))]/5 border border-[hsl(var(--primary))]/10 rounded-xl">
                       <div className="flex items-start gap-3">
@@ -1224,7 +1234,9 @@ const AdminAgentsView: React.FC = () => {
                         <div className="space-y-1">
                           <p className="text-xs font-semibold text-[hsl(var(--foreground))]">Telephony Assignment</p>
                           <p className="text-[10px] text-[hsl(var(--muted-foreground))] leading-relaxed">
-                            Each agent uses exactly one line. A client may have multiple lines; pick an unassigned line or one already on this agent.
+                            {formData.agent_type === 'outbound'
+                              ? 'Outbound agents need a dedicated caller ID line before they can place calls. Pick an available line for this client.'
+                              : 'Each agent uses exactly one line. A client may have multiple lines; pick an unassigned line or one already on this agent.'}
                           </p>
                         </div>
                       </div>
@@ -1232,13 +1244,13 @@ const AdminAgentsView: React.FC = () => {
                     
                     <div className="space-y-2">
                       <label className="text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
-                        <Phone size={12} /> Assign Phone Number {formData.agent_type !== 'outbound' ? '*' : <span className="normal-case font-normal text-[hsl(var(--muted-foreground))]">(optional)</span>}
+                        <Phone size={12} /> Assign Phone Number *
                       </label>
                       <select 
                         value={formData.phone_number_id}
                         onChange={e => setFormData({ ...formData, phone_number_id: e.target.value })}
                         disabled={isLoadingNumbers || (!isGCCAdmin && !formData.organization_id && (user?.orgId && user.orgId !== '00000000-0000-4000-a000-000000000003'))}
-                        required={formData.agent_type !== 'outbound'}
+                        required
                         className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))] transition-all appearance-none disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <option value="" disabled>Select a number...</option>
@@ -1247,17 +1259,36 @@ const AdminAgentsView: React.FC = () => {
                             No assignable lines for this client — add one under Phone Numbers
                           </option>
                         ) : (
-                          availableNumbers.map((num: { id: string; phone_number: string; label?: string; agent_id?: string; agents?: { name?: string } | { name?: string }[] }) => {
-                            const agentName = Array.isArray(num.agents)
-                              ? num.agents[0]?.name
-                              : num.agents?.name;
-                            const assignedLabel = num.agent_id
-                              ? num.agent_id === editingAgent?.id
+                          availableNumbers.map((num: {
+                            id: string;
+                            phone_number: string;
+                            label?: string;
+                            inbound_agent_id?: string | null;
+                            outbound_agent_id?: string | null;
+                            inbound_agent?: { name?: string } | { name?: string }[] | null;
+                            outbound_agent?: { name?: string } | { name?: string }[] | null;
+                          }) => {
+                            const boundId = selectedAgentType === 'outbound'
+                              ? num.outbound_agent_id
+                              : num.inbound_agent_id;
+                            const boundAgent = selectedAgentType === 'outbound'
+                              ? num.outbound_agent
+                              : num.inbound_agent;
+                            const agentName = Array.isArray(boundAgent)
+                              ? boundAgent[0]?.name
+                              : boundAgent?.name;
+                            const otherTypeLabel = selectedAgentType === 'outbound'
+                              ? (num.inbound_agent_id ? 'inbound' : null)
+                              : (num.outbound_agent_id ? 'outbound' : null);
+                            const assignedLabel = boundId
+                              ? boundId === editingAgent?.id
                                 ? '• This agent'
                                 : agentName
                                   ? `• ${agentName}`
                                   : '• Other agent'
-                              : '• Available';
+                              : otherTypeLabel
+                                ? `• Available (${otherTypeLabel} in use)`
+                                : '• Available';
                             return (
                               <option key={num.id} value={num.id}>
                                 {num.phone_number}
@@ -1271,7 +1302,15 @@ const AdminAgentsView: React.FC = () => {
                         <div className="flex items-center gap-1.5 p-2 bg-blue-500/5 rounded-lg border border-blue-500/10 mt-2">
                           <AlertCircle size={12} className="text-blue-500" />
                           <p className="text-[10px] text-blue-500 italic">
-                            This line is on another agent today; saving moves it to this agent.
+                            This line is on another {selectedAgentType} agent; saving moves it to this agent.
+                          </p>
+                        </div>
+                      )}
+                      {otherTypeAgentId && !isNumberAssignedToOtherAgent && (
+                        <div className="flex items-center gap-1.5 p-2 bg-emerald-500/5 rounded-lg border border-emerald-500/10 mt-2">
+                          <AlertCircle size={12} className="text-emerald-500" />
+                          <p className="text-[10px] text-emerald-600 italic">
+                            This line is also used by a {selectedAgentType === 'outbound' ? 'inbound' : 'outbound'} agent — that is allowed.
                           </p>
                         </div>
                       )}
@@ -1323,7 +1362,7 @@ const AdminAgentsView: React.FC = () => {
                     {currentStep === 1 ? 'Cancel' : 'Back'}
                   </button>
                   
-                  {currentStep < (formData.agent_type === 'outbound' ? 3 : 4) ? (
+                  {currentStep < 4 ? (
                     <button
                       type="button"
                       onClick={handleNext}
