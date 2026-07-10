@@ -109,11 +109,14 @@ export const auth = async (req, res, next) => {
     }
 
     // 6. Build and attach user context
+    const isGcc = profile.role === 'gcc_admin' || profile.role === 'gcc_reviewer'
     const userContext = {
       userId: profile.id,
       orgId: normalizeOptionalUuid(profile.organization_id),
       role: profile.role,
       email: user.email,
+      canInbound: isGcc ? true : profile.can_inbound !== false,
+      canOutbound: isGcc ? true : profile.can_outbound !== false,
       profile: profile
     }
 

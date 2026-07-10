@@ -489,12 +489,18 @@ export const getAllVoiceClones = async (targetOrgIds = null) => {
 // --- CRUD OPERATIONS ---
 
 export const createUser = async (userData) => {
-  let { email, password, full_name, role, organization_id } = userData;
+  let { email, password, full_name, role, organization_id, can_inbound, can_outbound } = userData;
   console.log('[AdminService] Creating user:', email, 'with role:', role);
   
   // Sanitize organization_id (empty string -> null)
   if (!organization_id || (typeof organization_id === 'string' && organization_id.trim() === '')) {
     organization_id = null;
+  }
+
+  const inbound = can_inbound !== false;
+  const outbound = can_outbound !== false;
+  if (!inbound && !outbound) {
+    return { error: { message: 'Select at least one channel: Inbound or Outbound' } };
   }
 
   // 1. Create User in Supabase Auth
@@ -522,7 +528,9 @@ export const createUser = async (userData) => {
       email,
       full_name,
       role: role || 'client_sub',
-      organization_id
+      organization_id,
+      can_inbound: inbound,
+      can_outbound: outbound,
     }])
     .select('*, organizations!profiles_organization_id_fkey(name)')
     .single();
@@ -540,7 +548,7 @@ export const createUser = async (userData) => {
 };
 
 export const updateUser = async (id, updates) => {
-  let { role, organization_id, is_active, full_name, password } = updates;
+  let { role, organization_id, is_active, full_name, password, can_inbound, can_outbound } = updates;
   
   // Sanitize organization_id (empty string -> null)
   if (organization_id === '') {
@@ -555,10 +563,18 @@ export const updateUser = async (id, updates) => {
     if (authError) return { error: authError };
   }
 
+  const profileUpdates = { role, organization_id, is_active, full_name };
+  if (can_inbound !== undefined) profileUpdates.can_inbound = Boolean(can_inbound);
+  if (can_outbound !== undefined) profileUpdates.can_outbound = Boolean(can_outbound);
+
+  if (profileUpdates.can_inbound === false && profileUpdates.can_outbound === false) {
+    return { error: { message: 'Select at least one channel: Inbound or Outbound' } };
+  }
+
   // 2. Update Profile
   const { data: profile, error: profileError } = await supabaseAdmin
     .from('profiles')
-    .update({ role, organization_id, is_active, full_name })
+    .update(profileUpdates)
     .eq('id', id)
     .select('*, organizations!profiles_organization_id_fkey(name)')
     .single();

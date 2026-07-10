@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import AdminDataView from './AdminDataView';
 import CallLogDetailsDrawer from './CallLogDetailsDrawer';
@@ -15,6 +15,7 @@ import {
 } from '@/lib/callDirection';
 import { CALL_LOGS_EMPTY_MESSAGE } from './callLogsEmptyMessage';
 import { matchCallLogSearch } from './callLogSearch';
+import { useAuth } from '@/context/AuthContext';
 
 const DIRECTION_TABS: { id: CallDirectionFilter; label: string; icon?: typeof PhoneIncoming }[] = [
   { id: 'all', label: 'All Calls' },
@@ -38,12 +39,25 @@ function matchesDeletedDataFilter(isDeleted: boolean, filter: DeletedDataFilter)
 
 const CallLogsView: React.FC = () => {
   const location = useLocation();
+  const { canAccessInbound, canAccessOutbound } = useAuth();
   const isAdminCallLogs = location.pathname.startsWith('/admin');
   const callLogsEndpoint = isAdminCallLogs ? '/admin/call-logs' : '/call-logs';
   const [selectedLog, setSelectedLog] = useState<any>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [directionFilter, setDirectionFilter] = useState<CallDirectionFilter>('all');
+  const defaultDirection: CallDirectionFilter =
+    canAccessInbound && canAccessOutbound
+      ? 'all'
+      : canAccessOutbound
+        ? 'outbound'
+        : 'inbound';
+  const [directionFilter, setDirectionFilter] = useState<CallDirectionFilter>(defaultDirection);
   const [deletedDataFilter, setDeletedDataFilter] = useState<DeletedDataFilter>('all');
+
+  useEffect(() => {
+    if (canAccessInbound && canAccessOutbound) return;
+    if (!canAccessOutbound && directionFilter !== 'inbound') setDirectionFilter('inbound');
+    if (!canAccessInbound && directionFilter !== 'outbound') setDirectionFilter('outbound');
+  }, [canAccessInbound, canAccessOutbound, directionFilter]);
 
   const handleViewDetail = async (log: any) => {
     try {
@@ -73,14 +87,27 @@ const CallLogsView: React.FC = () => {
     directionFilter !== 'all' || (isAdminCallLogs && deletedDataFilter !== 'all');
 
   const listToolbar = useMemo(
-    () => (
+    () => {
+      const visibleDirectionTabs = DIRECTION_TABS.filter((tab) => {
+        if (tab.id === 'all') return canAccessInbound && canAccessOutbound;
+        if (tab.id === 'inbound') return canAccessInbound;
+        if (tab.id === 'outbound') return canAccessOutbound;
+        return true;
+      });
+
+      return (
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-[11px] text-[hsl(var(--muted-foreground))]">
-            Filter by how the call was initiated — inbound (customer called in) or outbound (AI dialed out).
+            {canAccessInbound && canAccessOutbound
+              ? 'Filter by how the call was initiated — inbound (customer called in) or outbound (AI dialed out).'
+              : canAccessOutbound
+                ? 'Your account is limited to outbound call data.'
+                : 'Your account is limited to inbound call data.'}
           </p>
+          {visibleDirectionTabs.length > 1 && (
           <div className="flex bg-[hsl(var(--muted))] rounded-lg p-0.5 w-fit shrink-0">
-            {DIRECTION_TABS.map((tab) => {
+            {visibleDirectionTabs.map((tab) => {
               const Icon = tab.icon;
               const active = directionFilter === tab.id;
               return (
@@ -100,6 +127,7 @@ const CallLogsView: React.FC = () => {
               );
             })}
           </div>
+          )}
         </div>
         {isAdminCallLogs && (
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-t border-[hsl(var(--border-v))] pt-3">
@@ -131,8 +159,9 @@ const CallLogsView: React.FC = () => {
           </div>
         )}
       </div>
-    ),
-    [directionFilter, deletedDataFilter, isAdminCallLogs],
+    );
+    },
+    [directionFilter, deletedDataFilter, isAdminCallLogs, canAccessInbound, canAccessOutbound],
   );
 
   const statusIcons: Record<string, React.ReactNode> = {

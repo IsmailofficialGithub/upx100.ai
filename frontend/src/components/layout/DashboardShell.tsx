@@ -7,7 +7,6 @@ import { useAuth } from '@/context/AuthContext';
 const pageTitles: Record<string, string> = {
   '/client/dashboard': 'Campaign Dashboard',
   '/client/calendar': 'Calendar & Meetings',
-  '/client/analytics': 'Analytics & Insights',
   '/client/engine': 'Script & target uploads',
   '/client/playbook': 'Sales Playbook',
   '/admin/dashboard': 'Global Operations',
@@ -17,7 +16,6 @@ const pageTitles: Record<string, string> = {
   '/admin/clones': 'Voice Personas',
   '/admin/commissions': 'Commission Overview',
   '/partner/dashboard': 'Partner Portal',
-  '/partner/analytics': 'Sales Performance',
 };
 
 /** GCC admin & reviewer: top bar titles aligned with reference nav. */
@@ -43,7 +41,6 @@ const partnerPortalTitles: Record<string, string> = {
   '/partner/calendar': 'Onboarding',
   '/partner/playbook': 'Script Requests',
   '/partner/commissions': 'Financials',
-  '/partner/analytics': 'Sales Performance',
   '/partner/call-logs': 'Call Logs',
   '/partner/leads': 'Leads',
   '/partner/phone-numbers': 'Client Phone Numbers',
@@ -71,7 +68,6 @@ const GCC_TENANT_SCOPE_PATHS = new Set([
 const clientPortalTitles: Record<string, string> = {
   '/client/dashboard': 'Dashboard',
   '/client/calendar': 'Calendar & Meetings',
-  '/client/analytics': 'Analytics & Insights',
   '/client/call-logs': 'Call Logs',
   '/client/leads': 'Leads',
   '/client/engine': 'Script & target uploads',
@@ -86,7 +82,7 @@ const DashboardShell: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { isAuthenticated, isBootstrapping, user } = useAuth();
+  const { isAuthenticated, isBootstrapping, user, canAccessOutbound } = useAuth();
   const path = location.pathname;
   const prefix = path.split('/')[1];
 
@@ -130,7 +126,11 @@ const DashboardShell: React.FC = () => {
     if (isAccessingAdmin && !hasAdminRole) navigate('/login');
     if (isAccessingPartner && !hasPartnerRole) navigate('/login');
     if (isAccessingClient && !hasClientRole) navigate('/login');
-  }, [isAuthenticated, isBootstrapping, user, location.pathname, navigate]);
+
+    if (!canAccessOutbound && location.pathname.includes('/outbound-targets')) {
+      navigate(`/${pathPrefix}/dashboard`, { replace: true });
+    }
+  }, [isAuthenticated, isBootstrapping, user, location.pathname, navigate, canAccessOutbound]);
 
   if (isBootstrapping) {
     return (

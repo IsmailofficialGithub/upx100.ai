@@ -17,6 +17,8 @@ const TeamView: React.FC = () => {
     password: '',
     full_name: '',
     role: isClientAdmin ? 'client_sub' : 'sp_sub' as any,
+    can_inbound: true,
+    can_outbound: true,
   });
 
   useEffect(() => {
@@ -42,6 +44,10 @@ const TeamView: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.can_inbound && !formData.can_outbound) {
+      toast.error('Select at least one channel: Inbound or Outbound');
+      return;
+    }
     try {
       if (editingUser) {
         const response = await api.patch(`/users/${editingUser.id}`, formData);
@@ -61,7 +67,9 @@ const TeamView: React.FC = () => {
         email: '', 
         password: '', 
         full_name: '', 
-        role: isClientAdmin ? 'client_sub' : 'sp_sub' 
+        role: isClientAdmin ? 'client_sub' : 'sp_sub',
+        can_inbound: true,
+        can_outbound: true,
       });
     } catch (error: any) {
       toast.error(error.response?.data?.error?.message || 'Operation failed');
@@ -75,6 +83,8 @@ const TeamView: React.FC = () => {
       password: '',
       full_name: targetUser.full_name || '',
       role: targetUser.role,
+      can_inbound: targetUser.can_inbound !== false,
+      can_outbound: targetUser.can_outbound !== false,
     });
     setIsModalOpen(true);
   };
@@ -167,6 +177,35 @@ const TeamView: React.FC = () => {
                   />
                 </div>
               )}
+
+              <div>
+                <label className="block text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] mb-2">
+                  Channel Access
+                </label>
+                <p className="text-[10px] text-[hsl(var(--muted-foreground))] mb-2">
+                  Choose what this member can see. Select at least one.
+                </p>
+                <div className="flex flex-wrap gap-4">
+                  <label className="inline-flex items-center gap-2 text-xs cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.can_inbound}
+                      onChange={(e) => setFormData({ ...formData, can_inbound: e.target.checked })}
+                      className="accent-[hsl(var(--primary))]"
+                    />
+                    Inbound
+                  </label>
+                  <label className="inline-flex items-center gap-2 text-xs cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.can_outbound}
+                      onChange={(e) => setFormData({ ...formData, can_outbound: e.target.checked })}
+                      className="accent-[hsl(var(--primary))]"
+                    />
+                    Outbound
+                  </label>
+                </div>
+              </div>
               
               <div className="flex items-center gap-3 mt-6">
                 <button 
@@ -194,6 +233,7 @@ const TeamView: React.FC = () => {
             <tr>
               <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Team Member</th>
               <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Role</th>
+              <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Access</th>
               <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Status</th>
               <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Actions</th>
             </tr>
@@ -201,7 +241,7 @@ const TeamView: React.FC = () => {
           <tbody className="divide-y divide-[hsl(var(--border-v))]">
             {filteredUsers.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-6 py-14 text-center text-sm text-[hsl(var(--muted-foreground))]">
+                <td colSpan={5} className="px-6 py-14 text-center text-sm text-[hsl(var(--muted-foreground))]">
                   {searchTerm.trim()
                     ? 'No team members match your search.'
                     : 'No team members in this view yet. When sub-users are added to your organization, they will appear here.'}
@@ -225,6 +265,20 @@ const TeamView: React.FC = () => {
                   <span className="px-2 py-1 rounded bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] text-[10px] font-mono">
                     {u.role}
                   </span>
+                </td>
+                <td className="px-4 py-4">
+                  <div className="flex flex-wrap gap-1">
+                    {u.can_inbound !== false && (
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                        In
+                      </span>
+                    )}
+                    {u.can_outbound !== false && (
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase bg-sky-500/10 text-sky-500 border border-sky-500/20">
+                        Out
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-4 py-4">
                   <div className="flex items-center gap-1.5">

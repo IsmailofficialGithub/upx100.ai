@@ -7,6 +7,7 @@ import { mergeCallLogDirections } from '../services/callLog.service.js'
 import { enrichCallLogRow, mapVapiCallDirection } from '../utils/callLogDirection.js'
 import { extractVapiCallTimestamps } from '../utils/callLogTimestamps.js'
 import { callLogBelongsToOrg, effectiveCallLogOrganizationId } from '../utils/callLogOrg.js'
+import { filterCallLogsByChannel, resolveChannelAccess } from '../utils/channelAccess.js'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
@@ -166,14 +167,18 @@ export const getLogs = async (req, res) => {
     }
 
     const enriched = (logs || []).map(enrichCallLogRow)
-    return res.json({ data: enriched })
+    const channel = resolveChannelAccess(req.user)
+    return res.json({ data: filterCallLogsByChannel(enriched, channel) })
   } catch (e) {
     if (['client_admin', 'client_sub'].includes(role)) {
       console.warn('[call-logs] user-client failed, falling back to service role path', e?.message)
       const eff = effectiveOrgId(orgId)
       const filterUserId = role === 'client_admin' ? null : userId
       const logs = await callLogService.listLogsByOrg(eff, filterUserId)
-      return res.json({ data: (logs || []).map(enrichCallLogRow) })
+      const channel = resolveChannelAccess(req.user)
+      return res.json({
+        data: filterCallLogsByChannel((logs || []).map(enrichCallLogRow), channel),
+      })
     }
     throw e
   }
@@ -190,6 +195,19 @@ export const getLog = async (req, res) => {
   }
 
   const { role, orgId, userId } = req.user
+
+  const channel = resolveChannelAccess(req.user)
+  const direction = String(log.call_type ?? log.call_direction ?? '').toLowerCase()
+  if (direction.includes('outbound') && !channel.canOutbound) {
+    return res.status(StatusCodes.FORBIDDEN).json({
+      error: { code: 'CHANNEL_FORBIDDEN', message: 'Your account does not have outbound access' },
+    })
+  }
+  if (direction.includes('inbound') && !channel.canInbound) {
+    return res.status(StatusCodes.FORBIDDEN).json({
+      error: { code: 'CHANNEL_FORBIDDEN', message: 'Your account does not have inbound access' },
+    })
+  }
 
   if (role === 'gcc_reviewer') {
     log.cost = '***'

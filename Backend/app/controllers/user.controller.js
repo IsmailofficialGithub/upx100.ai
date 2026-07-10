@@ -79,6 +79,8 @@ const pickAllowedUpdates = (caller, body) => {
     const allowed = {}
     if (body.full_name !== undefined) allowed.full_name = body.full_name
     if (body.is_active !== undefined) allowed.is_active = body.is_active
+    if (body.can_inbound !== undefined) allowed.can_inbound = Boolean(body.can_inbound)
+    if (body.can_outbound !== undefined) allowed.can_outbound = Boolean(body.can_outbound)
     return allowed
   }
 
@@ -151,7 +153,7 @@ export const getUser = async (req, res) => {
 }
 
 export const createUser = async (req, res) => {
-  const { email, password, role, organization_id, full_name } = req.body
+  const { email, password, role, organization_id, full_name, can_inbound, can_outbound } = req.body
   const creatorRole = req.user.role
 
   if (creatorRole === 'gcc_admin') {
@@ -171,6 +173,16 @@ export const createUser = async (req, res) => {
   } else {
     return res.status(StatusCodes.FORBIDDEN).json({
       error: { message: 'You do not have permission to create users' }
+    })
+  }
+
+  let channelFlags
+  try {
+    const { normalizeChannelFlags } = await import('../utils/channelAccess.js')
+    channelFlags = normalizeChannelFlags({ can_inbound, can_outbound })
+  } catch (flagErr) {
+    return res.status(flagErr.status || StatusCodes.BAD_REQUEST).json({
+      error: { code: flagErr.code || 'VALIDATION', message: flagErr.message },
     })
   }
 
@@ -194,7 +206,9 @@ export const createUser = async (req, res) => {
       email,
       full_name,
       role,
-      is_active: true
+      is_active: true,
+      can_inbound: channelFlags.can_inbound,
+      can_outbound: channelFlags.can_outbound,
     }
 
     const { data: profile, error: profileError } = await userService.createUserProfile(profileData)
@@ -244,6 +258,18 @@ export const updateUser = async (req, res) => {
     return res.status(StatusCodes.BAD_REQUEST).json({
       error: { code: 'INVALID_BODY', message: 'No permitted fields to update' }
     })
+  }
+
+  if (updateData.can_inbound !== undefined || updateData.can_outbound !== undefined) {
+    const nextInbound =
+      updateData.can_inbound !== undefined ? updateData.can_inbound : target.can_inbound !== false
+    const nextOutbound =
+      updateData.can_outbound !== undefined ? updateData.can_outbound : target.can_outbound !== false
+    if (!nextInbound && !nextOutbound) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        error: { code: 'VALIDATION', message: 'Select at least one channel: Inbound or Outbound' },
+      })
+    }
   }
 
   const { data, error } = await userService.updateUserProfile(userId, updateData)

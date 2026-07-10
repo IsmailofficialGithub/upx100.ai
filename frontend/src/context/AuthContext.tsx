@@ -27,6 +27,9 @@ interface User {
   orgId: string;
   entityName: string;
   region: 'US' | 'UK';
+  /** Channel access — GCC always true for both */
+  canInbound: boolean;
+  canOutbound: boolean;
 }
 
 interface AuthContextType {
@@ -49,6 +52,8 @@ interface AuthContextType {
   canViewFinances: boolean;
   canUploadTargets: boolean;
   canExportMonthly: boolean;
+  canAccessInbound: boolean;
+  canAccessOutbound: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   clearAuth: () => void;
@@ -73,6 +78,8 @@ const AuthContext = createContext<AuthContextType>({
   canViewFinances: false,
   canUploadTargets: false,
   canExportMonthly: false,
+  canAccessInbound: true,
+  canAccessOutbound: true,
   login: async () => {},
   logout: () => {},
   clearAuth: () => {},
@@ -93,6 +100,13 @@ function readStoredAuth(): StoredAuth | null {
     if (!saved) return null;
     const data = JSON.parse(saved) as StoredAuth;
     if (!data?.user?.role || !data?.session?.access_token) return null;
+    const role = data.user.role;
+    const isGccRole = role === 'gcc_admin' || role === 'gcc_reviewer';
+    data.user = {
+      ...data.user,
+      canInbound: isGccRole ? true : data.user.canInbound !== false,
+      canOutbound: isGccRole ? true : data.user.canOutbound !== false,
+    };
     return data;
   } catch {
     return null;
@@ -167,14 +181,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const response = await api.post('/auth/login', { email, password });
       const { user: apiUser, session } = response.data.data;
       
+      const role = apiUser.profile?.role as UserRole;
+      const isGccRole = role === 'gcc_admin' || role === 'gcc_reviewer';
       const userData: User = {
         id: apiUser.id,
         name: apiUser.user_metadata?.full_name || apiUser.profile?.full_name || 'User',
         email: apiUser.email,
-        role: apiUser.profile?.role as UserRole,
+        role,
         orgId: apiUser.profile?.organization_id || '',
         entityName: apiUser.profile?.organizations?.name || 'My Organization',
         region: apiUser.profile?.organizations?.country_code === 'GB' ? 'UK' : 'US',
+        canInbound: isGccRole ? true : apiUser.profile?.can_inbound !== false,
+        canOutbound: isGccRole ? true : apiUser.profile?.can_outbound !== false,
       };
 
       const newAuthData: StoredAuth = { user: userData, session, login_timestamp: Date.now() };
@@ -228,6 +246,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const canViewFinances = ['gcc_admin', 'sp_primary'].includes(user?.role || '');
   const canUploadTargets = user?.role === 'client_admin';
   const canExportMonthly = user?.role === 'gcc_admin' || user?.role === 'client_admin';
+  const canAccessInbound = user ? user.canInbound !== false : true;
+  const canAccessOutbound = user ? user.canOutbound !== false : true;
 
   return (
     <AuthContext.Provider value={{
@@ -240,6 +260,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       canManageUsers, canViewFinances,
       canUploadTargets,
       canExportMonthly,
+      canAccessInbound,
+      canAccessOutbound,
       login, logout, clearAuth,
     }}>
       {children}

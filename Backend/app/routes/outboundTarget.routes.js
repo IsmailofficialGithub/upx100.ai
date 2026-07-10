@@ -2,10 +2,12 @@ import express from 'express'
 import * as outboundTargetController from '../controllers/outboundTarget.controller.js'
 import { auth } from '../middlewares/auth.js'
 import { requireRole } from '../middlewares/rbac.js'
+import { requireOutboundAccess } from '../middlewares/channelAccess.js'
 
 const router = express.Router()
 
 router.use(auth)
+router.use(requireOutboundAccess)
 
 // Reading outbound targets is scoped within the controller logic
 router.get('/', outboundTargetController.getOutboundTargets)

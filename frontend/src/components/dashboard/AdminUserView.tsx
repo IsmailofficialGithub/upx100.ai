@@ -41,6 +41,8 @@ const AdminUserView: React.FC<Props> = ({ userDomain }) => {
     full_name: '',
     role: defaultRole,
     organization_id: '',
+    can_inbound: true,
+    can_outbound: true,
   });
 
   const scopedOrgId = gccScope.scopeOrgId !== 'all' ? gccScope.scopeOrgId : '';
@@ -110,11 +112,17 @@ const AdminUserView: React.FC<Props> = ({ userDomain }) => {
       full_name: '',
       role: defaultRole,
       organization_id: (isPartnerPage ? orgs[0]?.id : scopedOrgId || orgs[0]?.id) || '',
+      can_inbound: true,
+      can_outbound: true,
     });
   }, [defaultRole, isPartnerPage, scopedOrgId, orgs]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.can_inbound && !formData.can_outbound) {
+      toast.error('Select at least one channel: Inbound or Outbound');
+      return;
+    }
     if (!isPartnerPage && !formData.organization_id) {
       toast.error('Select the client organization this user belongs to.');
       return;
@@ -155,6 +163,8 @@ const AdminUserView: React.FC<Props> = ({ userDomain }) => {
       full_name: target.full_name || '',
       role: target.role,
       organization_id: target.organization_id || '',
+      can_inbound: target.can_inbound !== false,
+      can_outbound: target.can_outbound !== false,
     });
     setIsModalOpen(true);
   };
@@ -362,6 +372,36 @@ const AdminUserView: React.FC<Props> = ({ userDomain }) => {
                   </select>
                 </div>
               </div>
+
+              <div>
+                <label className="block text-[10px] font-mono uppercase text-[hsl(var(--muted-foreground))] mb-2">
+                  Channel Access
+                </label>
+                <p className="text-[10px] text-[hsl(var(--muted-foreground))] mb-2">
+                  Controls which call data this user can see after login. Select at least one.
+                </p>
+                <div className="flex flex-wrap gap-4">
+                  <label className="inline-flex items-center gap-2 text-xs cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.can_inbound}
+                      onChange={(e) => setFormData({ ...formData, can_inbound: e.target.checked })}
+                      className="accent-[hsl(var(--primary))]"
+                    />
+                    Inbound
+                  </label>
+                  <label className="inline-flex items-center gap-2 text-xs cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.can_outbound}
+                      onChange={(e) => setFormData({ ...formData, can_outbound: e.target.checked })}
+                      className="accent-[hsl(var(--primary))]"
+                    />
+                    Outbound
+                  </label>
+                </div>
+              </div>
+
               <div className="flex items-center gap-3 mt-6">
                 <button
                   type="button"
@@ -399,6 +439,7 @@ const AdminUserView: React.FC<Props> = ({ userDomain }) => {
                   Organization
                 </th>
                 <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Role</th>
+                <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Access</th>
                 <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Status</th>
                 <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Joined</th>
                 <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">
@@ -430,6 +471,20 @@ const AdminUserView: React.FC<Props> = ({ userDomain }) => {
                     <span className="px-2 py-1 rounded bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] text-[10px] font-mono">
                       {ROLE_LABELS[row.role] || row.role}
                     </span>
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="flex flex-wrap gap-1">
+                      {row.can_inbound !== false && (
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                          In
+                        </span>
+                      )}
+                      {row.can_outbound !== false && (
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase bg-sky-500/10 text-sky-500 border border-sky-500/20">
+                          Out
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-4">
                     <div className="flex items-center gap-1.5">

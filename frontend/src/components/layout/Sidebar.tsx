@@ -27,7 +27,14 @@ interface SidebarProps {
   onClose: () => void;
 }
 
-type GccNavItem = { label: string; path: string; icon: LucideIcon; badge?: number };
+type GccNavItem = {
+  label: string;
+  path: string;
+  icon: LucideIcon;
+  badge?: number;
+  /** When set, item is hidden unless user has that channel access */
+  channel?: 'inbound' | 'outbound';
+};
 
 type GccNavGroup = { label: string; items: GccNavItem[] };
 
@@ -62,7 +69,7 @@ const GCC_ADMIN_NAV: GccNavGroup[] = [
       { label: 'AI Agent Management', path: '/admin/agents', icon: Cpu },
       { label: 'Phone Numbers', path: '/admin/phone-numbers', icon: Phone },
       { label: 'Leads', path: '/admin/leads', icon: FileText },
-      { label: 'Outbound Targets', path: '/admin/outbound-targets', icon: FileText },
+      { label: 'Outbound Targets', path: '/admin/outbound-targets', icon: FileText, channel: 'outbound' },
     ],
   },
 ];
@@ -90,7 +97,7 @@ const GCC_REVIEWER_NAV: GccNavGroup[] = [
     items: [
       { label: 'AI Agent Management', path: '/admin/agents', icon: Cpu },
       { label: 'Phone Numbers', path: '/admin/phone-numbers', icon: Phone },
-      { label: 'Outbound Targets', path: '/admin/outbound-targets', icon: FileText },
+      { label: 'Outbound Targets', path: '/admin/outbound-targets', icon: FileText, channel: 'outbound' },
     ],
   },
 ];
@@ -114,10 +121,9 @@ const PARTNER_PRIMARY_NAV: GccNavGroup[] = [
   {
     label: 'Network',
     items: [
-      { label: 'Sales Performance', path: '/partner/analytics', icon: BarChart3 },
       { label: 'Call Logs', path: '/partner/call-logs', icon: Phone },
       { label: 'Leads', path: '/partner/leads', icon: FileText },
-      { label: 'Outbound Targets', path: '/partner/outbound-targets', icon: FileText },
+      { label: 'Outbound Targets', path: '/partner/outbound-targets', icon: FileText, channel: 'outbound' },
       { label: 'Client Phone Numbers', path: '/partner/phone-numbers', icon: Phone },
       { label: 'AI Agents', path: '/partner/agents', icon: Cpu },
       { label: 'Team', path: '/partner/team', icon: Users },
@@ -138,10 +144,9 @@ const PARTNER_SUB_NAV: GccNavGroup[] = [
   {
     label: 'Network',
     items: [
-      { label: 'Sales Performance', path: '/partner/analytics', icon: BarChart3 },
       { label: 'Call Logs', path: '/partner/call-logs', icon: Phone },
       { label: 'Leads', path: '/partner/leads', icon: FileText },
-      { label: 'Outbound Targets', path: '/partner/outbound-targets', icon: FileText },
+      { label: 'Outbound Targets', path: '/partner/outbound-targets', icon: FileText, channel: 'outbound' },
       { label: 'Client Phone Numbers', path: '/partner/phone-numbers', icon: Phone },
       { label: 'AI Agents', path: '/partner/agents', icon: Cpu },
       { label: 'Team', path: '/partner/team', icon: Users },
@@ -155,10 +160,9 @@ const CLIENT_ADMIN_PORTAL_NAV: GccNavGroup[] = [
     items: [
       { label: 'Dashboard', path: '/client/dashboard', icon: LayoutDashboard },
       { label: 'Calendar & Meetings', path: '/client/calendar', icon: CalendarDays },
-      { label: 'Analytics & Insights', path: '/client/analytics', icon: BarChart3 },
       { label: 'Call Logs', path: '/client/call-logs', icon: Phone },
       { label: 'Leads', path: '/client/leads', icon: FileText },
-      { label: 'Outbound Targets', path: '/client/outbound-targets', icon: FileText },
+      { label: 'Outbound Targets', path: '/client/outbound-targets', icon: FileText, channel: 'outbound' },
     ],
   },
   {
@@ -185,10 +189,9 @@ const CLIENT_SUB_PORTAL_NAV: GccNavGroup[] = [
     items: [
       { label: 'Dashboard', path: '/client/dashboard', icon: LayoutDashboard },
       { label: 'Calendar & Meetings', path: '/client/calendar', icon: CalendarDays },
-      { label: 'Analytics & Insights', path: '/client/analytics', icon: BarChart3 },
       { label: 'Call Logs', path: '/client/call-logs', icon: Phone },
       { label: 'Leads', path: '/client/leads', icon: FileText },
-      { label: 'Outbound Targets', path: '/client/outbound-targets', icon: FileText },
+      { label: 'Outbound Targets', path: '/client/outbound-targets', icon: FileText, channel: 'outbound' },
     ],
   },
   {
@@ -290,11 +293,39 @@ function PortalSidebarChrome({
   );
 }
 
+function filterNavGroupsByChannel(
+  groups: GccNavGroup[],
+  canInbound: boolean,
+  canOutbound: boolean,
+): GccNavGroup[] {
+  return groups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => {
+        if (item.channel === 'outbound') return canOutbound;
+        if (item.channel === 'inbound') return canInbound;
+        return true;
+      }),
+    }))
+    .filter((group) => group.items.length > 0);
+}
+
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { isUK, currencySymbol } = useTheme();
-  const { user, isGCC, isGCCAdmin, isGCCReviewer, isSP, isSPPrimary, isClient, isClientAdmin } = useAuth();
+  const {
+    user,
+    isGCC,
+    isGCCAdmin,
+    isGCCReviewer,
+    isSP,
+    isSPPrimary,
+    isClient,
+    isClientAdmin,
+    canAccessInbound,
+    canAccessOutbound,
+  } = useAuth();
   const gccScope = useGccTenantScope();
   const rolePrefix = isGCC ? 'admin' : isSP ? 'partner' : 'client';
   const portalSubtitle = isGCCAdmin
@@ -375,7 +406,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       <PortalSidebarChrome
         isOpen={isOpen}
         onClose={onClose}
-        groups={gccNavWithBadges}
+        groups={filterNavGroupsByChannel(gccNavWithBadges, canAccessInbound, canAccessOutbound)}
         pathname={location.pathname}
         onNav={handleNav}
         headerTitle="GCC ADMIN"
@@ -390,7 +421,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       <PortalSidebarChrome
         isOpen={isOpen}
         onClose={onClose}
-        groups={reviewerNavWithBadges}
+        groups={filterNavGroupsByChannel(reviewerNavWithBadges, canAccessInbound, canAccessOutbound)}
         pathname={location.pathname}
         onNav={handleNav}
         headerTitle="GCC REVIEWER"
@@ -401,7 +432,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   }
 
   if (isSP) {
-    const partnerGroups = isSPPrimary ? PARTNER_PRIMARY_NAV : PARTNER_SUB_NAV;
+    const partnerGroups = filterNavGroupsByChannel(
+      isSPPrimary ? PARTNER_PRIMARY_NAV : PARTNER_SUB_NAV,
+      canAccessInbound,
+      canAccessOutbound,
+    );
     const partnerSubtitle =
       isSPPrimary ? (
         regionMoney
@@ -428,7 +463,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   }
 
   if (isClient) {
-    const clientGroups = isClientAdmin ? CLIENT_ADMIN_PORTAL_NAV : CLIENT_SUB_PORTAL_NAV;
+    const clientGroups = filterNavGroupsByChannel(
+      isClientAdmin ? CLIENT_ADMIN_PORTAL_NAV : CLIENT_SUB_PORTAL_NAV,
+      canAccessInbound,
+      canAccessOutbound,
+    );
     const clientSubtitle =
       isClientAdmin ? (
         <span className="flex flex-wrap items-center gap-1">
@@ -473,6 +512,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       icon: FileText,
       group: 'CAMPAIGN',
       roles: ['gcc_admin', 'gcc_reviewer', 'sp_primary', 'sp_sub', 'client_admin', 'client_sub'],
+      channel: 'outbound' as const,
     },
     {
       label: 'Users',
@@ -527,13 +567,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       label: 'Calendar & Meetings',
       path: `/${rolePrefix}/calendar`,
       icon: CalendarDays,
-      group: 'CAMPAIGN',
-      roles: ['sp_primary', 'sp_sub', 'client_admin', 'client_sub'],
-    },
-    {
-      label: 'Analytics & Insights',
-      path: `/${rolePrefix}/analytics`,
-      icon: BarChart3,
       group: 'CAMPAIGN',
       roles: ['sp_primary', 'sp_sub', 'client_admin', 'client_sub'],
     },
@@ -597,7 +630,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 {group}
               </p>
               {navItems
-                .filter((item) => item.group === group && item.roles.includes(user?.role || ''))
+                .filter((item) => {
+                  if (item.group !== group || !item.roles.includes(user?.role || '')) return false;
+                  if (item.channel === 'outbound') return canAccessOutbound;
+                  if (item.channel === 'inbound') return canAccessInbound;
+                  return true;
+                })
                 .map((item) => {
                   const isActive = location.pathname === item.path;
                   const Icon = item.icon;

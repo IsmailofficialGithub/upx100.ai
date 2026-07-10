@@ -23,9 +23,9 @@ router.post('/portal', requireRole(['gcc_admin', 'client_admin']), billingContro
 router.get('/packages', requireRole(['gcc_admin', 'gcc_reviewer', 'client_admin', 'client_sub']), billingController.getPackages)
 
 // Sub-users, admins, and reviewers can view the subscription status
-router.get('/status', requireRole(['gcc_admin', 'gcc_reviewer', 'client_admin', 'client_sub']), billingController.status)
+router.get('/status', requireRole(['gcc_admin', 'gcc_reviewer', 'client_admin', 'client_sub', 'sp_primary', 'sp_sub']), billingController.status)
 
-// Invoices/billing history is typically admin-restricted
-router.get('/invoices', requireRole(['gcc_admin', 'client_admin']), billingController.invoices)
+// Invoice history — readable by all authenticated portal roles (org-scoped in controller)
+router.get('/invoices', requireRole(['gcc_admin', 'gcc_reviewer', 'client_admin', 'client_sub', 'sp_primary', 'sp_sub']), billingController.invoices)
 
 export default router

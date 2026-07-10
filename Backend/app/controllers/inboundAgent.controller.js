@@ -9,6 +9,7 @@ import {
   setCachedAgents,
   clearAgentsCache
 } from '../redis/agentCache.js'
+import { filterAgentsByChannel, resolveChannelAccess } from '../utils/channelAccess.js'
 
 /** Never expose vendor model ids or internal telephony ids to GCC/client UI. */
 const stripInternalAgentFields = (rows) =>
@@ -22,6 +23,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-
 
 export const getAgents = async (req, res) => {
   const { role, orgId, userId } = req.user
+  const channel = resolveChannelAccess(req.user)
 
   if (role === 'gcc_admin' || role === 'gcc_reviewer') {
     const targetOrgIds = await resolveScopedTargetOrgIds(req)
@@ -32,7 +34,9 @@ export const getAgents = async (req, res) => {
     if (error) {
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error })
     }
-    return res.json({ data: stripInternalAgentFields(data) })
+    return res.json({
+      data: filterAgentsByChannel(stripInternalAgentFields(data), channel),
+    })
   }
 
   // Org Admin sees everything in org, Sub-user only sees own
@@ -41,7 +45,7 @@ export const getAgents = async (req, res) => {
   // 1. Try to fetch from Redis cache
   const cached = await getCachedAgents(orgId, filterUserId)
   if (cached) {
-    return res.json({ data: cached })
+    return res.json({ data: filterAgentsByChannel(cached, channel) })
   }
 
   // 2. Fetch from Database
@@ -51,7 +55,7 @@ export const getAgents = async (req, res) => {
   // 3. Cache the results in Redis
   await setCachedAgents(orgId, filterUserId, strippedAgents)
 
-  return res.json({ data: strippedAgents })
+  return res.json({ data: filterAgentsByChannel(strippedAgents, channel) })
 }
 
 export const getAgent = async (req, res) => {

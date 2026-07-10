@@ -12,7 +12,6 @@ import Login from '@/pages/auth/login';
 import DashboardShell from '@/components/layout/DashboardShell';
 import DashboardView from '@/components/dashboard/DashboardView';
 import CalendarView from '@/components/dashboard/CalendarView';
-import AnalyticsView from '@/components/dashboard/AnalyticsView';
 import ComplianceMonitorView from '@/components/dashboard/ComplianceMonitorView';
 import EngineView from '@/components/dashboard/EngineView';
 import PlaybookView from '@/components/dashboard/PlaybookView';
@@ -59,7 +58,7 @@ function App() {
           <Route path="/client" element={<DashboardShell />}>
             <Route path="dashboard" element={<DashboardView />} />
             <Route path="calendar" element={<CalendarView />} />
-            <Route path="analytics" element={<AnalyticsView />} />
+            <Route path="analytics" element={<Navigate to="/client/dashboard" replace />} />
             <Route path="engine" element={<EngineView />} />
             <Route path="playbook" element={<PlaybookView />} />
             <Route path="call-logs" element={<CallLogsView />} />
@@ -111,7 +110,7 @@ function App() {
           <Route path="/partner" element={<DashboardShell />}>
             <Route path="dashboard" element={<DashboardView />} />
             <Route path="organizations" element={<AdminOrgView />} />
-            <Route path="analytics" element={<AnalyticsView />} />
+            <Route path="analytics" element={<Navigate to="/partner/dashboard" replace />} />
             <Route
               path="commissions"
               element={
