@@ -4,7 +4,14 @@ import * as landingCallService from '../services/landingCall.service.js'
 export const requestLandingCall = async (req, res) => {
   try {
     const body = req.body || {}
+    const name = typeof body.name === 'string' ? body.name.trim() : ''
     const phone = typeof body.phone === 'string' ? body.phone.trim() : ''
+
+    if (!name) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        error: { code: 'VALIDATION', message: 'name is required' },
+      })
+    }
 
     if (!phone) {
       return res.status(StatusCodes.BAD_REQUEST).json({
@@ -22,7 +29,7 @@ export const requestLandingCall = async (req, res) => {
 
     let webhookResult = null
     try {
-      webhookResult = await landingCallService.triggerLandingPageCall({ phone, source })
+      webhookResult = await landingCallService.triggerLandingPageCall({ name, phone, source })
     } catch (webhookError) {
       console.error('[requestLandingCall] webhook failed:', webhookError.message)
       return res.status(StatusCodes.BAD_GATEWAY).json({

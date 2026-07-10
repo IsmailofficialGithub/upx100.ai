@@ -338,7 +338,7 @@ export default function MarketingHomePage() {
             <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-[#555] mb-4 mkt-fade-up">Hear It For Yourself</p>
             <h2 className="font-display font-bold text-3xl md:text-[42px] tracking-tight mb-4 mkt-fade-up">Get a Live AI Call. In Under 20 Seconds.</h2>
             <p className="text-[#a0a0a0] leading-relaxed mkt-fade-up max-w-lg mx-auto">
-              Enter your number below — or jump straight into the client portal to explore the full dashboard.
+              Enter your name and number below — or jump straight into the client portal to explore the full dashboard.
             </p>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">

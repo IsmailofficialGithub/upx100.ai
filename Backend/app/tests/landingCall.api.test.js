@@ -15,6 +15,7 @@ describe('Marketing Landing Call API', () => {
     axios.post.mockResolvedValue({ data: { ok: true } })
 
     const res = await request(app).post('/api/marketing/landing-call').send({
+      name: 'Jane Smith',
       phone: '+15550199',
       consent: true,
     })
@@ -23,14 +24,26 @@ describe('Marketing Landing Call API', () => {
     expect(axios.post).toHaveBeenCalledWith(
       'https://auto.up100x.ai/webhook/landing_page_call',
       expect.objectContaining({
+        name: 'Jane Smith',
         phone: '+15550199',
         source: 'landing_page',
       }),
     )
   })
 
+  it('POST /api/marketing/landing-call should require name', async () => {
+    const res = await request(app).post('/api/marketing/landing-call').send({
+      phone: '+15550199',
+      consent: true,
+    })
+
+    expect(res.statusCode).toBe(400)
+    expect(axios.post).not.toHaveBeenCalled()
+  })
+
   it('POST /api/marketing/landing-call should require consent', async () => {
     const res = await request(app).post('/api/marketing/landing-call').send({
+      name: 'Jane Smith',
       phone: '+15550199',
     })
 

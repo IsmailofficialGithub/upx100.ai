@@ -83,11 +83,17 @@ export function PainCards({ points }: { points: { title: string; stat?: string; 
 
 export function DemoCallForm({ id = 'demo' }: { id?: string }) {
   const [consent, setConsent] = useState(false);
+  const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async () => {
+    const trimmedName = name.trim();
     const trimmed = phone.trim();
+    if (!trimmedName) {
+      toast.error('Please enter your name');
+      return;
+    }
     if (!trimmed) {
       toast.error('Please enter your phone number');
       return;
@@ -100,11 +106,13 @@ export function DemoCallForm({ id = 'demo' }: { id?: string }) {
     setIsSubmitting(true);
     try {
       await api.post('/marketing/landing-call', {
+        name: trimmedName,
         phone: trimmed,
         consent: true,
         source: id === 'demo' ? 'landing_page' : `landing_page_${id}`,
       });
       toast.success('Calling you now — pick up in a few seconds!');
+      setName('');
       setPhone('');
       setConsent(false);
     } catch (error: unknown) {
@@ -119,6 +127,18 @@ export function DemoCallForm({ id = 'demo' }: { id?: string }) {
 
   return (
     <div id={id} className="bg-up-dark-1 border border-up-dark-4 rounded-xl p-8 md:p-9">
+      <label htmlFor={`name-${id}`} className="font-mono text-[10px] uppercase tracking-widest text-[#555] block mb-2">
+        Your Name
+      </label>
+      <input
+        id={`name-${id}`}
+        type="text"
+        placeholder="e.g. Jane Smith"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        autoComplete="name"
+        className="w-full px-4 py-3.5 bg-up-dark-2 border border-up-dark-4 rounded-md text-white font-mono text-sm outline-none focus:border-up-green mb-4"
+      />
       <label htmlFor={`phone-${id}`} className="font-mono text-[10px] uppercase tracking-widest text-[#555] block mb-2">
         Your Phone Number
       </label>
