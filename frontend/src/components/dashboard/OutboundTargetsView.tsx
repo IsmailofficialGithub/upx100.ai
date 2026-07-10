@@ -5,7 +5,7 @@ import CallLogDetailsDrawer from './CallLogDetailsDrawer';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
 import api from '@/lib/api';
-import { formatNullableLocaleDate } from '@/lib/dateFormat';
+import { formatNullableLocaleDate, formatNullableDate, TIME_12H_SECONDS_PATTERN } from '@/lib/dateFormat';
 import { getPhoneValidationError, normalizeE164Phone } from '@/lib/phoneNumber';
 import {
   Upload,
@@ -26,10 +26,49 @@ import {
   AlertTriangle,
   Search,
   ArrowRight,
+  List,
+  PhoneOutgoing,
+  Users,
+  Megaphone,
+  Filter,
+  Plus,
+  Timer,
+  CheckCircle2,
+  AlertCircle,
 } from 'lucide-react';
+
+type AppendTargetInput = { name: string; phone: string; email: string; status: string };
+
+type ManualAppendRow = {
+  id: string;
+  name: string;
+  phone: string;
+  phoneError: string;
+};
+
+const createManualAppendRow = (): ManualAppendRow => ({
+  id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+  name: '',
+  phone: '',
+  phoneError: '',
+});
+
+type PageTab = 'campaigns' | 'initiate' | 'targets';
 
 type CallLogSummary = {
   id: string;
+  status?: string;
+  duration_sec?: number | null;
+  cost?: number | null;
+  summary?: string | null;
+  transcript?: string | null;
+  recording_url?: string | null;
+  call_type?: string | null;
+  started_at?: string | null;
+  ended_at?: string | null;
+  caller_number?: string | null;
+  vapi_call_id?: string | null;
+  is_lead?: boolean | null;
 };
 
 type OutboundTargetRow = {
@@ -54,11 +93,17 @@ type OutboundTargetRow = {
   call_logs?: CallLogSummary | CallLogSummary[] | null;
 };
 
-function resolveCallLogId(row: OutboundTargetRow): string | null {
-  if (row.call_log_id) return row.call_log_id;
-  if (!row.call_logs) return null;
+function resolveCallLog(row: OutboundTargetRow): CallLogSummary | null {
+  if (!row.call_logs) {
+    if (row.call_log_id) return { id: row.call_log_id };
+    return null;
+  }
   const log = Array.isArray(row.call_logs) ? row.call_logs[0] : row.call_logs;
-  return log?.id || null;
+  return log?.id ? log : null;
+}
+
+function resolveCallLogId(row: OutboundTargetRow): string | null {
+  return resolveCallLog(row)?.id ?? null;
 }
 
 type OutboundCampaignRow = {
@@ -77,6 +122,10 @@ type OutboundCampaignRow = {
     id: string;
     name: string | null;
   } | null;
+};
+
+type OutboundCampaignDetail = OutboundCampaignRow & {
+  outbound_targets?: OutboundTargetRow[];
 };
 
 type AgentChoice = {
@@ -109,9 +158,15 @@ const OutboundTargetsView: React.FC = () => {
   const [campaignFilterOrg, setCampaignFilterOrg] = useState('');
   const [campaignFilterAgent, setCampaignFilterAgent] = useState('');
   const [campaignPage, setCampaignPage] = useState(1);
+  const [listInitiateCampaignId, setListInitiateCampaignId] = useState('');
+  const [listInitiateCampaign, setListInitiateCampaign] = useState<OutboundCampaignDetail | null>(null);
+  const [isLoadingListDetail, setIsLoadingListDetail] = useState(false);
+  const [isInitiatingList, setIsInitiatingList] = useState(false);
+  const [activeTab, setActiveTab] = useState<PageTab>('campaigns');
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isCampaignModalOpen, setIsCampaignModalOpen] = useState(false);
+  const [isAppendModalOpen, setIsAppendModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   // Campaign Form State
@@ -137,6 +192,7 @@ const OutboundTargetsView: React.FC = () => {
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [selectedLog, setSelectedLog] = useState<Record<string, unknown> | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [selectedTargetRowId, setSelectedTargetRowId] = useState<string | null>(null);
 
   // Bulk Import State
   const [csvFileName, setCsvFileName] = useState('');
@@ -145,6 +201,17 @@ const OutboundTargetsView: React.FC = () => {
   const [isUploadingBulk, setIsUploadingBulk] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Append to existing list
+  const [appendCampaign, setAppendCampaign] = useState<OutboundCampaignRow | null>(null);
+  const [appendCsvFileName, setAppendCsvFileName] = useState('');
+  const [appendCsvData, setAppendCsvData] = useState<Array<{ name: string; phone: string; email: string; status: string }> | null>(null);
+  const [showAllAppendCsvRows, setShowAllAppendCsvRows] = useState(false);
+  const [isUploadingAppend, setIsUploadingAppend] = useState(false);
+  const [appendDragOver, setAppendDragOver] = useState(false);
+  const appendFileInputRef = useRef<HTMLInputElement>(null);
+  const [appendMode, setAppendMode] = useState<'csv' | 'manual'>('csv');
+  const [manualRows, setManualRows] = useState<ManualAppendRow[]>([createManualAppendRow()]);
 
   // Compute active organization context for modals and agent warnings
   const organizationId = user?.orgId || campaignFilterOrg || orgChoices[0]?.id || '';
@@ -279,6 +346,116 @@ const OutboundTargetsView: React.FC = () => {
 
   const showOrgColumn = isGCC || isSP || orgChoices.length > 1;
 
+  const getCampaignTargetCount = (campaign: OutboundCampaignRow) =>
+    campaign.outbound_targets?.[0]?.count ?? 0;
+
+  const listInitiateTargets = listInitiateCampaign?.outbound_targets ?? [];
+
+  const pageStats = useMemo(() => {
+    const contacts = campaigns.reduce((sum, c) => sum + getCampaignTargetCount(c), 0);
+    const withNumbers = campaigns.filter((c) => getCampaignTargetCount(c) > 0).length;
+    return {
+      campaigns: campaigns.length,
+      contacts,
+      listsReady: withNumbers,
+      agents: activeOutboundAgents.length,
+    };
+  }, [campaigns, activeOutboundAgents.length]);
+
+  const selectedCampaignName = useMemo(() => {
+    if (!selectedCampaignFilter) return null;
+    return campaigns.find((c) => c.id === selectedCampaignFilter)?.name ?? null;
+  }, [campaigns, selectedCampaignFilter]);
+
+  const dialableCampaigns = useMemo(
+    () => campaigns.filter((c) => getCampaignTargetCount(c) > 0),
+    [campaigns],
+  );
+
+  const openInitiateForCampaign = (campaignId: string) => {
+    setListInitiateCampaignId(campaignId);
+    setActiveTab('initiate');
+  };
+
+  const viewCampaignTargets = (campaignId: string) => {
+    setSelectedCampaignFilter(campaignId);
+    setActiveTab('targets');
+  };
+
+  const openAppendModal = (campaign: OutboundCampaignRow) => {
+    setAppendCampaign(campaign);
+    setAppendCsvData(null);
+    setAppendCsvFileName('');
+    setShowAllAppendCsvRows(false);
+    setAppendMode('csv');
+    setManualRows([createManualAppendRow()]);
+    setIsAppendModalOpen(true);
+  };
+
+  const closeAppendModal = () => {
+    setIsAppendModalOpen(false);
+    setAppendCampaign(null);
+    setAppendCsvData(null);
+    setAppendCsvFileName('');
+    setShowAllAppendCsvRows(false);
+    setAppendMode('csv');
+    setManualRows([createManualAppendRow()]);
+  };
+
+  const PAGE_TABS: { id: PageTab; label: string; icon: typeof Megaphone }[] = [
+    { id: 'campaigns', label: 'Contact Lists', icon: Megaphone },
+    { id: 'initiate', label: 'Initiate Dialing', icon: PhoneOutgoing },
+    { id: 'targets', label: 'All Numbers', icon: Users },
+  ];
+
+  useEffect(() => {
+    if (!listInitiateCampaignId) {
+      setListInitiateCampaign(null);
+      return;
+    }
+    let cancelled = false;
+    setIsLoadingListDetail(true);
+    api
+      .get(`/outbound-campaigns/${listInitiateCampaignId}`)
+      .then((res) => {
+        if (!cancelled) setListInitiateCampaign(res.data?.data ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setListInitiateCampaign(null);
+          toast.error('Failed to load campaign contact list');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingListDetail(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [listInitiateCampaignId, refreshKey]);
+
+  const handleInitiateListCalls = async () => {
+    if (!listInitiateCampaignId) {
+      toast.error('Select a contact list first');
+      return;
+    }
+    if (!listInitiateTargets.length) {
+      toast.error('This list has no numbers to dial');
+      return;
+    }
+    setIsInitiatingList(true);
+    try {
+      await api.post(`/outbound-campaigns/${listInitiateCampaignId}/initiate`);
+      toast.success(`Initiated calls for ${listInitiateTargets.length} numbers`);
+      setRefreshKey((k) => k + 1);
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { error?: { message?: string } } } };
+      toast.error(err.response?.data?.error?.message || 'Failed to initiate list calls');
+    } finally {
+      setIsInitiatingList(false);
+    }
+  };
+
   // Set default form orgs when modals open
   useEffect(() => {
     if (isAddModalOpen) {
@@ -397,7 +574,11 @@ const OutboundTargetsView: React.FC = () => {
     setDragOver(false);
     const file = e.dataTransfer.files[0];
     if (file && file.name.endsWith('.csv')) {
-      processCSV(file);
+      readCsvFile(file, (fileName, data) => {
+        setCsvFileName(fileName);
+        setCsvData(data);
+        setShowAllCsvRows(false);
+      });
     } else {
       toast.error('Please upload a valid CSV file');
     }
@@ -405,50 +586,88 @@ const OutboundTargetsView: React.FC = () => {
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) processCSV(file);
+    if (file) {
+      readCsvFile(file, (fileName, data) => {
+        setCsvFileName(fileName);
+        setCsvData(data);
+        setShowAllCsvRows(false);
+      });
+    }
   };
 
-  const processCSV = (file: File) => {
-    setCsvFileName(file.name);
+  const handleAppendFileDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setAppendDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file && file.name.endsWith('.csv')) {
+      readCsvFile(file, (fileName, data) => {
+        setAppendCsvFileName(fileName);
+        setAppendCsvData(data);
+        setShowAllAppendCsvRows(false);
+      });
+    } else {
+      toast.error('Please upload a valid CSV file');
+    }
+  };
+
+  const handleAppendFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      readCsvFile(file, (fileName, data) => {
+        setAppendCsvFileName(fileName);
+        setAppendCsvData(data);
+        setShowAllAppendCsvRows(false);
+      });
+    }
+  };
+
+  const parseCsvText = (text: string): Array<{ name: string; phone: string; email: string; status: string }> | null => {
+    const lines = text.split('\n').filter((l) => l.trim());
+    if (!lines.length) return null;
+
+    const headers = lines[0].split(',').map((h) => h.trim().toLowerCase());
+    const phoneIdx = headers.indexOf('phone');
+    const nameIdx = headers.indexOf('name');
+    const emailIdx = headers.indexOf('email');
+    const statusIdx = headers.indexOf('status');
+
+    if (phoneIdx === -1) {
+      toast.error('CSV must contain a "Phone" column');
+      return null;
+    }
+
+    return lines
+      .slice(1)
+      .map((line) => {
+        const cols = line.split(',');
+        const phoneVal = cols[phoneIdx]?.trim() || '';
+        const nameVal = nameIdx !== -1 ? cols[nameIdx]?.trim() || '' : '';
+        const emailVal = emailIdx !== -1 ? cols[emailIdx]?.trim() || '' : '';
+        const statusVal = statusIdx !== -1 ? cols[statusIdx]?.trim() || 'outbound' : 'outbound';
+
+        return {
+          name: nameVal,
+          phone: phoneVal,
+          email: emailVal,
+          status: statusVal,
+        };
+      })
+      .filter((r) => r.phone);
+  };
+
+  const readCsvFile = (
+    file: File,
+    onSuccess: (fileName: string, data: Array<{ name: string; phone: string; email: string; status: string }>) => void,
+  ) => {
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = e.target?.result as string;
-      const lines = text.split('\n').filter((l) => l.trim());
-
-      // Parse header to find column indices
-      const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-      const phoneIdx = headers.indexOf('phone');
-      const nameIdx = headers.indexOf('name');
-      const emailIdx = headers.indexOf('email');
-      const statusIdx = headers.indexOf('status');
-
-      if (phoneIdx === -1) {
-        toast.error('CSV must contain a "Phone" column');
-        setCsvData(null);
-        setCsvFileName('');
+      const parsed = parseCsvText(text);
+      if (!parsed?.length) {
+        if (parsed && parsed.length === 0) toast.error('No valid phone numbers found in CSV');
         return;
       }
-
-      const parsed = lines
-        .slice(1)
-        .map((line) => {
-          const cols = line.split(',');
-          const phoneVal = cols[phoneIdx]?.trim() || '';
-          const nameVal = nameIdx !== -1 ? cols[nameIdx]?.trim() || '' : '';
-          const emailVal = emailIdx !== -1 ? cols[emailIdx]?.trim() || '' : '';
-          const statusVal = statusIdx !== -1 ? cols[statusIdx]?.trim() || 'outbound' : 'outbound';
-
-          return {
-            name: nameVal,
-            phone: phoneVal,
-            email: emailVal,
-            status: statusVal,
-          };
-        })
-        .filter((r) => r.phone); // Filter empty rows
-
-      setCsvData(parsed);
-      setShowAllCsvRows(false);
+      onSuccess(file.name, parsed);
     };
     reader.readAsText(file);
   };
@@ -488,6 +707,73 @@ const OutboundTargetsView: React.FC = () => {
       setIsUploadingBulk(false);
     }
   };
+
+  const handleAppendUpload = async () => {
+    if (!appendCampaign) return;
+
+    let targets: AppendTargetInput[] = [];
+
+    if (appendMode === 'csv') {
+      if (!appendCsvData?.length) return;
+      targets = appendCsvData;
+    } else {
+      const filledRows = manualRows.filter((row) => row.phone.trim() || row.name.trim());
+      if (!filledRows.length) {
+        toast.error('Add at least one contact with a phone number');
+        return;
+      }
+
+      let hasError = false;
+      const validatedRows = filledRows.map((row) => {
+        const phoneError = getPhoneValidationError(row.phone);
+        if (phoneError) hasError = true;
+        return { ...row, phoneError: phoneError || '' };
+      });
+
+      if (hasError) {
+        setManualRows((prev) =>
+          prev.map((row) => validatedRows.find((v) => v.id === row.id) ?? row),
+        );
+        toast.error('Fix invalid phone numbers before saving');
+        return;
+      }
+
+      targets = filledRows.map((row) => ({
+        name: row.name.trim(),
+        phone: normalizeE164Phone(row.phone),
+        email: '',
+        status: 'outbound',
+      }));
+    }
+
+    setIsUploadingAppend(true);
+    try {
+      const response = await api.post(`/outbound-campaigns/${appendCampaign.id}/targets`, {
+        targets,
+      });
+      const added = response.data?.added_count ?? targets.length;
+      toast.success(`Added ${added} numbers to "${appendCampaign.name}"`);
+      closeAppendModal();
+      setRefreshKey((k) => k + 1);
+      if (listInitiateCampaignId === appendCampaign.id) {
+        setListInitiateCampaign(null);
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.error?.message || 'Failed to add numbers to list');
+    } finally {
+      setIsUploadingAppend(false);
+    }
+  };
+
+  const appendSubmitCount =
+    appendMode === 'csv'
+      ? appendCsvData?.length ?? 0
+      : manualRows.filter((row) => row.phone.trim()).length;
+
+  const canSubmitAppend =
+    appendMode === 'csv'
+      ? Boolean(appendCsvData?.length)
+      : manualRows.some((row) => row.phone.trim());
 
   const handleDeleteCampaign = async (id: string, name: string) => {
     if (!window.confirm(`Delete campaign "${name}"? Numbers will remain but will no longer be linked to this campaign.`)) return;
@@ -529,6 +815,7 @@ const OutboundTargetsView: React.FC = () => {
 
   const handleViewTargetLog = async (row: OutboundTargetRow) => {
     const callLogId = resolveCallLogId(row);
+    const embedded = resolveCallLog(row);
     if (!callLogId) {
       toast.error('No call log linked yet for this target');
       return;
@@ -537,7 +824,9 @@ const OutboundTargetsView: React.FC = () => {
     try {
       const response = await api.get(`/call-logs/${callLogId}`);
       const detail = response.data.data;
+      setSelectedTargetRowId(row.id);
       setSelectedLog({
+        ...embedded,
         ...detail,
         agent_name: detail.agent_name || row.agents?.name,
         caller_number: detail.caller_number || row.phone,
@@ -545,11 +834,107 @@ const OutboundTargetsView: React.FC = () => {
       });
       setIsDrawerOpen(true);
     } catch {
-      toast.error('Failed to fetch call details');
+      if (embedded?.status) {
+        setSelectedTargetRowId(row.id);
+        setSelectedLog({
+          ...embedded,
+          caller_number: row.phone,
+          call_type: 'outbound',
+          agent_name: row.agents?.name,
+        });
+        setIsDrawerOpen(true);
+      } else {
+        toast.error('Failed to fetch call details');
+      }
     }
   };
 
+  const callLogStatusIcons: Record<string, React.ReactNode> = {
+    success: <CheckCircle2 size={12} className="text-green-500" />,
+    failed: <AlertCircle size={12} className="text-red-500" />,
+    follow_up: <AlertCircle size={12} className="text-yellow-500" />,
+    no_answer: <AlertCircle size={12} className="text-slate-400" />,
+  };
+
+  const renderCallLogDetails = (row: OutboundTargetRow) => {
+    const log = resolveCallLog(row);
+    if (!log || !resolveCallLogId(row)) {
+      return <span className="text-[hsl(var(--muted-foreground))]/40 italic text-xs">—</span>;
+    }
+
+    const status = log.status || 'unknown';
+    const summary = typeof log.summary === 'string' ? log.summary.trim() : '';
+    const hasDetails = Boolean(log.status || summary || log.duration_sec != null || log.started_at);
+
+    if (!hasDetails) {
+      return (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleViewTargetLog(row);
+          }}
+          className="inline-flex items-center gap-1 text-[10px] font-semibold text-[hsl(var(--primary))] hover:underline"
+        >
+          Call log available
+          <ArrowRight size={10} />
+        </button>
+      );
+    }
+
+    return (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          handleViewTargetLog(row);
+        }}
+        className="group text-left w-full max-w-[240px] rounded-lg px-2 py-1.5 -mx-2 hover:bg-[hsl(var(--primary))]/10 transition-colors"
+      >
+        <div className="flex flex-wrap items-center gap-1.5">
+          {callLogStatusIcons[status] || <CheckCircle2 size={12} className="text-slate-400" />}
+          <span className="text-[10px] font-bold uppercase tracking-wider">{status}</span>
+          {log.duration_sec != null && (
+            <span className="inline-flex items-center gap-0.5 text-[9px] font-mono text-[hsl(var(--muted-foreground))]">
+              <Timer size={10} />
+              {log.duration_sec}s
+            </span>
+          )}
+          {log.is_lead && (
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-green-500/10 text-green-500">
+              LEAD
+            </span>
+          )}
+        </div>
+        {log.started_at && (
+          <p className="text-[9px] font-mono text-[hsl(var(--muted-foreground))] mt-0.5">
+            {formatNullableDate(log.started_at, 'MMM d, yyyy')} ·{' '}
+            {formatNullableDate(log.started_at, TIME_12H_SECONDS_PATTERN)}
+          </p>
+        )}
+        {summary && (
+          <p className="text-[10px] text-[hsl(var(--muted-foreground))] line-clamp-2 mt-0.5 group-hover:text-[hsl(var(--foreground))]">
+            {summary}
+          </p>
+        )}
+        <span className="text-[9px] font-semibold text-[hsl(var(--primary))] mt-1 inline-flex items-center gap-0.5">
+          View full details <ArrowRight size={9} />
+        </span>
+      </button>
+    );
+  };
+
   // Define Table Columns
+  const StatusBadge = ({ status }: { status: string }) => (
+    <span
+      className={`inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider font-mono ${
+        statusColors[status.toLowerCase()] || 'bg-slate-500/10 text-slate-500 border border-slate-500/20'
+      }`}
+    >
+      {status}
+    </span>
+  );
+
   const columns = [
     {
       key: 'phone',
@@ -586,11 +971,12 @@ const OutboundTargetsView: React.FC = () => {
     {
       key: 'status',
       label: 'Status',
-      render: (val: string) => (
-        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider font-mono ${statusColors[val.toLowerCase()] || 'bg-slate-500/10 text-slate-500 border border-slate-500/20'}`}>
-          {val}
-        </span>
-      )
+      render: (val: string) => <StatusBadge status={val} />,
+    },
+    {
+      key: 'call_log_id',
+      label: 'Call Details',
+      render: (_: string | null, row: OutboundTargetRow) => renderCallLogDetails(row),
     },
     {
       key: 'campaign_name',
@@ -630,54 +1016,118 @@ const OutboundTargetsView: React.FC = () => {
   const showOrgPicker = !user?.orgId && orgChoices.length > 0 && (isSP || isGCC);
 
   return (
-    <div className="space-y-6">
-      {/* Top Banner and Quick-action buttons */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between w-full max-w-[1400px] mx-auto bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-5 shadow-sm">
-        <div>
-          <h2 className="text-lg font-display font-semibold text-[hsl(var(--foreground))]">Outbound Calling</h2>
-          <p className="text-[11px] text-[hsl(var(--muted-foreground))] leading-relaxed mt-1">
-            Create named campaigns linked to outbound agents and upload number lists, or place a single quick call.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-          <button
-            type="button"
-            onClick={() => setIsCampaignModalOpen(true)}
-            className="flex items-center gap-1.5 px-4 py-2 bg-[hsl(var(--primary))] text-black rounded-lg text-xs font-semibold hover:opacity-95 transition-opacity"
-          >
-            <Upload size={14} /> Create Campaign
-          </button>
-          <button
-            type="button"
-            onClick={() => setIsAddModalOpen(true)}
-            className="flex items-center gap-1.5 px-4 py-2 bg-[hsl(var(--muted))] hover:bg-[hsl(var(--border-v))] border border-[hsl(var(--border-v))] text-[hsl(var(--foreground))] rounded-lg text-xs font-semibold transition-colors"
-          >
-            <Play size={14} /> Quick Call
-          </button>
+    <div className="space-y-5 pb-8">
+      {/* Page header */}
+      <div className="max-w-[1400px] mx-auto">
+        <div className="relative overflow-hidden rounded-2xl border border-[hsl(var(--border-v))] bg-[hsl(var(--card))] shadow-sm">
+          <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--primary))]/8 via-transparent to-transparent pointer-events-none" />
+          <div className="relative flex flex-col gap-5 p-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-start gap-4 min-w-0">
+              <div className="hidden sm:flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-[hsl(var(--primary))]/20 bg-[hsl(var(--primary))]/10">
+                <PhoneOutgoing size={22} className="text-[hsl(var(--primary))]" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-xl font-display font-bold text-[hsl(var(--foreground))] tracking-tight">
+                  Outbound Calling
+                </h1>
+                <p className="text-[12px] text-[hsl(var(--muted-foreground))] mt-1 max-w-xl leading-relaxed">
+                  Upload contact lists, dial one number instantly, or launch an entire campaign with your outbound agent.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsCampaignModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-[hsl(var(--primary))] text-black rounded-xl text-xs font-bold hover:opacity-95 transition-opacity shadow-sm"
+              >
+                <Upload size={14} /> New Contact List
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsAddModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-[hsl(var(--secondary))] hover:bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] text-[hsl(var(--foreground))] rounded-xl text-xs font-semibold transition-colors"
+              >
+                <Play size={14} /> Quick Call
+              </button>
+            </div>
+          </div>
+
+          {/* Stats */}
+          <div className="relative grid grid-cols-2 lg:grid-cols-4 gap-px bg-[hsl(var(--border-v))] border-t border-[hsl(var(--border-v))]">
+            {[
+              { label: 'Contact lists', value: pageStats.campaigns, hint: 'Campaigns created' },
+              { label: 'Total numbers', value: pageStats.contacts, hint: 'Across all lists' },
+              { label: 'Lists ready', value: pageStats.listsReady, hint: 'Have numbers to dial' },
+              { label: 'Active agents', value: pageStats.agents, hint: 'Outbound & ready' },
+            ].map((stat) => (
+              <div key={stat.label} className="bg-[hsl(var(--card))] px-4 py-3 sm:px-5 sm:py-4">
+                <p className="text-[9px] font-mono uppercase tracking-wider text-[hsl(var(--muted-foreground))]">
+                  {stat.label}
+                </p>
+                <p className="text-xl sm:text-2xl font-display font-bold text-[hsl(var(--foreground))] mt-0.5">
+                  {stat.value}
+                </p>
+                <p className="text-[10px] text-[hsl(var(--muted-foreground))] mt-0.5 hidden sm:block">{stat.hint}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Warning banner when no active outbound agents exist for the scope */}
       {activeOutboundAgents.length === 0 && (
-        <div className="flex items-start gap-3 rounded-lg border border-yellow-500/30 bg-yellow-500/5 px-4 py-3 text-xs text-[hsl(var(--foreground))] max-w-[1400px] mx-auto animate-fade-in">
-          <AlertTriangle size={16} className="text-yellow-500 shrink-0 mt-0.5" />
+        <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-xs text-[hsl(var(--foreground))] max-w-[1400px] mx-auto">
+          <AlertTriangle size={16} className="text-amber-500 shrink-0 mt-0.5" />
           <div>
-            <p className="font-semibold text-yellow-500">No active outbound agents</p>
+            <p className="font-semibold text-amber-600 dark:text-amber-400">No active outbound agents</p>
             <p className="text-[11px] text-[hsl(var(--muted-foreground))] mt-0.5">
-              No active outbound agents found for this organization. Please deploy an outbound agent first.
+              Deploy and activate an outbound agent before creating lists or placing calls.
             </p>
           </div>
         </div>
       )}
 
-      {/* Campaigns list */}
+      {/* Tab navigation */}
+      <div className="max-w-[1400px] mx-auto">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex bg-[hsl(var(--muted))] rounded-xl p-1 w-full sm:w-fit overflow-x-auto">
+            {PAGE_TABS.map((tab) => {
+              const Icon = tab.icon;
+              const active = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg text-[11px] font-mono font-semibold uppercase whitespace-nowrap transition-colors ${
+                    active
+                      ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-sm'
+                      : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
+                  }`}
+                >
+                  <Icon size={14} strokeWidth={2.25} />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+          {activeTab === 'initiate' && listInitiateCampaignId && (
+            <span className="text-[10px] text-[hsl(var(--muted-foreground))] font-mono truncate">
+              Selected: {listInitiateCampaign?.name || '…'}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* TAB: Contact Lists */}
+      {activeTab === 'campaigns' && (
       <div className="max-w-[1400px] mx-auto bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl overflow-hidden shadow-sm">
         <div className="flex flex-col gap-4 px-5 py-4 border-b border-[hsl(var(--border-v))]">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h3 className="text-sm font-semibold text-[hsl(var(--foreground))]">Campaigns</h3>
+              <h3 className="text-sm font-semibold text-[hsl(var(--foreground))]">Contact Lists</h3>
               <p className="text-[10px] text-[hsl(var(--muted-foreground))] mt-0.5">
-                {filteredCampaigns.length} of {campaigns.length} campaigns
+                {filteredCampaigns.length} of {campaigns.length} lists
               </p>
             </div>
             <div className="relative w-full sm:max-w-xs">
@@ -739,11 +1189,26 @@ const OutboundTargetsView: React.FC = () => {
             <Loader2 className="animate-spin text-[hsl(var(--primary))]" size={20} />
           </div>
         ) : filteredCampaigns.length === 0 ? (
-          <p className="px-5 py-10 text-center text-xs text-[hsl(var(--muted-foreground))]">
-            {campaigns.length === 0
-              ? 'No campaigns yet. Create one by selecting an outbound agent, naming the campaign, and uploading numbers.'
-              : 'No campaigns match your filters. Try adjusting search or filters.'}
-          </p>
+          <div className="px-5 py-14 text-center">
+            <Megaphone size={28} className="mx-auto mb-3 text-[hsl(var(--muted-foreground))]/40" />
+            <p className="text-sm text-[hsl(var(--foreground))] font-medium">
+              {campaigns.length === 0 ? 'No contact lists yet' : 'No lists match your filters'}
+            </p>
+            <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1 max-w-sm mx-auto">
+              {campaigns.length === 0
+                ? 'Create a list with an outbound agent and upload a CSV of phone numbers.'
+                : 'Try clearing search or filters to see more lists.'}
+            </p>
+            {campaigns.length === 0 && (
+              <button
+                type="button"
+                onClick={() => setIsCampaignModalOpen(true)}
+                className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-[hsl(var(--primary))] text-black rounded-lg text-xs font-semibold"
+              >
+                <Upload size={14} /> Create first list
+              </button>
+            )}
+          </div>
         ) : (
           <>
             <div className="overflow-x-auto">
@@ -761,9 +1226,24 @@ const OutboundTargetsView: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedCampaigns.map((c) => (
-                    <tr key={c.id} className="border-b border-[hsl(var(--border))] last:border-0 hover:bg-[hsl(var(--muted))]/30">
-                      <td className="px-5 py-3 font-semibold text-[hsl(var(--foreground))]">{c.name}</td>
+                  {paginatedCampaigns.map((c) => {
+                    const count = campaignTargetCount(c);
+                    const isSelected = selectedCampaignFilter === c.id;
+                    return (
+                    <tr
+                      key={c.id}
+                      className={`border-b border-[hsl(var(--border))] last:border-0 transition-colors ${
+                        isSelected ? 'bg-[hsl(var(--primary))]/8' : 'hover:bg-[hsl(var(--muted))]/30'
+                      }`}
+                    >
+                      <td className="px-5 py-3">
+                        <div className="font-semibold text-[hsl(var(--foreground))]">{c.name}</div>
+                        {isSelected && (
+                          <span className="text-[9px] font-mono text-[hsl(var(--primary))] uppercase tracking-wide">
+                            Filtering numbers
+                          </span>
+                        )}
+                      </td>
                       {showOrgColumn && (
                         <td className="px-5 py-3">
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-[hsl(var(--secondary))] border border-[hsl(var(--border-v))] text-[hsl(var(--foreground))]">
@@ -776,31 +1256,53 @@ const OutboundTargetsView: React.FC = () => {
                           {c.agents?.name || '—'}
                         </span>
                       </td>
-                      <td className="px-5 py-3 font-mono">{campaignTargetCount(c)}</td>
+                      <td className="px-5 py-3">
+                        <span className="inline-flex items-center justify-center min-w-[2rem] px-2 py-0.5 rounded-full text-[11px] font-mono font-bold bg-[hsl(var(--secondary))] border border-[hsl(var(--border-v))]">
+                          {count}
+                        </span>
+                      </td>
                       <td className="px-5 py-3 text-[10px] font-mono text-[hsl(var(--muted-foreground))]">
                         {formatNullableLocaleDate(c.created_at)}
                       </td>
                       <td className="px-5 py-3 text-right">
-                        <div className="inline-flex items-center gap-2">
+                        <div className="inline-flex items-center gap-1.5 flex-wrap justify-end">
                           <button
                             type="button"
-                            onClick={() => setSelectedCampaignFilter(c.id)}
-                            className="text-[10px] font-semibold text-[hsl(var(--primary))] hover:underline"
+                            onClick={() => openAppendModal(c)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-semibold text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))] rounded-lg transition-colors"
+                            title="Upload more numbers"
                           >
-                            View targets
+                            <Upload size={10} /> Add
                           </button>
                           <button
                             type="button"
+                            onClick={() => viewCampaignTargets(c.id)}
+                            className="px-2.5 py-1 text-[10px] font-semibold text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))] rounded-lg transition-colors"
+                          >
+                            Numbers
+                          </button>
+                          {count > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => openInitiateForCampaign(c.id)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold text-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10 hover:bg-[hsl(var(--primary))]/20 rounded-lg transition-colors"
+                            >
+                              <Play size={10} /> Dial
+                            </button>
+                          )}
+                          <button
+                            type="button"
                             onClick={() => handleDeleteCampaign(c.id, c.name)}
-                            className="p-1 text-[hsl(var(--muted-foreground))] hover:text-red-500"
-                            title="Delete campaign"
+                            className="p-1.5 text-[hsl(var(--muted-foreground))] hover:text-red-500 rounded-lg hover:bg-red-500/10 transition-colors"
+                            title="Delete list"
                           >
                             <Trash2 size={14} />
                           </button>
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -836,47 +1338,189 @@ const OutboundTargetsView: React.FC = () => {
           </>
         )}
       </div>
+      )}
 
-      {/* Dialing Targets */}
+      {/* TAB: Initiate Dialing */}
+      {activeTab === 'initiate' && (
+      <div className="max-w-[1400px] mx-auto bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl overflow-hidden shadow-sm">
+        <div className="px-5 py-4 border-b border-[hsl(var(--border-v))] bg-gradient-to-r from-[hsl(var(--primary))]/5 to-transparent">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-[hsl(var(--foreground))] flex items-center gap-2">
+                <PhoneOutgoing size={16} className="text-[hsl(var(--primary))]" />
+                Initiate Calls for List
+              </h3>
+              <p className="text-[11px] text-[hsl(var(--muted-foreground))] mt-1 max-w-lg">
+                Pick a contact list, review the numbers below, then start the outbound dialer for the entire list.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full lg:w-auto lg:min-w-[320px]">
+              <select
+                value={listInitiateCampaignId}
+                onChange={(e) => setListInitiateCampaignId(e.target.value)}
+                className="w-full rounded-xl border border-[hsl(var(--border-v))] bg-[hsl(var(--secondary))] text-[hsl(var(--foreground))] px-3 py-2.5 text-xs focus:outline-none focus:border-[hsl(var(--primary))]"
+              >
+                <option value="">Select contact list…</option>
+                {dialableCampaigns.map((campaign) => (
+                  <option key={campaign.id} value={campaign.id}>
+                    {campaign.name} ({getCampaignTargetCount(campaign)} numbers)
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={handleInitiateListCalls}
+                disabled={
+                  !listInitiateCampaignId ||
+                  isLoadingListDetail ||
+                  isInitiatingList ||
+                  listInitiateTargets.length === 0
+                }
+                className="inline-flex items-center justify-center gap-1.5 px-5 py-2.5 bg-[hsl(var(--primary))] text-black rounded-xl text-xs font-bold uppercase tracking-wide hover:opacity-90 disabled:opacity-50 whitespace-nowrap shadow-sm"
+              >
+                {isInitiatingList ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
+                Initiate Calls
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {!listInitiateCampaignId ? (
+          <div className="px-5 py-16 text-center">
+            <List size={32} className="mx-auto mb-3 text-[hsl(var(--muted-foreground))]/40" />
+            <p className="text-sm font-medium text-[hsl(var(--foreground))]">Select a contact list</p>
+            <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
+              {dialableCampaigns.length === 0
+                ? 'Create a list with numbers first, then return here to dial.'
+                : 'Choose a list above to preview numbers before initiating.'}
+            </p>
+          </div>
+        ) : isLoadingListDetail ? (
+          <div className="flex justify-center py-16">
+            <Loader2 className="animate-spin text-[hsl(var(--primary))]" size={24} />
+          </div>
+        ) : listInitiateTargets.length === 0 ? (
+          <div className="px-5 py-16 text-center">
+            <p className="text-sm text-[hsl(var(--muted-foreground))]">This list has no numbers yet.</p>
+            <button
+              type="button"
+              onClick={() => setIsCampaignModalOpen(true)}
+              className="mt-3 text-xs font-semibold text-[hsl(var(--primary))] hover:underline"
+            >
+              Upload numbers to a new list
+            </button>
+          </div>
+        ) : (
+          <div className="p-5">
+            <div className="flex flex-wrap items-center gap-2 mb-4">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-mono font-bold uppercase bg-[hsl(var(--secondary))] border border-[hsl(var(--border-v))]">
+                <Users size={12} />
+                {listInitiateTargets.length} numbers
+              </span>
+              {listInitiateCampaign?.agents?.name && (
+                <span className="px-3 py-1 rounded-full text-[10px] font-mono border border-[hsl(var(--border-v))] bg-[hsl(var(--muted))]/30">
+                  Agent: {listInitiateCampaign.agents.name}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => viewCampaignTargets(listInitiateCampaignId)}
+                className="text-[10px] font-semibold text-[hsl(var(--primary))] hover:underline ml-auto"
+              >
+                View in All Numbers →
+              </button>
+            </div>
+            <div className="border border-[hsl(var(--border-v))] rounded-xl overflow-hidden max-h-80 overflow-y-auto">
+              <table className="w-full text-xs text-left">
+                <thead className="sticky top-0 bg-[hsl(var(--muted))]/80 backdrop-blur-sm border-b border-[hsl(var(--border-v))]">
+                  <tr>
+                    <th className="px-4 py-2.5 font-mono text-[9px] uppercase text-[hsl(var(--muted-foreground))]">Name</th>
+                    <th className="px-4 py-2.5 font-mono text-[9px] uppercase text-[hsl(var(--muted-foreground))]">Phone</th>
+                    <th className="px-4 py-2.5 font-mono text-[9px] uppercase text-[hsl(var(--muted-foreground))]">Status</th>
+                    <th className="px-4 py-2.5 font-mono text-[9px] uppercase text-[hsl(var(--muted-foreground))]">Call Details</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {listInitiateTargets.map((target) => (
+                    <tr
+                      key={target.id}
+                      onClick={() => {
+                        if (resolveCallLogId(target)) handleViewTargetLog(target);
+                      }}
+                      className={`border-b border-[hsl(var(--border))] last:border-b-0 transition-colors ${
+                        resolveCallLogId(target) ? 'cursor-pointer hover:bg-[hsl(var(--muted))]/20' : ''
+                      } ${selectedTargetRowId === target.id ? 'bg-[hsl(var(--primary))]/10' : ''}`}
+                    >
+                      <td className="px-4 py-2.5 text-[hsl(var(--foreground))]">
+                        {target.name || <span className="text-[hsl(var(--muted-foreground))]/50 italic">—</span>}
+                      </td>
+                      <td className="px-4 py-2.5 font-mono text-[hsl(var(--foreground))]">{target.phone}</td>
+                      <td className="px-4 py-2.5">
+                        <StatusBadge status={target.status} />
+                      </td>
+                      <td className="px-4 py-2.5">{renderCallLogDetails(target)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+      )}
+
+      {/* TAB: All Numbers */}
+      {activeTab === 'targets' && (
       <div className="relative max-w-[1400px] mx-auto">
         <AdminDataView
-          title="Dialing Targets"
+          title="All Numbers"
           endpoint="/outbound-targets"
           refreshKey={refreshKey}
-          emptyMessage="No outbound targets registered. Create a campaign or place a quick call to get started."
+          searchPlaceholder="Search phone, name, campaign, agent…"
+          emptyMessage="No numbers yet. Create a contact list or place a quick call to get started."
           columns={columns}
           onDelete={handleDelete}
           filtersActive={Boolean(selectedCampaignFilter || campaignFilterOrg)}
-          emptyFilteredMessage="No targets match the current filters."
+          emptyFilteredMessage="No numbers match the current filters."
+          onRowClick={(row) => {
+            if (resolveCallLogId(row)) handleViewTargetLog(row);
+          }}
+          selectedRowId={selectedTargetRowId ?? undefined}
           rowFilter={(row) => {
             if (selectedCampaignFilter && row.campaign_id !== selectedCampaignFilter) return false;
             if (campaignFilterOrg && row.organization_id !== campaignFilterOrg) return false;
             return true;
           }}
           toolbar={
-            selectedCampaignFilter || campaignFilterOrg ? (
-              <div className="flex items-center gap-2 text-xs">
-                <span className="text-[hsl(var(--muted-foreground))]">Filtering targets</span>
-                {selectedCampaignFilter && (
+            <div className="flex flex-wrap items-center gap-2">
+              <Filter size={12} className="text-[hsl(var(--muted-foreground))]" />
+              {selectedCampaignName && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))] border border-[hsl(var(--primary))]/20">
+                  List: {selectedCampaignName}
                   <button
                     type="button"
                     onClick={() => setSelectedCampaignFilter('')}
-                    className="text-[hsl(var(--primary))] font-semibold hover:underline"
+                    className="hover:text-[hsl(var(--foreground))]"
+                    aria-label="Clear list filter"
                   >
-                    Clear campaign
+                    <X size={10} />
                   </button>
-                )}
-                {campaignFilterOrg && (
-                  <button
-                    type="button"
-                    onClick={() => setCampaignFilterOrg('')}
-                    className="text-[hsl(var(--primary))] font-semibold hover:underline"
-                  >
-                    Clear org
+                </span>
+              )}
+              {campaignFilterOrg && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))]">
+                  Org filter active
+                  <button type="button" onClick={() => setCampaignFilterOrg('')}>
+                    <X size={10} />
                   </button>
-                )}
-              </div>
-            ) : undefined
+                </span>
+              )}
+              {!selectedCampaignFilter && !campaignFilterOrg && (
+                <span className="text-[10px] text-[hsl(var(--muted-foreground))]">
+                  Showing all numbers across lists and quick calls
+                </span>
+              )}
+            </div>
           }
           renderActions={(row) => (
             <div className="flex items-center gap-2">
@@ -907,14 +1551,18 @@ const OutboundTargetsView: React.FC = () => {
             </div>
           )}
         />
+      </div>
+      )}
 
-        <CallLogDetailsDrawer
+      <CallLogDetailsDrawer
           log={selectedLog}
           isOpen={isDrawerOpen}
-          onClose={() => setIsDrawerOpen(false)}
-          isInternalView={isAdminView}
-        />
-      </div>
+        onClose={() => {
+          setIsDrawerOpen(false);
+          setSelectedTargetRowId(null);
+        }}
+        isInternalView={isAdminView}
+      />
 
       {/* MODAL 1: QUICK CALL */}
       {isAddModalOpen && (
@@ -1207,6 +1855,262 @@ const OutboundTargetsView: React.FC = () => {
                 >
                   {isUploadingBulk && <Loader2 size={12} className="animate-spin" />}
                   Create Campaign
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2b: ADD NUMBERS TO EXISTING LIST */}
+      {isAppendModalOpen && appendCampaign && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl w-full max-w-2xl shadow-2xl flex flex-col overflow-hidden animate-fade-in-up max-h-[90vh]">
+            <header className="flex items-start justify-between gap-4 px-6 pt-6 pb-4 border-b border-[hsl(var(--border-v))]">
+              <div>
+                <h3 className="text-base font-display font-semibold">Add Numbers to List</h3>
+                <p className="text-[10px] text-[hsl(var(--muted-foreground))] mt-1">
+                  Upload a CSV or enter contacts manually for{' '}
+                  <span className="font-semibold text-[hsl(var(--foreground))]">{appendCampaign.name}</span>.
+                  Currently {campaignTargetCount(appendCampaign)} numbers in this list.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeAppendModal}
+                className="p-1 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
+              >
+                <X size={18} />
+              </button>
+            </header>
+
+            <div className="p-6 space-y-4 overflow-y-auto">
+              <div className="flex flex-wrap items-center gap-2 text-[10px]">
+                {appendCampaign.agents?.name && (
+                  <span className="px-2.5 py-1 rounded-full font-mono border border-[hsl(var(--border-v))] bg-[hsl(var(--muted))]/30">
+                    Agent: {appendCampaign.agents.name}
+                  </span>
+                )}
+                <span className="px-2.5 py-1 rounded-full font-mono border border-[hsl(var(--border-v))] bg-[hsl(var(--secondary))]">
+                  New numbers inherit this list&apos;s agent
+                </span>
+              </div>
+
+              <div className="flex bg-[hsl(var(--muted))] rounded-lg p-1 w-full sm:w-fit">
+                <button
+                  type="button"
+                  onClick={() => setAppendMode('csv')}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[10px] font-mono font-semibold uppercase transition-colors ${
+                    appendMode === 'csv'
+                      ? 'bg-[hsl(var(--primary))] text-black'
+                      : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
+                  }`}
+                >
+                  <Upload size={12} /> Upload CSV
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAppendMode('manual')}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[10px] font-mono font-semibold uppercase transition-colors ${
+                    appendMode === 'manual'
+                      ? 'bg-[hsl(var(--primary))] text-black'
+                      : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
+                  }`}
+                >
+                  <User size={12} /> Enter manually
+                </button>
+              </div>
+
+              {appendMode === 'csv' ? (
+                <>
+              <div className="flex justify-between items-center bg-[hsl(var(--secondary))] p-3 border border-[hsl(var(--border-v))] rounded-lg">
+                <span className="text-[10px] font-mono text-[hsl(var(--muted-foreground))] uppercase">CSV template</span>
+                <button
+                  type="button"
+                  onClick={downloadCsvTemplate}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]/80 transition-colors"
+                >
+                  <Download size={14} /> Download template
+                </button>
+              </div>
+
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setAppendDragOver(true);
+                }}
+                onDragLeave={() => setAppendDragOver(false)}
+                onDrop={handleAppendFileDrop}
+                onClick={() => appendFileInputRef.current?.click()}
+                className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
+                  appendDragOver
+                    ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5'
+                    : 'border-[hsl(var(--border-v))] hover:border-[hsl(var(--primary))]/50 hover:bg-[hsl(var(--secondary))]'
+                }`}
+              >
+                <input ref={appendFileInputRef} type="file" accept=".csv" className="hidden" onChange={handleAppendFileSelect} />
+                <Upload size={24} className="mx-auto mb-2 text-[hsl(var(--muted-foreground))]" />
+                <p className="text-xs text-[hsl(var(--foreground))]">Drag and drop CSV here, or click to browse</p>
+                <p className="text-[10px] text-[hsl(var(--muted-foreground))] mt-1">Requires a &quot;Phone&quot; column. Optional: Name, Email, Status.</p>
+              </div>
+
+              {appendCsvData && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-mono text-[hsl(var(--foreground))] flex items-center gap-1.5">
+                      <FileText size={14} className="text-[hsl(var(--primary))]" />
+                      {appendCsvFileName} ({appendCsvData.length} new numbers)
+                    </span>
+                  </div>
+                  <div className="overflow-x-auto max-h-48 border border-[hsl(var(--border-v))] rounded-lg bg-[hsl(var(--secondary))]">
+                    <table className="w-full text-xs text-left">
+                      <thead>
+                        <tr className="border-b border-[hsl(var(--border-v))] bg-[hsl(var(--muted))] sticky top-0">
+                          <th className="py-2 px-3 font-mono text-[9px] uppercase text-[hsl(var(--muted-foreground))]">Phone</th>
+                          <th className="py-2 px-3 font-mono text-[9px] uppercase text-[hsl(var(--muted-foreground))]">Name</th>
+                          <th className="py-2 px-3 font-mono text-[9px] uppercase text-[hsl(var(--muted-foreground))]">Email</th>
+                          <th className="py-2 px-3 font-mono text-[9px] uppercase text-[hsl(var(--muted-foreground))]">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(showAllAppendCsvRows ? appendCsvData : appendCsvData.slice(0, CSV_PREVIEW_ROWS)).map((row, idx) => (
+                          <tr key={idx} className="border-b border-[hsl(var(--border-v))] last:border-0 hover:bg-[hsl(var(--card))]/30 transition-colors">
+                            <td className="py-2 px-3 font-semibold font-mono text-[hsl(var(--foreground))]">{row.phone}</td>
+                            <td className="py-2 px-3 text-[hsl(var(--foreground))]">{row.name || <span className="text-[hsl(var(--muted-foreground))]/40 italic">N/A</span>}</td>
+                            <td className="py-2 px-3 text-[hsl(var(--foreground))]">{row.email || <span className="text-[hsl(var(--muted-foreground))]/40 italic">N/A</span>}</td>
+                            <td className="py-2 px-3 text-[hsl(var(--foreground))] uppercase font-mono text-[10px]">{row.status}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {appendCsvData.length > CSV_PREVIEW_ROWS && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAllAppendCsvRows((v) => !v)}
+                      className="flex items-center gap-1 text-[10px] font-mono text-[hsl(var(--primary))] hover:underline"
+                    >
+                      {showAllAppendCsvRows ? (
+                        <>
+                          <ChevronUp size={12} /> Show preview list
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown size={12} /> View all {appendCsvData.length} records
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+              )}
+                </>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-[10px] text-[hsl(var(--muted-foreground))]">
+                    Add one or more contacts. Phone is required in E.164 format (e.g. +15550123456).
+                  </p>
+                  <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                    {manualRows.map((row, index) => (
+                      <div
+                        key={row.id}
+                        className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2 items-start p-3 rounded-xl border border-[hsl(var(--border-v))] bg-[hsl(var(--secondary))]/50"
+                      >
+                        <div>
+                          <label className="block text-[9px] font-mono uppercase tracking-wider text-[hsl(var(--muted-foreground))] mb-1">
+                            Name
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="Optional"
+                            value={row.name}
+                            onChange={(e) =>
+                              setManualRows((prev) =>
+                                prev.map((r) => (r.id === row.id ? { ...r, name: e.target.value } : r)),
+                              )
+                            }
+                            className="w-full bg-[hsl(var(--secondary))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[hsl(var(--primary))]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[9px] font-mono uppercase tracking-wider text-[hsl(var(--muted-foreground))] mb-1">
+                            Phone *
+                          </label>
+                          <input
+                            type="tel"
+                            placeholder="+15550123456"
+                            value={row.phone}
+                            onChange={(e) =>
+                              setManualRows((prev) =>
+                                prev.map((r) =>
+                                  r.id === row.id ? { ...r, phone: e.target.value, phoneError: '' } : r,
+                                ),
+                              )
+                            }
+                            onBlur={() => {
+                              if (!row.phone.trim()) return;
+                              const phoneError = getPhoneValidationError(row.phone) || '';
+                              setManualRows((prev) =>
+                                prev.map((r) => (r.id === row.id ? { ...r, phoneError } : r)),
+                              );
+                            }}
+                            className={`w-full bg-[hsl(var(--secondary))] border rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[hsl(var(--primary))] ${
+                              row.phoneError ? 'border-red-500' : 'border-[hsl(var(--border-v))]'
+                            }`}
+                          />
+                          {row.phoneError && (
+                            <p className="text-[9px] text-red-500 mt-1">{row.phoneError}</p>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setManualRows((prev) =>
+                              prev.length > 1 ? prev.filter((r) => r.id !== row.id) : prev,
+                            )
+                          }
+                          disabled={manualRows.length === 1}
+                          className="sm:mt-5 p-2 text-[hsl(var(--muted-foreground))] hover:text-red-500 disabled:opacity-30 rounded-lg hover:bg-red-500/10 transition-colors"
+                          title={manualRows.length === 1 ? 'At least one row required' : 'Remove row'}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                        {index === manualRows.length - 1 && (
+                          <div className="sm:col-span-3">
+                            <button
+                              type="button"
+                              onClick={() => setManualRows((prev) => [...prev, createManualAppendRow()])}
+                              className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-[hsl(var(--primary))] hover:underline"
+                            >
+                              <Plus size={12} /> Add another contact
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[9px] text-[hsl(var(--muted-foreground))] italic">
+                    {appendSubmitCount} contact{appendSubmitCount === 1 ? '' : 's'} ready to add
+                  </p>
+                </div>
+              )}
+
+              <div className="flex items-center gap-3 pt-4 border-t border-[hsl(var(--border-v))]">
+                <button
+                  type="button"
+                  onClick={closeAppendModal}
+                  className="px-4 py-2 bg-[hsl(var(--muted))] hover:bg-[hsl(var(--border-v))] text-[hsl(var(--foreground))] rounded-lg text-xs font-semibold"
+                >
+                  Cancel
+                </button>
+                <div className="flex-1" />
+                <button
+                  type="button"
+                  onClick={handleAppendUpload}
+                  disabled={!canSubmitAppend || isUploadingAppend}
+                  className="inline-flex items-center gap-1.5 px-5 py-2 bg-[hsl(var(--primary))] text-black rounded-lg text-xs font-semibold hover:opacity-90 disabled:opacity-50"
+                >
+                  {isUploadingAppend && <Loader2 size={12} className="animate-spin" />}
+                  Add {appendSubmitCount} Numbers
                 </button>
               </div>
             </div>

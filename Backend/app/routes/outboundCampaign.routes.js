@@ -13,6 +13,8 @@ router.get('/', outboundCampaignController.getOutboundCampaigns)
 router.get('/:id', outboundCampaignController.getOutboundCampaign)
 
 router.post('/', requireRole(writeRoles), outboundCampaignController.createOutboundCampaign)
+router.post('/:id/targets', requireRole(writeRoles), outboundCampaignController.addTargetsToOutboundCampaign)
+router.post('/:id/initiate', requireRole(writeRoles), outboundCampaignController.initiateOutboundCampaign)
 router.patch('/:id', requireRole(writeRoles), outboundCampaignController.updateOutboundCampaign)
 router.delete('/:id', requireRole(writeRoles), outboundCampaignController.deleteOutboundCampaign)
 

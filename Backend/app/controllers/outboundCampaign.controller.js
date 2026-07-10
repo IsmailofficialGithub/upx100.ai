@@ -272,3 +272,79 @@ export const deleteOutboundCampaign = async (req, res) => {
     })
   }
 }
+
+export const initiateOutboundCampaign = async (req, res) => {
+  try {
+    const { id } = req.params
+    const campaign = await outboundCampaignService.getOutboundCampaignById(id)
+
+    if (!campaign) {
+      return res.status(StatusCodes.NOT_FOUND).json({
+        error: { code: 'NOT_FOUND', message: 'Campaign not found' },
+      })
+    }
+
+    await assertCanWriteOrg(req, campaign.organization_id)
+
+    const result = await outboundCampaignService.initiateOutboundCampaign(id)
+
+    return res.json({
+      message: 'Outbound list calls initiated',
+      data: {
+        campaign_id: result.campaign.id,
+        target_count: result.targets.length,
+      },
+      webhookResult: result.webhook,
+    })
+  } catch (e) {
+    const status = e.status || StatusCodes.INTERNAL_SERVER_ERROR
+    return res.status(status).json({
+      error: { message: e.message || 'Failed to initiate outbound list calls' },
+    })
+  }
+}
+
+export const addTargetsToOutboundCampaign = async (req, res) => {
+  try {
+    const { id } = req.params
+    const campaign = await outboundCampaignService.getOutboundCampaignById(id)
+
+    if (!campaign) {
+      return res.status(StatusCodes.NOT_FOUND).json({
+        error: { code: 'NOT_FOUND', message: 'Campaign not found' },
+      })
+    }
+
+    await assertCanWriteOrg(req, campaign.organization_id)
+
+    const targets = Array.isArray(req.body?.targets) ? req.body.targets : []
+    if (!targets.length) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        error: { code: 'VALIDATION', message: 'targets array is required' },
+      })
+    }
+
+    for (const item of targets) {
+      const phone = typeof item.phone === 'string' ? item.phone.trim() : ''
+      if (!phone) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          error: { code: 'VALIDATION', message: 'phone is required for all targets' },
+        })
+      }
+      item.phone = phone
+    }
+
+    const updated = await outboundCampaignService.addTargetsToOutboundCampaign(id, targets)
+
+    return res.status(StatusCodes.CREATED).json({
+      message: `${targets.length} numbers added to campaign`,
+      data: updated,
+      added_count: targets.length,
+    })
+  } catch (e) {
+    const status = e.status || StatusCodes.INTERNAL_SERVER_ERROR
+    return res.status(status).json({
+      error: { message: e.message || 'Failed to add targets to campaign' },
+    })
+  }
+}

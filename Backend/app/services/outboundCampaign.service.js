@@ -1,8 +1,11 @@
 import { supabaseAdmin } from '../config/supabase.js'
+import axios from 'axios'
 
 const CAMPAIGN_BASE_SELECT = '*, agents(id, name, agent_type, status)'
 const CAMPAIGN_LIST_SELECT = `${CAMPAIGN_BASE_SELECT}, outbound_targets(count)`
-const CAMPAIGN_DETAIL_SELECT = `${CAMPAIGN_BASE_SELECT}, outbound_targets(*)`
+const OUTBOUND_TARGET_WITH_LOG =
+  '*, call_logs:call_logs!outbound_targets_call_log_id_fkey(id, status, duration_sec, cost, summary, transcript, recording_url, call_type, started_at, ended_at, caller_number, vapi_call_id, is_lead)'
+const CAMPAIGN_DETAIL_SELECT = `${CAMPAIGN_BASE_SELECT}, outbound_targets(${OUTBOUND_TARGET_WITH_LOG})`
 
 const enrichWithOrgNames = async (rows) => {
   const list = Array.isArray(rows) ? rows : rows ? [rows] : []
@@ -126,6 +129,41 @@ export const createOutboundCampaign = async (payload, targets = []) => {
   return getOutboundCampaignById(campaign.id)
 }
 
+export const addTargetsToOutboundCampaign = async (campaignId, targets = []) => {
+  const campaign = await getOutboundCampaignById(campaignId)
+  if (!campaign) {
+    const err = new Error('Campaign not found')
+    err.status = 404
+    throw err
+  }
+
+  if (!targets.length) {
+    const err = new Error('No targets to add')
+    err.status = 400
+    throw err
+  }
+
+  const targetRows = targets.map((item) => ({
+    organization_id: campaign.organization_id,
+    agent_id: campaign.agent_id,
+    campaign_id: campaign.id,
+    name: item.name ?? null,
+    phone: item.phone,
+    email: item.email ?? null,
+    status: item.status || 'outbound',
+    user_id: campaign.user_id,
+  }))
+
+  const { error: targetsError } = await supabaseAdmin
+    .schema('inbound')
+    .from('outbound_targets')
+    .insert(targetRows)
+
+  if (targetsError) throw targetsError
+
+  return getOutboundCampaignById(campaignId)
+}
+
 export const updateOutboundCampaign = async (id, updateData) => {
   const { data, error } = await supabaseAdmin
     .schema('inbound')
@@ -153,4 +191,62 @@ export const deleteOutboundCampaign = async (id) => {
     throw error
   }
   return data
+}
+
+export const initiateOutboundCampaign = async (campaignId) => {
+  const campaign = await getOutboundCampaignById(campaignId)
+  if (!campaign) {
+    const err = new Error('Campaign not found')
+    err.status = 404
+    throw err
+  }
+
+  const targets = Array.isArray(campaign.outbound_targets) ? campaign.outbound_targets : []
+  if (!targets.length) {
+    const err = new Error('This campaign has no targets to dial')
+    err.status = 400
+    throw err
+  }
+
+  const webhookPath =
+    process.env.REACT_APP_WEBHOOK_OUTBOUND_LIST_INITIATE || '/webhook/outbound_list_initiate'
+  const webhookUrl = `${process.env.REACT_APP_WEBHOOK_BASE_URL}${webhookPath}`
+
+  const payload = {
+    campaign_id: campaign.id,
+    campaign_name: campaign.name,
+    organization_id: campaign.organization_id,
+    agent_id: campaign.agent_id,
+    agent: campaign.agents ?? null,
+    target_count: targets.length,
+    targets: targets.map((target) => ({
+      id: target.id,
+      phone: target.phone,
+      name: target.name ?? null,
+      email: target.email ?? null,
+      status: target.status,
+    })),
+  }
+
+  console.log('[initiateOutboundCampaign] Calling webhook:', webhookUrl)
+  console.log('[initiateOutboundCampaign] Payload:', JSON.stringify(payload, null, 2))
+
+  let webhookResult = null
+  try {
+    const response = await axios.post(webhookUrl, payload)
+    webhookResult = response.data
+  } catch (webhookError) {
+    console.error('[initiateOutboundCampaign] webhook failed:', webhookError.message)
+    const err = new Error('Failed to initiate outbound list calls')
+    err.status = 502
+    throw err
+  }
+
+  await supabaseAdmin
+    .schema('inbound')
+    .from('outbound_targets')
+    .update({ status: 'initiate' })
+    .eq('campaign_id', campaignId)
+
+  return { campaign, targets, webhook: webhookResult }
 }
