@@ -75,7 +75,7 @@ const clientPortalTitles: Record<string, string> = {
   '/client/phone-numbers': 'Phone Numbers',
   '/client/agents': 'AI Agent Management',
   '/client/team': 'Team',
-  '/client/outbound-targets': 'Outbound Targets',
+  '/client/outbound-targets': 'Outbound Calling',
 };
 
 const DashboardShell: React.FC = () => {

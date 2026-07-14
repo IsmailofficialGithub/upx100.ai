@@ -183,12 +183,23 @@ export const deleteAgent = async (agentId) => {
     : process.env.REACT_APP_WEBHOOK_DELETE_AGENT
   const webhookUrl = `${process.env.REACT_APP_WEBHOOK_BASE_URL}${webhookPath}`
 
-  // 1. Trigger external automation
-  const webhookResponse = await axios.post(webhookUrl, {
-    agentId,
-    vapi_id: existing.vapi_id,
-    organization_id: existing.organization_id
-  })
+  // 1. Best-effort external automation — still delete locally if webhook fails
+  let webhookData = null
+  try {
+    const webhookResponse = await axios.post(webhookUrl, {
+      agentId,
+      vapi_id: existing.vapi_id,
+      organization_id: existing.organization_id
+    })
+    webhookData = webhookResponse.data
+  } catch (err) {
+    console.error('Delete agent webhook failed (continuing with local delete):', {
+      agentId,
+      webhookUrl,
+      status: err.response?.status,
+      message: err.response?.data?.message || err.message,
+    })
+  }
 
   // 2. Soft delete in local database
   const { error } = await supabaseAdmin
@@ -207,7 +218,7 @@ export const deleteAgent = async (agentId) => {
     .update({ [bindingColumn]: null })
     .eq(bindingColumn, agentId)
 
-  return { success: true, webhook: webhookResponse.data }
+  return { success: true, webhook: webhookData }
 }
 
 export const getAgentById = async (agentId) => {

@@ -154,4 +154,20 @@ describe('InboundAgent Service', () => {
       })
     )
   })
+
+  it('deleteAgent should soft-delete locally when webhook returns 404', async () => {
+    const agentId = 'agent-123'
+    axios.post.mockRejectedValue({
+      response: { status: 404, data: { message: 'webhook not registered' } },
+      message: 'Request failed with status code 404',
+    })
+
+    const result = await agentService.deleteAgent(agentId)
+
+    expect(axios.post).toHaveBeenCalled()
+    expect(supabaseAdmin.update).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'deleted' })
+    )
+    expect(result.success).toBe(true)
+  })
 })

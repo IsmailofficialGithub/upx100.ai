@@ -19,6 +19,7 @@ import {
   Rocket,
   Banknote,
   CreditCard,
+  PhoneOutgoing,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -162,7 +163,7 @@ const CLIENT_ADMIN_PORTAL_NAV: GccNavGroup[] = [
       { label: 'Calendar & Meetings', path: '/client/calendar', icon: CalendarDays },
       { label: 'Call Logs', path: '/client/call-logs', icon: Phone },
       { label: 'Leads', path: '/client/leads', icon: FileText },
-      { label: 'Outbound Targets', path: '/client/outbound-targets', icon: FileText, channel: 'outbound' },
+      { label: 'Outbound Calling', path: '/client/outbound-targets', icon: PhoneOutgoing, channel: 'outbound' },
     ],
   },
   {
@@ -191,7 +192,7 @@ const CLIENT_SUB_PORTAL_NAV: GccNavGroup[] = [
       { label: 'Calendar & Meetings', path: '/client/calendar', icon: CalendarDays },
       { label: 'Call Logs', path: '/client/call-logs', icon: Phone },
       { label: 'Leads', path: '/client/leads', icon: FileText },
-      { label: 'Outbound Targets', path: '/client/outbound-targets', icon: FileText, channel: 'outbound' },
+      { label: 'Outbound Calling', path: '/client/outbound-targets', icon: PhoneOutgoing, channel: 'outbound' },
     ],
   },
   {

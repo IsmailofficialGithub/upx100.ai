@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import AdminDataView from './AdminDataView';
 import CallLogDetailsDrawer from './CallLogDetailsDrawer';
 import { useAuth } from '@/context/AuthContext';
@@ -146,6 +146,7 @@ const CAMPAIGNS_PER_PAGE = 10;
 
 const OutboundTargetsView: React.FC = () => {
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const isAdminView = location.pathname.startsWith('/admin');
   const { user, isSP, isGCC } = useAuth();
   const [refreshKey, setRefreshKey] = useState(0);
@@ -255,6 +256,21 @@ const OutboundTargetsView: React.FC = () => {
         (!targetOrg || a.organization_id === targetOrg || a.organization_id === null || a.organization_id === '00000000-0000-4000-a000-000000000003')
     );
   }, [agents, editingTarget?.organization_id]);
+
+  useEffect(() => {
+    const action = searchParams.get('action');
+    if (!action) return;
+    if (action === 'quick-call') {
+      setIsAddModalOpen(true);
+      setActiveTab('targets');
+    } else if (action === 'new-list') {
+      setIsCampaignModalOpen(true);
+      setActiveTab('campaigns');
+    }
+    const next = new URLSearchParams(searchParams);
+    next.delete('action');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   // Load available Agents
   useEffect(() => {

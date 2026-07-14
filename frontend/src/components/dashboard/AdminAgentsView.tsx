@@ -10,6 +10,8 @@ import {
   Link2,
   Layers,
   Eye,
+  Play,
+  Upload,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
@@ -119,10 +121,12 @@ interface Agent {
 }
 
 const AdminAgentsView: React.FC = () => {
-  const { user, isGCC, isSP, isClient, isGCCAdmin, isClientAdmin } = useAuth();
+  const { user, isGCC, isSP, isClient, isGCCAdmin, isClientAdmin, canAccessOutbound } = useAuth();
   const gccScope = useGccTenantScope();
   const isAdminView = isGCC || isSP;
   const navigate = useNavigate();
+  const outboundBase = isGCC ? '/admin/outbound-targets' : isSP ? '/partner/outbound-targets' : '/client/outbound-targets';
+  const showOutboundClientActions = isClient && canAccessOutbound;
   const [agents, setAgents] = useState<Agent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -602,9 +606,34 @@ const AdminAgentsView: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-display font-semibold text-[hsl(var(--foreground))]">{isAdminView ? "Global AI Agents" : "My AI Agents"}</h2>
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-lg font-display font-semibold text-[hsl(var(--foreground))]">{isAdminView ? "Global AI Agents" : "My AI Agents"}</h2>
+          {showOutboundClientActions && (
+            <p className="text-[11px] text-[hsl(var(--muted-foreground))] mt-1">
+              Use an outbound agent to upload a contact list or place a single call.
+            </p>
+          )}
+        </div>
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          {showOutboundClientActions && (
+            <>
+              <button
+                type="button"
+                onClick={() => navigate(`${outboundBase}?action=new-list`)}
+                className="inline-flex items-center gap-1.5 px-3 py-2 bg-[hsl(var(--primary))] text-black rounded-lg text-xs font-semibold hover:opacity-90"
+              >
+                <Upload size={14} /> Upload List
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate(`${outboundBase}?action=quick-call`)}
+                className="inline-flex items-center gap-1.5 px-3 py-2 bg-[hsl(var(--secondary))] border border-[hsl(var(--border-v))] text-[hsl(var(--foreground))] rounded-lg text-xs font-semibold hover:bg-[hsl(var(--muted))]"
+              >
+                <Play size={14} /> Quick Call
+              </button>
+            </>
+          )}
           <button 
             onClick={fetchAgents}
             disabled={isLoading}
@@ -613,7 +642,7 @@ const AdminAgentsView: React.FC = () => {
           >
             <RotateCw size={16} className={`${isLoading ? 'animate-spin' : 'group-active:rotate-180 transition-transform duration-500'}`} />
           </button>
-          <div className="relative w-64">
+          <div className="relative w-full sm:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))]" size={16} />
             <input 
               type="text" 
@@ -744,6 +773,26 @@ const AdminAgentsView: React.FC = () => {
                 </td>
                 <td className="px-4 py-4 text-right">
                   <div className="inline-flex items-center justify-end gap-1">
+                    {showOutboundClientActions && agent.agent_type === 'outbound' && (agent.status === 'active' || agent.status === 'ready') && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => navigate(`${outboundBase}?action=new-list`)}
+                          className="px-2 py-1 text-[10px] font-semibold text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))] rounded-lg"
+                          title="Upload contact list"
+                        >
+                          List
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => navigate(`${outboundBase}?action=quick-call`)}
+                          className="px-2 py-1 text-[10px] font-bold text-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/10 rounded-lg"
+                          title="Quick call"
+                        >
+                          Call
+                        </button>
+                      </>
+                    )}
                     <button 
                       type="button"
                       onClick={() => setDetailsAgent(agent)}
