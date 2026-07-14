@@ -423,10 +423,13 @@ export const getAllPhoneNumbers = async (targetOrgIds = null) => {
 };
 
 export const getAllAgents = async (targetOrgIds = null) => {
+  const AGENT_PHONE_SELECT =
+    'inbound_line:phone_numbers!phone_numbers_inbound_agent_id_fkey(id, phone_number, inbound_agent_id), outbound_line:phone_numbers!phone_numbers_outbound_agent_id_fkey(id, phone_number, outbound_agent_id)'
+
   let query = supabaseAdmin
     .schema('inbound')
     .from('agents')
-    .select('*, organizations!agents_organization_id_fkey(name)')
+    .select(`*, organizations!agents_organization_id_fkey(name), ${AGENT_PHONE_SELECT}`)
     .is('deleted_at', null)
     .order('created_at', { ascending: false });
 
@@ -434,7 +437,23 @@ export const getAllAgents = async (targetOrgIds = null) => {
     query = query.in('organization_id', targetOrgIds);
   }
 
-  return await query;
+  const { data, error } = await query;
+  if (error) return { data, error };
+
+  const mapped = (data || []).map((agent) => {
+    const line =
+      agent.agent_type === 'outbound'
+        ? (Array.isArray(agent.outbound_line) ? agent.outbound_line[0] : agent.outbound_line)
+        : (Array.isArray(agent.inbound_line) ? agent.inbound_line[0] : agent.inbound_line)
+    const { inbound_line: _in, outbound_line: _out, ...rest } = agent
+    return {
+      ...rest,
+      phone_number_id: line?.id || null,
+      phone_number: line?.phone_number || null,
+    }
+  })
+
+  return { data: mapped, error: null };
 };
 
 export const getAllScriptRequests = async (targetOrgIds = null) => {

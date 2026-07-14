@@ -9,6 +9,7 @@ import {
   RotateCw,
   Link2,
   Layers,
+  Eye,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
@@ -95,8 +96,10 @@ interface Agent {
   status: string;
   created_at: string | null;
   voice_persona?: string;
+  voice_name?: string;
   script?: string;
   phone_number_id?: string;
+  phone_number?: string | null;
   industry_vertical?: string;
   website_url?: string;
   goal?: string;
@@ -138,6 +141,7 @@ const AdminAgentsView: React.FC = () => {
   const [isSearchingUsers, setIsSearchingUsers] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [scopeNonce, setScopeNonce] = useState(0);
+  const [detailsAgent, setDetailsAgent] = useState<Agent | null>(null);
   
   // Phone numbers for selection
   const [availableNumbers, setAvailableNumbers] = useState<any[]>([]);
@@ -563,7 +567,9 @@ const AdminAgentsView: React.FC = () => {
   const filteredAgents = agents.filter(a => {
     const matchesSearch = a.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (Array.isArray(a.organizations) ? a.organizations[0]?.name : a.organizations?.name)?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      a.id.toLowerCase().includes(searchTerm.toLowerCase());
+      a.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (a.phone_number || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (a.voice_name || a.voice_persona || '').toLowerCase().includes(searchTerm.toLowerCase());
       
     const isInbound = a.agent_type !== 'outbound';
     const matchesType = typeFilter === 'all' || 
@@ -572,6 +578,19 @@ const AdminAgentsView: React.FC = () => {
                         
     return matchesSearch && matchesType;
   });
+
+  const resolveVoiceLabel = (agent: Agent) => {
+    if (agent.voice_name?.trim()) return agent.voice_name.trim();
+    const persona = agent.voice_persona?.trim() || '';
+    if (!persona) return null;
+    if (isCloneVoicePersona(persona)) return 'Custom clone';
+    const catalog = findVoiceById(persona);
+    if (catalog?.name) return catalog.name;
+    return persona.charAt(0).toUpperCase() + persona.slice(1);
+  };
+
+  const resolveIndustry = (agent: Agent) =>
+    agent.industry_vertical || agent.metadata?.industry_vertical || null;
 
   if (isLoading) {
     return (
@@ -632,30 +651,42 @@ const AdminAgentsView: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl overflow-hidden shadow-sm">
-        <table className="w-full text-xs text-left">
+      <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl overflow-hidden shadow-sm overflow-x-auto">
+        <table className="w-full text-xs text-left min-w-[900px]">
           <thead className="bg-[hsl(var(--muted))] border-b border-[hsl(var(--border-v))]">
             <tr>
               <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Agent</th>
               <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Type</th>
               {isAdminView && <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Organization</th>}
-              <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Agent ID</th>
+              <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Phone</th>
+              <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Voice</th>
+              <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Industry</th>
               <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Status</th>
               <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Created</th>
-              <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))]">Actions</th>
+              <th className="px-4 py-3 font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))] text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[hsl(var(--border-v))]">
-            {filteredAgents.map(agent => (
-              <tr key={agent.id} className="hover:bg-[hsl(var(--muted))]/50 transition-colors group">
+            {filteredAgents.map(agent => {
+              const voiceLabel = resolveVoiceLabel(agent);
+              const industry = resolveIndustry(agent);
+              return (
+              <tr key={agent.id} className="hover:bg-[hsl(var(--muted))]/50 transition-colors">
                 <td className="px-4 py-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-[hsl(var(--muted))] rounded-lg text-[hsl(var(--primary))]">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="p-2 bg-[hsl(var(--muted))] rounded-lg text-[hsl(var(--primary))] shrink-0">
                       <Bot size={16} />
                     </div>
-                    <div>
-                      <p className="font-semibold text-[hsl(var(--foreground))]">{agent.name}</p>
-                      <p className="text-[10px] text-[hsl(var(--muted-foreground))] font-mono">ID: {agent.id.slice(0, 8)}</p>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-[hsl(var(--foreground))] truncate">{agent.name}</p>
+                      <p className="text-[10px] text-[hsl(var(--muted-foreground))] font-mono truncate" title={agent.id}>
+                        {agent.id.slice(0, 8)}…
+                      </p>
+                      {(agent.tone || agent.language) && (
+                        <p className="text-[10px] text-[hsl(var(--muted-foreground))] mt-0.5 capitalize">
+                          {[agent.tone, agent.language].filter(Boolean).join(' · ')}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </td>
@@ -676,8 +707,28 @@ const AdminAgentsView: React.FC = () => {
                         </div>
                     </td>
                 )}
-                <td className="px-4 py-4 font-mono text-[10px] text-[hsl(var(--muted-foreground))]" title={agent.id}>
-                  {agent.id}
+                <td className="px-4 py-4">
+                  {agent.phone_number ? (
+                    <span className="inline-flex items-center gap-1.5 font-mono text-[11px] text-[hsl(var(--foreground))]">
+                      <Phone size={11} className="text-[hsl(var(--muted-foreground))]" />
+                      {agent.phone_number}
+                    </span>
+                  ) : (
+                    <span className="text-[hsl(var(--muted-foreground))]/50 italic">Not assigned</span>
+                  )}
+                </td>
+                <td className="px-4 py-4">
+                  {voiceLabel ? (
+                    <span className="inline-flex items-center gap-1.5 text-[hsl(var(--foreground))]">
+                      <Mic2 size={11} className="text-[hsl(var(--muted-foreground))]" />
+                      {voiceLabel}
+                    </span>
+                  ) : (
+                    <span className="text-[hsl(var(--muted-foreground))]/50 italic">—</span>
+                  )}
+                </td>
+                <td className="px-4 py-4 text-[hsl(var(--foreground))]">
+                  {industry || <span className="text-[hsl(var(--muted-foreground))]/50 italic">—</span>}
                 </td>
                 <td className="px-4 py-4">
                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
@@ -688,12 +739,21 @@ const AdminAgentsView: React.FC = () => {
                     {agent.status}
                   </span>
                 </td>
-                <td className="px-4 py-4 text-[hsl(var(--muted-foreground))]">
+                <td className="px-4 py-4 text-[hsl(var(--muted-foreground))] whitespace-nowrap">
                   {formatNullableLocaleDate(agent.created_at)}
                 </td>
-                <td className="px-4 py-4">
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <td className="px-4 py-4 text-right">
+                  <div className="inline-flex items-center justify-end gap-1">
                     <button 
+                      type="button"
+                      onClick={() => setDetailsAgent(agent)}
+                      className="p-1.5 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] transition-colors"
+                      title="View details"
+                    >
+                      <Eye size={14} />
+                    </button>
+                    <button 
+                      type="button"
                       onClick={() => refreshAgentStatus(agent.id)}
                       className="p-1.5 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] transition-colors"
                       title="Refresh Status"
@@ -703,6 +763,7 @@ const AdminAgentsView: React.FC = () => {
                     {isGCCAdmin && (
                       <>
                         <button 
+                          type="button"
                           onClick={() => openModal(agent)}
                           className="p-1.5 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] transition-colors"
                           title="Edit Agent"
@@ -710,6 +771,7 @@ const AdminAgentsView: React.FC = () => {
                           <Edit2 size={14} />
                         </button>
                         <button 
+                          type="button"
                           onClick={() => handleDelete(agent.id)}
                           className="p-1.5 text-[hsl(var(--muted-foreground))] hover:text-red-500 transition-colors"
                           title="Delete Agent"
@@ -721,7 +783,8 @@ const AdminAgentsView: React.FC = () => {
                   </div>
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
         {filteredAgents.length === 0 && (
@@ -731,6 +794,99 @@ const AdminAgentsView: React.FC = () => {
           </div>
         )}
       </div>
+
+      {detailsAgent && (
+        <div
+          className="fixed inset-0 z-[90] flex justify-end bg-black/40 backdrop-blur-sm"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setDetailsAgent(null);
+          }}
+        >
+          <aside className="h-full w-full max-w-md bg-[hsl(var(--background))] border-l border-[hsl(var(--border-v))] shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
+            <header className="flex items-start justify-between gap-3 px-5 py-4 border-b border-[hsl(var(--border-v))]">
+              <div className="min-w-0">
+                <p className="text-[10px] font-mono uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Agent details</p>
+                <h3 className="text-base font-display font-semibold text-[hsl(var(--foreground))] truncate mt-0.5">
+                  {detailsAgent.name}
+                </h3>
+                <div className="flex flex-wrap items-center gap-2 mt-2">
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-medium border ${
+                    detailsAgent.agent_type === 'outbound'
+                      ? 'bg-blue-500/10 text-blue-500 border-blue-500/20'
+                      : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                  }`}>
+                    {detailsAgent.agent_type === 'outbound' ? 'Outbound' : 'Inbound'}
+                  </span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                    detailsAgent.status === 'activating' ? 'bg-amber-500/10 text-amber-500' :
+                    detailsAgent.status === 'ready' || detailsAgent.status === 'active' ? 'bg-green-500/10 text-green-500' :
+                    'bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]'
+                  }`}>
+                    {detailsAgent.status}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDetailsAgent(null)}
+                className="p-1.5 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
+                aria-label="Close"
+              >
+                <X size={18} />
+              </button>
+            </header>
+
+            <div className="flex-1 overflow-y-auto p-5 space-y-4 text-xs">
+              {[
+                { label: 'Phone line', value: detailsAgent.phone_number || 'Not assigned' },
+                { label: 'Voice', value: resolveVoiceLabel(detailsAgent) || '—' },
+                { label: 'Industry', value: resolveIndustry(detailsAgent) || '—' },
+                { label: 'Tone', value: detailsAgent.tone || '—' },
+                { label: 'Language', value: detailsAgent.language || '—' },
+                { label: 'Created', value: formatNullableLocaleDate(detailsAgent.created_at) },
+                { label: 'Agent ID', value: detailsAgent.id },
+              ].map((row) => (
+                <div key={row.label} className="rounded-lg border border-[hsl(var(--border-v))] bg-[hsl(var(--muted))]/20 px-3 py-2.5">
+                  <p className="text-[9px] font-mono uppercase tracking-wider text-[hsl(var(--muted-foreground))]">{row.label}</p>
+                  <p className="mt-1 text-[hsl(var(--foreground))] font-medium break-all">{row.value}</p>
+                </div>
+              ))}
+
+              {detailsAgent.goal && (
+                <div className="rounded-lg border border-[hsl(var(--border-v))] bg-[hsl(var(--muted))]/20 px-3 py-2.5">
+                  <p className="text-[9px] font-mono uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Goal</p>
+                  <p className="mt-1 text-[hsl(var(--foreground))] leading-relaxed whitespace-pre-wrap">{detailsAgent.goal}</p>
+                </div>
+              )}
+              {detailsAgent.welcome_message && (
+                <div className="rounded-lg border border-[hsl(var(--border-v))] bg-[hsl(var(--muted))]/20 px-3 py-2.5">
+                  <p className="text-[9px] font-mono uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Welcome message</p>
+                  <p className="mt-1 text-[hsl(var(--foreground))] leading-relaxed whitespace-pre-wrap">{detailsAgent.welcome_message}</p>
+                </div>
+              )}
+              {detailsAgent.background && (
+                <div className="rounded-lg border border-[hsl(var(--border-v))] bg-[hsl(var(--muted))]/20 px-3 py-2.5">
+                  <p className="text-[9px] font-mono uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Background</p>
+                  <p className="mt-1 text-[hsl(var(--foreground))] leading-relaxed whitespace-pre-wrap">{detailsAgent.background}</p>
+                </div>
+              )}
+              {detailsAgent.website_url && (
+                <div className="rounded-lg border border-[hsl(var(--border-v))] bg-[hsl(var(--muted))]/20 px-3 py-2.5">
+                  <p className="text-[9px] font-mono uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Website</p>
+                  <a
+                    href={detailsAgent.website_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-1 inline-block text-[hsl(var(--primary))] hover:underline break-all"
+                  >
+                    {detailsAgent.website_url}
+                  </a>
+                </div>
+              )}
+            </div>
+          </aside>
+        </div>
+      )}
 
       {/* Modal */}
       {isModalOpen && (

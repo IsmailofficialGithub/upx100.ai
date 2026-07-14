@@ -225,19 +225,24 @@ export const getAgentById = async (agentId) => {
   return mapAgentWithPhone(data)
 }
 
-function resolveAgentPhoneNumberId(agent) {
+function resolveAgentPhoneLine(agent) {
   if (!agent) return null
   const line = agent.agent_type === 'outbound' ? agent.outbound_line : agent.inbound_line
   if (!line) return null
-  if (Array.isArray(line)) return line[0]?.id || null
-  return line.id || null
+  return Array.isArray(line) ? line[0] || null : line
+}
+
+function resolveAgentPhoneNumberId(agent) {
+  return resolveAgentPhoneLine(agent)?.id || null
 }
 
 function mapAgentWithPhone(agent) {
+  const line = resolveAgentPhoneLine(agent)
   const { inbound_line: _inbound, outbound_line: _outbound, ...rest } = agent
   return {
     ...rest,
-    phone_number_id: resolveAgentPhoneNumberId(agent),
+    phone_number_id: line?.id || null,
+    phone_number: line?.phone_number || null,
   }
 }
 
