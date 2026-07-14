@@ -398,7 +398,8 @@ const AdminAgentsView: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const loadingToast = toast.loading(editingAgent ? 'Updating agent...' : 'Creating agent...');
+    const toastId = 'agent-save';
+    toast.loading(editingAgent ? 'Updating agent...' : 'Creating agent...', { id: toastId });
 
     try {
       // Enrich payload with voice details
@@ -419,15 +420,15 @@ const AdminAgentsView: React.FC = () => {
               : null);
 
       if (isGCC && !organizationId) {
-        toast.error('Select a client organization for this agent.', { id: loadingToast });
+        toast.error('Select a client organization for this agent.', { id: toastId });
         return;
       }
       if (!formData.industry_vertical) {
-        toast.error('Select an industry vertical.', { id: loadingToast });
+        toast.error('Select an industry vertical.', { id: toastId });
         return;
       }
       if (!formData.phone_number_id) {
-        toast.error('Assign a phone number before saving.', { id: loadingToast });
+        toast.error('Assign a phone number before saving.', { id: toastId });
         return;
       }
 
@@ -451,20 +452,20 @@ const AdminAgentsView: React.FC = () => {
 
       if (editingAgent) {
         await api.patch(`${endpoint}/${editingAgent.id}`, enrichedPayload);
-        toast.success(`Agent ${editingAgent ? 'updated' : 'created'} successfully`);
+        toast.success('Agent updated successfully', { id: toastId });
         setIsModalOpen(false);
         setRefreshKey(prev => prev + 1);
       } else {
         const response = await api.post(endpoint, enrichedPayload);
         agentId = response.data.data.id;
-        toast.success('Agent created and activating', { id: loadingToast });
+        toast.success('Agent created and activating', { id: toastId });
         setRefreshKey(prev => prev + 1);
       }
 
       setIsModalOpen(false);
       fetchAgents();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Action failed', { id: loadingToast });
+      toast.error(error.response?.data?.message || 'Action failed', { id: toastId });
     }
   };
 
