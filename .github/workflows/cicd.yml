@@ -1,0 +1,256 @@
+name: CI/CD
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build + Quality Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            Backend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci --legacy-peer-deps --no-audit --no-fund
+
+      - name: Install backend dependencies
+        working-directory: Backend
+        run: npm ci --no-audit --no-fund
+
+      - name: Backend tests
+        working-directory: Backend
+        run: npm test -- --ci --forceExit
+
+      - name: Build frontend
+        working-directory: frontend
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          VITE_BACKEND_BASE_URL: ${{ secrets.VITE_BACKEND_BASE_URL }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_SECRET_KEY: ${{ secrets.VITE_SUPABASE_SECRET_KEY }}
+          VITE_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.VITE_SUPABASE_SECRET_KEY }}
+        run: npm run build
+
+      - name: Verify frontend dist exists
+        id: verify-dist
+        run: |
+          if [ -d frontend/dist ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+      - name: Package artifact
+        if: steps.verify-dist.outputs.exists == 'true'
+        run: |
+          tar -czf deploy.tgz \
+            frontend/dist \
+            Backend/app \
+            Backend/package.json \
+            Backend/package-lock.json \
+            Backend/ecosystem.config.cjs \
+            Backend/scripts
+
+      - name: Upload artifact
+        if: steps.verify-dist.outputs.exists == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy
+          path: deploy.tgz
+          retention-days: 7
+
+  deploy-production:
+    name: Deploy Production
+    needs: build
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: deploy
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
+
+      - name: Add server to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Upload artifact
+        run: |
+          scp deploy.tgz "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/tmp/up100x-deploy.tgz"
+
+      - name: Deploy production
+        env:
+          NODE_ENV: ${{ secrets.NODE_ENV }}
+          PORT: ${{ secrets.PORT }}
+          FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
+          CORS_ORIGINS: ${{ secrets.CORS_ORIGINS }}
+
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+
+          REDIS_URL: ${{ secrets.REDIS_URL }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          VAPI_WEBHOOK_SECRET: ${{ secrets.VAPI_WEBHOOK_SECRET }}
+
+          REACT_APP_WEBHOOK_BASE_URL: ${{ secrets.REACT_APP_WEBHOOK_BASE_URL }}
+          REACT_APP_WEBHOOK_IMPORT_NUMBER: ${{ secrets.REACT_APP_WEBHOOK_IMPORT_NUMBER }}
+          REACT_APP_WEBHOOK_DELETE_NUMBER: ${{ secrets.REACT_APP_WEBHOOK_DELETE_NUMBER }}
+          REACT_APP_WEBHOOK_CHECK_NUMBER_STATUS: ${{ secrets.REACT_APP_WEBHOOK_CHECK_NUMBER_STATUS }}
+          REACT_APP_WEBHOOK_CREATE_AGENT: ${{ secrets.REACT_APP_WEBHOOK_CREATE_AGENT }}
+          REACT_APP_WEBHOOK_EDIT_AGENT: ${{ secrets.REACT_APP_WEBHOOK_EDIT_AGENT }}
+          REACT_APP_WEBHOOK_DELETE_AGENT: ${{ secrets.REACT_APP_WEBHOOK_DELETE_AGENT }}
+          REACT_APP_WEBHOOK_UNBIND: ${{ secrets.REACT_APP_WEBHOOK_UNBIND }}
+          REACT_APP_WEBHOOK_CREATE_OUTBOUND_AGENT: ${{ secrets.REACT_APP_WEBHOOK_CREATE_OUTBOUND_AGENT }}
+          REACT_APP_WEBHOOK_EDIT_OUTBOUND_AGENT: ${{ secrets.REACT_APP_WEBHOOK_EDIT_OUTBOUND_AGENT }}
+          REACT_APP_WEBHOOK_DELETE_OUTBOUND_AGENT: ${{ secrets.REACT_APP_WEBHOOK_DELETE_OUTBOUND_AGENT }}
+          REACT_APP_WEBHOOK_OUTBOUND_TARGET_SYNC: ${{ secrets.REACT_APP_WEBHOOK_OUTBOUND_TARGET_SYNC }}
+          REACT_APP_WEBHOOK_OUTBOUND_CALL: ${{ secrets.REACT_APP_WEBHOOK_OUTBOUND_CALL }}
+          REACT_APP_WEBHOOK_OUTBOUT_SINGLE_CALL: ${{ secrets.REACT_APP_WEBHOOK_OUTBOUT_SINGLE_CALL }}
+          REACT_APP_WEBHOOK_OUTBOUND_LIST_INITIATE: ${{ secrets.REACT_APP_WEBHOOK_OUTBOUND_LIST_INITIATE }}
+          REACT_APP_WEBHOOK_LANDING_PAGE_CALL: ${{ secrets.REACT_APP_WEBHOOK_LANDING_PAGE_CALL }}
+
+          APP_DIR: ${{ secrets.APP_DIR }}
+          WEB_ROOT: ${{ secrets.WEB_ROOT }}
+          PM2_APP: ${{ secrets.PM2_APP }}
+        run: |
+          ssh "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}" "bash -s" <<EOF
+          set -eo pipefail
+
+          [ -s /etc/profile ] && source /etc/profile || true
+          [ -s ~/.profile ] && source ~/.profile || true
+          [ -s ~/.bashrc ] && source ~/.bashrc || true
+          export NVM_DIR="\${NVM_DIR:-\$HOME/.nvm}"
+          [ -s "\${NVM_DIR}/nvm.sh" ] && source "\${NVM_DIR}/nvm.sh" || true
+          command -v npm >/dev/null || { echo "npm not found on deploy server PATH"; exit 127; }
+          command -v pm2 >/dev/null || { echo "pm2 not found on deploy server PATH"; exit 127; }
+          set -u
+
+          # Defaults match live server:
+          #   APP_DIR  -> ~/100xUp_live
+          #   WEB_ROOT -> /var/www/up100x_live
+          APP_DIR="\$(eval echo "${APP_DIR:-\$HOME/100xUp_live}")"
+          WEB_ROOT="${WEB_ROOT:-/var/www/up100x_live}"
+          RELEASES_DIR="\${APP_DIR}/releases"
+          CURRENT_LINK="\${APP_DIR}/current"
+          ENV_PATH="\${APP_DIR}/.env.production"
+          PM2_APP="${PM2_APP:-up100x-prod}"
+          HEALTH_PORT="${PORT:-7000}"
+
+          sudo mkdir -p "\${APP_DIR}" "\${WEB_ROOT}"
+          sudo chown -R "\$(whoami):\$(whoami)" "\${APP_DIR}"
+          sudo chown -R "\$(whoami):\$(whoami)" "\${WEB_ROOT}" || true
+
+          mkdir -p "\${RELEASES_DIR}"
+          RELEASE_DIR="\${RELEASES_DIR}/\$(date +%Y_%m-%d_%H-%M-%S)"
+          mkdir -p "\${RELEASE_DIR}"
+
+          PREV_RELEASE=""
+          if [ -L "\${CURRENT_LINK}" ]; then
+            PREV_RELEASE="\$(readlink -f "\${CURRENT_LINK}")"
+          fi
+
+          cat > "\${ENV_PATH}" <<'EOT'
+          NODE_ENV=${NODE_ENV}
+          PORT=${PORT}
+          FRONTEND_URL=${FRONTEND_URL}
+          CORS_ORIGINS=${CORS_ORIGINS}
+
+          SUPABASE_URL=${SUPABASE_URL}
+          SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+          SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+
+          REDIS_URL=${REDIS_URL}
+          STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+          STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+          VAPI_WEBHOOK_SECRET=${VAPI_WEBHOOK_SECRET}
+
+          REACT_APP_WEBHOOK_BASE_URL=${REACT_APP_WEBHOOK_BASE_URL}
+          REACT_APP_WEBHOOK_IMPORT_NUMBER=${REACT_APP_WEBHOOK_IMPORT_NUMBER}
+          REACT_APP_WEBHOOK_DELETE_NUMBER=${REACT_APP_WEBHOOK_DELETE_NUMBER}
+          REACT_APP_WEBHOOK_CHECK_NUMBER_STATUS=${REACT_APP_WEBHOOK_CHECK_NUMBER_STATUS}
+          REACT_APP_WEBHOOK_CREATE_AGENT=${REACT_APP_WEBHOOK_CREATE_AGENT}
+          REACT_APP_WEBHOOK_EDIT_AGENT=${REACT_APP_WEBHOOK_EDIT_AGENT}
+          REACT_APP_WEBHOOK_DELETE_AGENT=${REACT_APP_WEBHOOK_DELETE_AGENT}
+          REACT_APP_WEBHOOK_UNBIND=${REACT_APP_WEBHOOK_UNBIND}
+          REACT_APP_WEBHOOK_CREATE_OUTBOUND_AGENT=${REACT_APP_WEBHOOK_CREATE_OUTBOUND_AGENT}
+          REACT_APP_WEBHOOK_EDIT_OUTBOUND_AGENT=${REACT_APP_WEBHOOK_EDIT_OUTBOUND_AGENT}
+          REACT_APP_WEBHOOK_DELETE_OUTBOUND_AGENT=${REACT_APP_WEBHOOK_DELETE_OUTBOUND_AGENT}
+          REACT_APP_WEBHOOK_OUTBOUND_TARGET_SYNC=${REACT_APP_WEBHOOK_OUTBOUND_TARGET_SYNC}
+          REACT_APP_WEBHOOK_OUTBOUND_CALL=${REACT_APP_WEBHOOK_OUTBOUND_CALL}
+          REACT_APP_WEBHOOK_OUTBOUT_SINGLE_CALL=${REACT_APP_WEBHOOK_OUTBOUT_SINGLE_CALL}
+          REACT_APP_WEBHOOK_OUTBOUND_LIST_INITIATE=${REACT_APP_WEBHOOK_OUTBOUND_LIST_INITIATE}
+          REACT_APP_WEBHOOK_LANDING_PAGE_CALL=${REACT_APP_WEBHOOK_LANDING_PAGE_CALL}
+          EOT
+
+          sed -i 's/^[[:space:]]*//' "\${ENV_PATH}"
+          chmod 600 "\${ENV_PATH}"
+
+          tar -xzf /tmp/up100x-deploy.tgz -C "\${RELEASE_DIR}"
+          ln -sf "\${ENV_PATH}" "\${RELEASE_DIR}/Backend/.env"
+
+          cd "\${RELEASE_DIR}/Backend"
+          npm ci --omit=dev --no-audit --no-fund
+
+          # Same as: sudo cp -r dist/* /var/www/up100x_live/
+          sudo mkdir -p "\${WEB_ROOT}"
+          sudo rsync -a --delete "\${RELEASE_DIR}/frontend/dist/" "\${WEB_ROOT}/"
+          sudo systemctl reload nginx || sudo systemctl restart nginx
+
+          ln -sfn "\${RELEASE_DIR}" "\${CURRENT_LINK}"
+
+          export PM2_APP_NAME="\${PM2_APP}"
+          cd "\${CURRENT_LINK}/Backend"
+          pm2 describe "\${PM2_APP}" >/dev/null 2>&1 \
+            && pm2 reload ecosystem.config.cjs --update-env \
+            || pm2 start ecosystem.config.cjs --only "\${PM2_APP}"
+          pm2 restart "\${PM2_APP}" --update-env || pm2 restart all --update-env
+          pm2 save
+
+          sleep 5
+          if ! curl -fsS "http://localhost:\${HEALTH_PORT}/health" >/dev/null; then
+            echo "Health check failed after deploy."
+            if [ -n "\${PREV_RELEASE}" ]; then
+              echo "Rolling back to \${PREV_RELEASE}"
+              ln -sfn "\${PREV_RELEASE}" "\${CURRENT_LINK}"
+              cd "\${CURRENT_LINK}/Backend"
+              pm2 reload ecosystem.config.cjs --update-env || pm2 restart "\${PM2_APP}" --update-env
+              pm2 save
+              sudo rsync -a --delete "\${PREV_RELEASE}/frontend/dist/" "\${WEB_ROOT}/" || true
+              sudo systemctl reload nginx || true
+            fi
+            exit 1
+          fi
+
+          echo "Production deploy OK"
+          ls -dt "\${RELEASES_DIR}"/*/ | tail -n +2 | head -n 9 | xargs -r -I {} rm -rf "{}/Backend/node_modules"
+          ls -dt "\${RELEASES_DIR}"/*/ | tail -n +11 | xargs -r rm -rf
+          EOF
