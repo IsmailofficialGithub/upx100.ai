@@ -154,31 +154,39 @@ jobs:
           command -v pm2 >/dev/null || { echo "pm2 not found on deploy server PATH"; exit 127; }
           set -u
 
-          # Defaults match live server:
-          #   APP_DIR  -> ~/100xUp_live
-          #   WEB_ROOT -> /var/www/up100x_live
+          # Live server layout (do NOT use /var/www/100xUp):
+          #   code     -> /home/ubuntu/100xUp_live
+          #   frontend -> /var/www/up100x_live
+          #   pm2      -> 100xUp-backend
           APP_DIR="\$(eval echo "${APP_DIR:-\$HOME/100xUp_live}")"
           WEB_ROOT="${WEB_ROOT:-/var/www/up100x_live}"
-          RELEASES_DIR="\${APP_DIR}/releases"
-          CURRENT_LINK="\${APP_DIR}/current"
-          ENV_PATH="\${APP_DIR}/.env.production"
-          PM2_APP="${PM2_APP:-up100x-prod}"
+          BACKEND_DIR="\${APP_DIR}/Backend"
+          PM2_APP="${PM2_APP:-100xUp-backend}"
           HEALTH_PORT="${PORT:-7000}"
+          STAGING_DIR="/tmp/up100x-release-\$(date +%Y%m%d%H%M%S)"
 
-          sudo mkdir -p "\${APP_DIR}" "\${WEB_ROOT}"
-          sudo chown -R "\$(whoami):\$(whoami)" "\${APP_DIR}"
-          sudo chown -R "\$(whoami):\$(whoami)" "\${WEB_ROOT}" || true
+          echo "Deploy targets:"
+          echo "  APP_DIR=\${APP_DIR}"
+          echo "  BACKEND_DIR=\${BACKEND_DIR}"
+          echo "  WEB_ROOT=\${WEB_ROOT}"
+          echo "  PM2_APP=\${PM2_APP}"
 
-          mkdir -p "\${RELEASES_DIR}"
-          RELEASE_DIR="\${RELEASES_DIR}/\$(date +%Y_%m-%d_%H-%M-%S)"
-          mkdir -p "\${RELEASE_DIR}"
-
-          PREV_RELEASE=""
-          if [ -L "\${CURRENT_LINK}" ]; then
-            PREV_RELEASE="\$(readlink -f "\${CURRENT_LINK}")"
+          if [[ "\${WEB_ROOT}" == "/var/www/100xUp" || "\${WEB_ROOT}" == "/var/www/100xUp/" ]]; then
+            echo "Refusing to deploy to old folder /var/www/100xUp. Use /var/www/up100x_live."
+            exit 1
           fi
 
-          cat > "\${ENV_PATH}" <<'EOT'
+          sudo mkdir -p "\${APP_DIR}" "\${BACKEND_DIR}" "\${WEB_ROOT}"
+          sudo chown -R "\$(whoami):\$(whoami)" "\${APP_DIR}" || true
+          sudo chown -R "\$(whoami):\$(whoami)" "\${WEB_ROOT}" || true
+
+          mkdir -p "\${STAGING_DIR}"
+          tar -xzf /tmp/up100x-deploy.tgz -C "\${STAGING_DIR}"
+
+          # Keep existing server .env if present; otherwise write from CI secrets
+          ENV_PATH="\${BACKEND_DIR}/.env"
+          if [ ! -f "\${ENV_PATH}" ]; then
+            cat > "\${ENV_PATH}" <<'EOT'
           NODE_ENV=${NODE_ENV}
           PORT=${PORT}
           FRONTEND_URL=${FRONTEND_URL}
@@ -210,47 +218,42 @@ jobs:
           REACT_APP_WEBHOOK_OUTBOUND_LIST_INITIATE=${REACT_APP_WEBHOOK_OUTBOUND_LIST_INITIATE}
           REACT_APP_WEBHOOK_LANDING_PAGE_CALL=${REACT_APP_WEBHOOK_LANDING_PAGE_CALL}
           EOT
+            sed -i 's/^[[:space:]]*//' "\${ENV_PATH}"
+            chmod 600 "\${ENV_PATH}"
+          else
+            # Ensure edit webhook points at shared inbound endpoint
+            sed -i 's|/webhook/edit_outbound_agent|/webhook/edit_agent|g' "\${ENV_PATH}" || true
+          fi
 
-          sed -i 's/^[[:space:]]*//' "\${ENV_PATH}"
-          chmod 600 "\${ENV_PATH}"
+          # Sync backend code into the live Backend folder used by PM2
+          rsync -a --delete \
+            --exclude '.env' \
+            --exclude 'node_modules' \
+            "\${STAGING_DIR}/Backend/" "\${BACKEND_DIR}/"
 
-          tar -xzf /tmp/up100x-deploy.tgz -C "\${RELEASE_DIR}"
-          ln -sf "\${ENV_PATH}" "\${RELEASE_DIR}/Backend/.env"
-
-          cd "\${RELEASE_DIR}/Backend"
+          cd "\${BACKEND_DIR}"
           npm ci --omit=dev --no-audit --no-fund
 
           # Same as: sudo cp -r dist/* /var/www/up100x_live/
-          sudo mkdir -p "\${WEB_ROOT}"
-          sudo rsync -a --delete "\${RELEASE_DIR}/frontend/dist/" "\${WEB_ROOT}/"
+          sudo rsync -a --delete "\${STAGING_DIR}/frontend/dist/" "\${WEB_ROOT}/"
           sudo systemctl reload nginx || sudo systemctl restart nginx
 
-          ln -sfn "\${RELEASE_DIR}" "\${CURRENT_LINK}"
-
-          export PM2_APP_NAME="\${PM2_APP}"
-          cd "\${CURRENT_LINK}/Backend"
-          pm2 describe "\${PM2_APP}" >/dev/null 2>&1 \
-            && pm2 reload ecosystem.config.cjs --update-env \
-            || pm2 start ecosystem.config.cjs --only "\${PM2_APP}"
-          pm2 restart "\${PM2_APP}" --update-env || pm2 restart all --update-env
+          # Restart the real PM2 process (100xUp-backend), not a parallel app name
+          if pm2 describe "\${PM2_APP}" >/dev/null 2>&1; then
+            pm2 restart "\${PM2_APP}" --update-env --cwd "\${BACKEND_DIR}"
+          else
+            export PM2_APP_NAME="\${PM2_APP}"
+            pm2 start "\${BACKEND_DIR}/ecosystem.config.cjs" --only "\${PM2_APP}" --cwd "\${BACKEND_DIR}" \
+              || pm2 start "\${BACKEND_DIR}/app/index.js" --name "\${PM2_APP}" --cwd "\${BACKEND_DIR}"
+          fi
           pm2 save
 
           sleep 5
           if ! curl -fsS "http://localhost:\${HEALTH_PORT}/health" >/dev/null; then
-            echo "Health check failed after deploy."
-            if [ -n "\${PREV_RELEASE}" ]; then
-              echo "Rolling back to \${PREV_RELEASE}"
-              ln -sfn "\${PREV_RELEASE}" "\${CURRENT_LINK}"
-              cd "\${CURRENT_LINK}/Backend"
-              pm2 reload ecosystem.config.cjs --update-env || pm2 restart "\${PM2_APP}" --update-env
-              pm2 save
-              sudo rsync -a --delete "\${PREV_RELEASE}/frontend/dist/" "\${WEB_ROOT}/" || true
-              sudo systemctl reload nginx || true
-            fi
+            echo "Health check failed after deploy on port \${HEALTH_PORT}"
             exit 1
           fi
 
-          echo "Production deploy OK"
-          ls -dt "\${RELEASES_DIR}"/*/ | tail -n +2 | head -n 9 | xargs -r -I {} rm -rf "{}/Backend/node_modules"
-          ls -dt "\${RELEASES_DIR}"/*/ | tail -n +11 | xargs -r rm -rf
+          rm -rf "\${STAGING_DIR}" /tmp/up100x-deploy.tgz
+          echo "Production deploy OK -> web=\${WEB_ROOT} backend=\${BACKEND_DIR} pm2=\${PM2_APP}"
           EOF

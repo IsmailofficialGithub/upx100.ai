@@ -2,7 +2,7 @@
 module.exports = {
   apps: [
     {
-      name: process.env.PM2_APP_NAME || 'up100x-backend',
+      name: process.env.PM2_APP_NAME || '100xUp-backend',
       script: './app/index.js',
       cwd: __dirname,
       instances: 1,
