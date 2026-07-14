@@ -106,8 +106,9 @@ describe('InboundAgent Service', () => {
     expect(supabaseAdmin.update).toHaveBeenCalledWith(expect.objectContaining({ status: 'deleted' }))
   })
 
-  it('updateAgent for outbound should call the edit outbound webhook', async () => {
+  it('updateAgent for outbound should call the shared edit_agent webhook', async () => {
     const agentId = 'mock-uuid'
+    process.env.REACT_APP_WEBHOOK_EDIT_AGENT = '/webhook/edit_agent'
     supabaseAdmin.single.mockResolvedValue({
       data: {
         id: 'mock-uuid',
@@ -123,7 +124,7 @@ describe('InboundAgent Service', () => {
     await agentService.updateAgent(agentId, { name: 'Updated Outbound' })
 
     expect(axios.post).toHaveBeenCalledWith(
-      'http://test-base/webhook/edit_outbound_agent',
+      'http://test-base/webhook/edit_agent',
       expect.objectContaining({
         agentId,
         name: 'Updated Outbound',

@@ -101,9 +101,8 @@ export const updateAgent = async (agentId, updateData) => {
 
   if (fetchError || !existing) throw fetchError || new Error('Agent not found')
 
-  const webhookPath = existing.agent_type === 'outbound'
-    ? (process.env.REACT_APP_WEBHOOK_EDIT_OUTBOUND_AGENT || '/webhook/edit_outbound_agent')
-    : process.env.REACT_APP_WEBHOOK_EDIT_AGENT
+  // Inbound and outbound agent updates share the same n8n webhook
+  const webhookPath = process.env.REACT_APP_WEBHOOK_EDIT_AGENT || '/webhook/edit_agent'
   const webhookUrl = `${process.env.REACT_APP_WEBHOOK_BASE_URL}${webhookPath}`
 
   const enriched = enrichAgentPayload(updateData, existing)
