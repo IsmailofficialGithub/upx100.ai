@@ -133,6 +133,7 @@ const AdminAgentsView: React.FC = () => {
   const [typeFilter, setTypeFilter] = useState('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
+  const [isSavingAgent, setIsSavingAgent] = useState(false);
   
   // Search states
   const [orgSearch, setOrgSearch] = useState('');
@@ -398,7 +399,15 @@ const AdminAgentsView: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSavingAgent) return;
+
     const toastId = 'agent-save';
+    const finishLoading = (next?: () => void) => {
+      toast.dismiss(toastId);
+      next?.();
+    };
+
+    setIsSavingAgent(true);
     toast.loading(editingAgent ? 'Updating agent...' : 'Creating agent...', { id: toastId });
 
     try {
@@ -420,15 +429,15 @@ const AdminAgentsView: React.FC = () => {
               : null);
 
       if (isGCC && !organizationId) {
-        toast.error('Select a client organization for this agent.', { id: toastId });
+        finishLoading(() => toast.error('Select a client organization for this agent.'));
         return;
       }
       if (!formData.industry_vertical) {
-        toast.error('Select an industry vertical.', { id: toastId });
+        finishLoading(() => toast.error('Select an industry vertical.'));
         return;
       }
       if (!formData.phone_number_id) {
-        toast.error('Assign a phone number before saving.', { id: toastId });
+        finishLoading(() => toast.error('Assign a phone number before saving.'));
         return;
       }
 
@@ -448,24 +457,24 @@ const AdminAgentsView: React.FC = () => {
       };
 
       const endpoint = '/agents';
-      let agentId = editingAgent?.id;
 
       if (editingAgent) {
         await api.patch(`${endpoint}/${editingAgent.id}`, enrichedPayload);
-        toast.success('Agent updated successfully', { id: toastId });
-        setIsModalOpen(false);
-        setRefreshKey(prev => prev + 1);
+        finishLoading(() => toast.success('Agent updated successfully'));
       } else {
-        const response = await api.post(endpoint, enrichedPayload);
-        agentId = response.data.data.id;
-        toast.success('Agent created and activating', { id: toastId });
-        setRefreshKey(prev => prev + 1);
+        await api.post(endpoint, enrichedPayload);
+        finishLoading(() => toast.success('Agent created and activating'));
       }
 
       setIsModalOpen(false);
+      setRefreshKey(prev => prev + 1);
       fetchAgents();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Action failed', { id: toastId });
+      finishLoading(() =>
+        toast.error(error.response?.data?.message || 'Action failed')
+      );
+    } finally {
+      setIsSavingAgent(false);
     }
   };
 
@@ -482,14 +491,17 @@ const AdminAgentsView: React.FC = () => {
   const handleDelete = async (id: string) => {
     if (!window.confirm('Are you sure you want to delete this agent?')) return;
     
-    const loadingToast = toast.loading('Deleting agent...');
+    const toastId = 'agent-delete';
+    toast.loading('Deleting agent...', { id: toastId });
     try {
       const endpoint = '/agents';
       await api.delete(`${endpoint}/${id}`);
-      toast.success('Agent deleted', { id: loadingToast });
+      toast.dismiss(toastId);
+      toast.success('Agent deleted');
       setRefreshKey(prev => prev + 1);
     } catch (error) {
-      toast.error('Failed to delete agent', { id: loadingToast });
+      toast.dismiss(toastId);
+      toast.error('Failed to delete agent');
     }
   };
 
@@ -1580,10 +1592,12 @@ const AdminAgentsView: React.FC = () => {
                   ) : (
                     <button
                       type="submit"
-                      disabled={!isStepValid()}
+                      disabled={!isStepValid() || isSavingAgent}
                       className="bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary)/0.9)] text-white px-8 py-2 rounded-lg text-xs font-bold transition-all shadow-[0_0_25px_rgba(var(--primary-rgb),0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {editingAgent ? 'Update Agent' : 'Create Agent'}
+                      {isSavingAgent
+                        ? (editingAgent ? 'Updating...' : 'Creating...')
+                        : (editingAgent ? 'Update Agent' : 'Create Agent')}
                     </button>
                   )}
                 </div>
