@@ -156,11 +156,12 @@ jobs:
 
           # Live server layout (do NOT use /var/www/100xUp):
           #   code     -> /home/ubuntu/100xUp_live
-          #   frontend -> /var/www/up100x_live
+          #   frontend -> /var/www/up100x_live  (+ ~/100xUp_live/frontend/dist)
           #   pm2      -> 100xUp-backend
           APP_DIR="\$(eval echo "${APP_DIR:-\$HOME/100xUp_live}")"
-          WEB_ROOT="${WEB_ROOT:-/var/www/up100x_live}"
+          WEB_ROOT="/var/www/up100x_live"
           BACKEND_DIR="\${APP_DIR}/Backend"
+          FRONTEND_DIR="\${APP_DIR}/frontend"
           PM2_APP="${PM2_APP:-100xUp-backend}"
           HEALTH_PORT="${PORT:-7000}"
           STAGING_DIR="/tmp/up100x-release-\$(date +%Y%m%d%H%M%S)"
@@ -168,15 +169,11 @@ jobs:
           echo "Deploy targets:"
           echo "  APP_DIR=\${APP_DIR}"
           echo "  BACKEND_DIR=\${BACKEND_DIR}"
+          echo "  FRONTEND_DIR=\${FRONTEND_DIR}"
           echo "  WEB_ROOT=\${WEB_ROOT}"
           echo "  PM2_APP=\${PM2_APP}"
 
-          if [[ "\${WEB_ROOT}" == "/var/www/100xUp" || "\${WEB_ROOT}" == "/var/www/100xUp/" ]]; then
-            echo "Refusing to deploy to old folder /var/www/100xUp. Use /var/www/up100x_live."
-            exit 1
-          fi
-
-          sudo mkdir -p "\${APP_DIR}" "\${BACKEND_DIR}" "\${WEB_ROOT}"
+          sudo mkdir -p "\${APP_DIR}" "\${BACKEND_DIR}" "\${FRONTEND_DIR}/dist" "\${WEB_ROOT}"
           sudo chown -R "\$(whoami):\$(whoami)" "\${APP_DIR}" || true
           sudo chown -R "\$(whoami):\$(whoami)" "\${WEB_ROOT}" || true
 
@@ -234,9 +231,17 @@ jobs:
           cd "\${BACKEND_DIR}"
           npm ci --omit=dev --no-audit --no-fund
 
+          # Frontend: keep a copy under ~/100xUp_live/frontend/dist AND publish to nginx
           # Same as: sudo cp -r dist/* /var/www/up100x_live/
+          mkdir -p "\${FRONTEND_DIR}/dist"
+          rsync -a --delete "\${STAGING_DIR}/frontend/dist/" "\${FRONTEND_DIR}/dist/"
           sudo rsync -a --delete "\${STAGING_DIR}/frontend/dist/" "\${WEB_ROOT}/"
           sudo systemctl reload nginx || sudo systemctl restart nginx
+
+          echo "Frontend published:"
+          echo "  app copy -> \${FRONTEND_DIR}/dist"
+          echo "  nginx    -> \${WEB_ROOT}"
+          ls -la "\${WEB_ROOT}/index.html"
 
           # Restart the real PM2 process (100xUp-backend), not a parallel app name
           if pm2 describe "\${PM2_APP}" >/dev/null 2>&1; then
@@ -255,5 +260,5 @@ jobs:
           fi
 
           rm -rf "\${STAGING_DIR}" /tmp/up100x-deploy.tgz
-          echo "Production deploy OK -> web=\${WEB_ROOT} backend=\${BACKEND_DIR} pm2=\${PM2_APP}"
+          echo "Production deploy OK -> nginx=\${WEB_ROOT} frontend=\${FRONTEND_DIR}/dist backend=\${BACKEND_DIR} pm2=\${PM2_APP}"
           EOF
