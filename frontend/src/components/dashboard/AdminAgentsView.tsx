@@ -218,8 +218,10 @@ const AdminAgentsView: React.FC = () => {
     try {
       const endpoint = isGCC ? '/admin/agents' : '/agents';
       const response = await api.get(endpoint);
-      setAgents(response.data.data);
+      const rows = response.data?.data;
+      setAgents(Array.isArray(rows) ? rows : []);
     } catch (error) {
+      setAgents([]);
       toast.error('Failed to fetch agents');
     } finally {
       setIsLoading(false);
@@ -231,9 +233,11 @@ const AdminAgentsView: React.FC = () => {
       console.log('[AdminAgentsView] Fetching initial orgs...');
       const response = await api.get('/admin/organizations');
       console.log('[AdminAgentsView] Initial orgs fetched:', response.data.data?.length);
-      setOrgs(response.data.data);
+      const rows = response.data?.data;
+      setOrgs(Array.isArray(rows) ? rows : []);
     } catch (error) {
       console.error('Failed to fetch orgs', error);
+      setOrgs([]);
     }
   };
 
@@ -241,9 +245,11 @@ const AdminAgentsView: React.FC = () => {
     try {
       const endpoint = isAdminView ? '/admin/users' : '/users';
       const response = await api.get(endpoint);
-      setUsers(response.data.data);
+      const rows = response.data?.data;
+      setUsers(Array.isArray(rows) ? rows : []);
     } catch (error) {
       console.error('Failed to fetch users', error);
+      setUsers([]);
     }
   };
 
@@ -260,9 +266,10 @@ const AdminAgentsView: React.FC = () => {
         const response = await api.get('/admin/organizations', {
           params: { search: orgSearch || undefined }
         });
-        setOrgs(response.data.data);
+        setOrgs(Array.isArray(response.data?.data) ? response.data.data : []);
       } catch (error) {
         console.error('Failed to search organizations', error);
+        setOrgs([]);
       } finally {
         setIsSearchingOrgs(false);
       }
@@ -284,9 +291,10 @@ const AdminAgentsView: React.FC = () => {
         const response = await api.get('/admin/users', {
           params: { search: userSearch || undefined }
         });
-        setUsers(response.data.data);
+        setUsers(Array.isArray(response.data?.data) ? response.data.data : []);
       } catch (error) {
         console.error('Failed to search users', error);
+        setUsers([]);
       } finally {
         setIsSearchingUsers(false);
       }
@@ -581,7 +589,7 @@ const AdminAgentsView: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const filteredAgents = agents.filter(a => {
+  const filteredAgents = (Array.isArray(agents) ? agents : []).filter(a => {
     const matchesSearch = a.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (Array.isArray(a.organizations) ? a.organizations[0]?.name : a.organizations?.name)?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       a.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
