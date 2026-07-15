@@ -1,4 +1,4 @@
-import Stripe from 'stripe'
+import { stripe } from '../config/stripe.js'
 import * as stripeService from '../services/stripe.service.js'
 import { supabaseAdmin } from '../config/supabase.js'
 import { paymentQueue } from '../queues/payment.queue.js'
@@ -18,7 +18,7 @@ const logger = pino({
   }
 })
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder')
+// Stripe client comes from shared config (supports org keys + Stripe-Context)
 
 /**
  * Fetch all active subscription packages/tiers from the database

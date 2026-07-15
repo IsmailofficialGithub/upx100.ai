@@ -1,5 +1,5 @@
 import { Queue, Worker } from 'bullmq'
-import Stripe from 'stripe'
+import { stripe } from '../config/stripe.js'
 import { bullRedisConnection } from '../config/redis.js'
 import { supabaseAdmin } from '../config/supabase.js'
 import { clearOrgCache } from '../redis/billingCache.js'
@@ -12,8 +12,7 @@ const logger = pino({
   }
 })
 
-// Initialize Stripe instance
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder')
+// Stripe client comes from shared config (supports org keys + Stripe-Context)
 
 // Export Queue
 export const paymentQueue = new Queue('payment-events', {

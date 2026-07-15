@@ -1,9 +1,8 @@
-import Stripe from 'stripe'
+import { stripe } from '../config/stripe.js'
 import { supabaseAdmin } from '../config/supabase.js'
 import { clearOrgCache } from '../redis/billingCache.js'
 
-// Initialize Stripe instance
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder')
+// Stripe client comes from shared config (supports org keys + Stripe-Context)
 
 const getFrontendUrl = () => {
   const configuredUrl = process.env.FRONTEND_URL?.trim()
