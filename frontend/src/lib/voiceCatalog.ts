@@ -29,6 +29,7 @@ export type VoiceCatalogEntry = {
   accent: VoiceAccent;
   style: VoiceStyle;
   pace: VoicePace;
+  sample_url?: string;
 };
 
 export type VoiceFilterKey = 'gender' | 'accent' | 'style' | 'pace';
@@ -39,7 +40,17 @@ type VoiceMeta = Pick<VoiceCatalogEntry, 'gender' | 'accent' | 'style' | 'pace'>
 
 /** Curated characteristics per voice (catalog names only — no vendor in UI). */
 const VOICE_META: Record<string, VoiceMeta> = {
+  clara: { gender: 'Female', accent: 'American-General', style: 'Professional', pace: 'Moderate' },
+  godfrey: { gender: 'Male', accent: 'American-General', style: 'Professional', pace: 'Moderate' },
   elliot: { gender: 'Male', accent: 'American-General', style: 'Professional', pace: 'Moderate' },
+  savanah: { gender: 'Female', accent: 'American-Southern', style: 'Warm', pace: 'Slow' },
+  nico: { gender: 'Male', accent: 'American-General', style: 'Cheerful', pace: 'Fast' },
+  kai: { gender: 'Male', accent: 'American-General', style: 'Calm', pace: 'Moderate' },
+  emma: { gender: 'Female', accent: 'British-RP', style: 'Warm', pace: 'Moderate' },
+  sagar: { gender: 'Male', accent: 'Indian', style: 'Professional', pace: 'Moderate' },
+  neil: { gender: 'Male', accent: 'American-General', style: 'Direct', pace: 'Moderate' },
+  layla: { gender: 'Female', accent: 'American-General', style: 'Genial', pace: 'Moderate' },
+  naina: { gender: 'Female', accent: 'Indian', style: 'Cheerful', pace: 'Fast' },
   kylie: { gender: 'Female', accent: 'American-General', style: 'Cheerful', pace: 'Moderate' },
   rohan: { gender: 'Male', accent: 'Indian', style: 'Warm', pace: 'Moderate' },
   lily: { gender: 'Female', accent: 'American-General', style: 'Genial', pace: 'Moderate' },
@@ -111,7 +122,7 @@ function fallbackMeta(id: string): VoiceMeta {
   };
 }
 
-function buildEntry(row: (typeof rawVoices)[number]): VoiceCatalogEntry {
+function buildEntry(row: any): VoiceCatalogEntry {
   const id = String(row.id).toLowerCase();
   const meta = VOICE_META[id] ?? fallbackMeta(id);
   return {
@@ -119,6 +130,7 @@ function buildEntry(row: (typeof rawVoices)[number]): VoiceCatalogEntry {
     name: titleCaseName(row.name || id),
     provider: row.provider,
     status: row.status,
+    sample_url: row.sample_url,
     ...meta,
   };
 }

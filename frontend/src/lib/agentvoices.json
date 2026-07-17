@@ -3,270 +3,175 @@
         "id": "clara",
         "name": "Clara",
         "provider": "vapi",
-        "status": "active"
+        "status": "active",
+        "sample_url": "/voices/Vapi/clara-sample.wav"
     },
     {
         "id": "godfrey",
         "name": "Godfrey",
         "provider": "vapi",
-        "status": "active"
+        "status": "active",
+        "sample_url": "/voices/Vapi/godfrey-sample.wav"
     },
     {
         "id": "elliot",
         "name": "Elliot",
         "provider": "vapi",
-        "status": "active"
+        "status": "active",
+        "sample_url": "/voices/Vapi/elliot-sample.wav"
     },
     {
         "id": "savanah",
         "name": "Savanah",
         "provider": "vapi",
-        "status": "active"
+        "status": "active",
+        "sample_url": "/voices/Vapi/savannah-sample.wav"
     },
     {
         "id": "nico",
         "name": "Nico",
         "provider": "vapi",
-        "status": "active"
+        "status": "active",
+        "sample_url": "/voices/Vapi/nico-sample.wav"
     },
     {
         "id": "kai",
         "name": "Kai",
         "provider": "vapi",
-        "status": "active"
+        "status": "active",
+        "sample_url": "/voices/Vapi/kai-sample.wav"
     },
     {
         "id": "emma",
         "name": "Emma",
         "provider": "vapi",
-        "status": "active"
+        "status": "active",
+        "sample_url": "/voices/Vapi/emma-sample.wav"
     },
     {
         "id": "sagar",
         "name": "Sagar",
         "provider": "vapi",
-        "status": "active"
+        "status": "active",
+        "sample_url": "/voices/Vapi/sagar-sample.wav"
     },
     {
         "id": "neil",
         "name": "Neil",
         "provider": "vapi",
-        "status": "active"
+        "status": "active",
+        "sample_url": "/voices/Vapi/neil-sample.wav"
     },
     {
         "id": "layla",
         "name": "Layla",
         "provider": "vapi",
-        "status": "active"
-    },
-    {
-        "id": "sid",
-        "name": "Sid",
-        "provider": "vapi",
-        "status": "active"
-    },
-    {
-        "id": "gustavo",
-        "name": "Gustavo",
-        "provider": "vapi",
-        "status": "active"
-    },
-    {
-        "id": "rohan",
-        "name": "Rohan",
-        "provider": "vapi",
-        "status": "active"
+        "status": "active",
+        "sample_url": "/voices/Vapi/layla-sample.wav"
     },
     {
         "id": "naina",
         "name": "Naina",
         "provider": "vapi",
-        "status": "active"
-    },
-    {
-        "id": "leah",
-        "name": "Leah",
-        "provider": "vapi",
-        "status": "active"
-    },
-    {
-        "id": "tara",
-        "name": "Tara",
-        "provider": "vapi",
-        "status": "active"
-    },
-    {
-        "id": "jess",
-        "name": "Jess",
-        "provider": "vapi",
-        "status": "active"
-    },
-    {
-        "id": "leo",
-        "name": "Leo",
-        "provider": "vapi",
-        "status": "active"
-    },
-    {
-        "id": "dan",
-        "name": "Dan",
-        "provider": "vapi",
-        "status": "active"
-    },
-    {
-        "id": "mia",
-        "name": "Mia",
-        "provider": "vapi",
-        "status": "active"
-    },
-    {
-        "id": "zac",
-        "name": "Zac",
-        "provider": "vapi",
-        "status": "active"
-    },
-    {
-        "id": "zoe",
-        "name": "Zoe",
-        "provider": "vapi",
-        "status": "active"
+        "status": "active",
+        "sample_url": "/voices/Vapi/naina-sample.wav"
     },
     {
         "id": "amalthea",
         "name": "Amalthea",
         "provider": "deepgram",
-        "status": "active"
+        "status": "active",
+        "sample_url": "/voices/deapgram/deepgram-aura-2-amalthea-en-019f6dd0-0529-7992-8883-1de4066f4a5d.wav"
     },
     {
         "id": "andromeda",
         "name": "Andromeda",
         "provider": "deepgram",
-        "status": "active"
+        "status": "active",
+        "sample_url": "/voices/deapgram/deepgram-aura-2-andromeda-en-019f6dd0-3d0b-7262-9731-3a2944ca5b08.wav"
     },
     {
         "id": "asteria",
         "name": "Asteria",
         "provider": "deepgram",
-        "status": "active"
+        "status": "active",
+        "sample_url": "/voices/deapgram/asteria.mp3"
     },
     {
         "id": "athena",
         "name": "Athena",
         "provider": "deepgram",
-        "status": "active"
+        "status": "active",
+        "sample_url": "/voices/deapgram/athena.mp3"
     },
     {
         "id": "aurora",
         "name": "Aurora",
         "provider": "deepgram",
-        "status": "active"
+        "status": "active",
+        "sample_url": "/voices/deapgram/deepgram-aura-2-aurora-en-019f6dd1-8bfd-7792-b370-e4d59ba40c4a.wav"
     },
     {
         "id": "callista",
         "name": "Callista",
         "provider": "deepgram",
-        "status": "active"
+        "status": "active",
+        "sample_url": "/voices/deapgram/deepgram-aura-2-callista-en-019f6dd1-b403-7a80-afe1-aa3883a24417.wav"
     },
     {
         "id": "cora",
         "name": "Cora",
         "provider": "deepgram",
-        "status": "active"
+        "status": "active",
+        "sample_url": "/voices/deapgram/deepgram-aura-2-cora-en-019f6dd1-dacf-7a40-b3c6-68038c92bce4.wav"
     },
     {
         "id": "cordelia",
         "name": "Cordelia",
         "provider": "deepgram",
-        "status": "active"
+        "status": "active",
+        "sample_url": "/voices/deapgram/deepgram-aura-2-cordelia-en-019f6dd2-05e1-7ef2-b811-784748cd006b.wav"
     },
     {
         "id": "delia",
         "name": "Delia",
         "provider": "deepgram",
-        "status": "active"
+        "status": "active",
+        "sample_url": "/voices/deapgram/deepgram-aura-2-cordelia-en-019f6dd2-05e1-7ef2-b811-784748cd006b.wav"
     },
     {
         "id": "electra",
         "name": "Electra",
         "provider": "deepgram",
-        "status": "active"
+        "status": "active",
+        "sample_url": "/voices/deapgram/deepgram-aura-2-electra-en-019f6dd2-7ae0-7402-ad81-adf8e0e60f40.wav"
     },
     {
         "id": "harmonia",
         "name": "Harmonia",
         "provider": "deepgram",
-        "status": "active"
+        "status": "active",
+        "sample_url": "/voices/deapgram/deepgram-aura-2-harmonia-en-019f6dd2-a5ac-7a01-b4c4-49e2e6c7c8ab.wav"
     },
     {
         "id": "hera",
         "name": "Hera",
         "provider": "deepgram",
-        "status": "active"
-    },
-    {
-        "id": "iris",
-        "name": "Iris",
-        "provider": "deepgram",
-        "status": "active"
-    },
-    {
-        "id": "juno",
-        "name": "Juno",
-        "provider": "deepgram",
-        "status": "active"
+        "status": "active",
+        "sample_url": "/voices/deapgram/hera.mp3"
     },
     {
         "id": "luna",
         "name": "Luna",
         "provider": "deepgram",
-        "status": "active"
-    },
-    {
-        "id": "minerva",
-        "name": "Minerva",
-        "provider": "deepgram",
-        "status": "active"
-    },
-    {
-        "id": "ophelia",
-        "name": "Ophelia",
-        "provider": "deepgram",
-        "status": "active"
-    },
-    {
-        "id": "pandora",
-        "name": "Pandora",
-        "provider": "deepgram",
-        "status": "active"
-    },
-    {
-        "id": "phoebe",
-        "name": "Phoebe",
-        "provider": "deepgram",
-        "status": "active"
-    },
-    {
-        "id": "selene",
-        "name": "Selene",
-        "provider": "deepgram",
-        "status": "active"
+        "status": "active",
+        "sample_url": "/voices/deapgram/luna.mp3"
     },
     {
         "id": "thalia",
         "name": "Thalia",
         "provider": "deepgram",
-        "status": "active"
-    },
-    {
-        "id": "theia",
-        "name": "Theia",
-        "provider": "deepgram",
-        "status": "active"
-    },
-    {
-        "id": "vesta",
-        "name": "Vesta",
-        "provider": "deepgram",
-        "status": "active"
+        "status": "active",
+        "sample_url": "/voices/deapgram/deepgram-aura-2-thalia-en-019f6dd0-7601-7833-b3fa-b7b1a244674e.wav"
     }
 ]

@@ -72,6 +72,8 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ className = '', src, transcri
     const el = audioRef.current;
     if (!el || !hasAudio) return;
 
+    el.load();
+
     const onTime = () => {
       if (!el.duration || Number.isNaN(el.duration)) return;
       setProgress((el.currentTime / el.duration) * 100);
@@ -167,8 +169,19 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ className = '', src, transcri
         clearProgressTimer();
         setIsPlaying(false);
       } else {
-        void el.play().catch(() => {
-          toast.error('Could not play recording.');
+        void el.play().catch((err: any) => {
+          console.error('Audio playback error:', err);
+          let friendlyError = 'Could not play recording.';
+          if (err?.name === 'NotAllowedError') {
+            friendlyError = 'Browser blocked playback. Please interact with the page first.';
+          } else if (err?.name === 'NotSupportedError') {
+            friendlyError = 'Recording not found or format not supported.';
+          } else if (err?.message && err.message.includes('supported source')) {
+            friendlyError = 'Recording not found or unavailable.';
+          } else {
+            friendlyError = 'Recording not found or unavailable.';
+          }
+          toast.error(friendlyError);
           setIsPlaying(false);
         });
       }
@@ -200,7 +213,26 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ className = '', src, transcri
   return (
     <div className={`flex items-center gap-3 bg-[hsl(var(--muted))] rounded-lg p-3 ${className}`}>
       {hasAudio && (
-        <audio ref={audioRef} src={src || undefined} preload="metadata" className="hidden" />
+        <audio 
+          ref={audioRef} 
+          src={src || undefined} 
+          preload="metadata" 
+          className="hidden" 
+          onError={(e) => {
+            console.error("Audio element error:", e.currentTarget.error);
+            const err = e.currentTarget.error;
+            let msg = 'Could not load recording.';
+            if (err) {
+              switch (err.code) {
+                case 1: msg = 'Playback was aborted.'; break;
+                case 2: msg = 'Network error occurred while loading recording.'; break;
+                case 3: msg = 'Recording format is not supported.'; break;
+                case 4: msg = 'Recording not found or unavailable.'; break;
+              }
+            }
+            toast.error(msg);
+          }}
+        />
       )}
       <button
         type="button"

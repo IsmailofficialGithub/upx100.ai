@@ -188,25 +188,33 @@ const CallLogsView: React.FC = () => {
     {
       key: 'caller_number',
       label: 'Participant',
-      render: (val: string, row: any) => {
+      render: (_val: string, row: any) => {
         const direction = getCallDirection(row);
         const meta = CALL_DIRECTION_META[direction];
+        const caller = row.caller_number || 'Unknown';
+        const called = row.called_number || 'Unknown';
+
         return (
           <div className="flex items-start gap-3 min-w-0">
             <CallDirectionBadge direction={direction} />
             <div className="flex flex-col gap-0.5 min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-mono text-[12px] font-semibold text-[hsl(var(--foreground))] truncate">
-                  {val || 'Unknown'}
-                </span>
-                <span
-                  className={`text-[9px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${meta.badgeClass}`}
-                >
-                  {meta.label}
+              <div className="flex flex-col gap-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-mono text-[12px] text-[hsl(var(--muted-foreground))]">
+                    From: <span className="font-semibold text-[hsl(var(--foreground))] truncate">{caller}</span>
+                  </span>
+                  <span
+                    className={`text-[9px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${meta.badgeClass}`}
+                  >
+                    {meta.label}
+                  </span>
+                </div>
+                <span className="font-mono text-[12px] text-[hsl(var(--muted-foreground))]">
+                  To: <span className="font-semibold text-[hsl(var(--foreground))] truncate">{called}</span>
                 </span>
               </div>
               {row.agent_name && (
-                <span className="text-[9px] text-[hsl(var(--primary))] font-bold uppercase tracking-tight">
+                <span className="text-[9px] text-[hsl(var(--primary))] font-bold uppercase tracking-tight mt-1">
                   Assigned to {row.agent_name}
                 </span>
               )}
