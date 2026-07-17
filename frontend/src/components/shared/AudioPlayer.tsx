@@ -10,9 +10,11 @@ interface AudioPlayerProps {
   src?: string | null;
   /** When no `src`, transcript is read aloud via the browser speech engine. */
   transcript?: TranscriptLine[];
+  /** When true, automatically stops playback. Useful when the containing modal/drawer closes. */
+  stopPlayback?: boolean;
 }
 
-const AudioPlayer: React.FC<AudioPlayerProps> = ({ className = '', src, transcript }) => {
+const AudioPlayer: React.FC<AudioPlayerProps> = ({ className = '', src, transcript, stopPlayback }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -107,6 +109,13 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ className = '', src, transcri
       stopHtmlAudio();
     };
   }, [stopTts, stopHtmlAudio]);
+
+  useEffect(() => {
+    if (stopPlayback) {
+      stopTts();
+      stopHtmlAudio();
+    }
+  }, [stopPlayback, stopTts, stopHtmlAudio]);
 
   const startTtsProgress = () => {
     clearProgressTimer();

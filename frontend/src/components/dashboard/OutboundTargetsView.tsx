@@ -193,6 +193,7 @@ const OutboundTargetsView: React.FC = () => {
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [selectedLog, setSelectedLog] = useState<Record<string, unknown> | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [detailsCache, setDetailsCache] = useState<Record<string, any>>({});
   const [selectedTargetRowId, setSelectedTargetRowId] = useState<string | null>(null);
 
   // Bulk Import State
@@ -838,16 +839,26 @@ const OutboundTargetsView: React.FC = () => {
     }
 
     try {
+      if (detailsCache[callLogId]) {
+        setSelectedTargetRowId(row.id);
+        setSelectedLog(detailsCache[callLogId]);
+        setIsDrawerOpen(true);
+        return;
+      }
+
       const response = await api.get(`/call-logs/${callLogId}`);
       const detail = response.data.data;
-      setSelectedTargetRowId(row.id);
-      setSelectedLog({
+      const mergedLog = {
         ...embedded,
         ...detail,
         agent_name: detail.agent_name || row.agents?.name,
         caller_number: detail.caller_number || row.phone,
         call_type: detail.call_type || 'outbound',
-      });
+      };
+      
+      setDetailsCache(prev => ({ ...prev, [callLogId]: mergedLog }));
+      setSelectedTargetRowId(row.id);
+      setSelectedLog(mergedLog);
       setIsDrawerOpen(true);
     } catch {
       if (embedded?.status) {

@@ -9,10 +9,12 @@ import {
   Copy,
   Check,
 } from 'lucide-react';
+import { getApiBaseUrl } from '@/lib/api';
 import { toast } from 'sonner';
 import AudioPlayer from '@/components/shared/AudioPlayer';
 import { CallDirectionBadge } from '@/components/shared/CallDirectionBadge';
 import { CALL_DIRECTION_META, getCallDirection } from '@/lib/callDirection';
+import api from '@/lib/api';
 
 interface CallLogDetailsDrawerProps {
   log: any;
@@ -41,6 +43,40 @@ const resolveAgentName = (log: any): string => {
 const CallLogDetailsDrawer: React.FC<CallLogDetailsDrawerProps> = ({ log, isOpen, onClose, isInternalView = false }) => {
   const [downloadingRecording, setDownloadingRecording] = useState(false);
   const [copiedNumber, setCopiedNumber] = useState(false);
+  const [presignedUrl, setPresignedUrl] = useState<string>('');
+
+  const recordingUrl = typeof log?.recording_url === 'string' ? log.recording_url.trim() : '';
+
+  const [isLoadingPresigned, setIsLoadingPresigned] = useState(false);
+
+  React.useEffect(() => {
+    let active = true;
+    let vapiCallId = log?.vapi_call_id;
+    if (!vapiCallId && recordingUrl) {
+      const match = recordingUrl.match(/hipaa-recordings\/([a-f0-9\-]{36})/);
+      if (match) vapiCallId = match[1];
+    }
+
+    if (recordingUrl && log?.id && vapiCallId && recordingUrl.includes('.r2.cloudflarestorage.com')) {
+      const authData = localStorage.getItem('up100x_auth');
+      let token = '';
+      if (authData) {
+        try {
+          const { session } = JSON.parse(authData);
+          token = session?.access_token || '';
+        } catch(e) {}
+      }
+      
+      const baseUrl = getApiBaseUrl();
+      const proxyUrl = `${baseUrl}/call-logs/${log.id}/recording?token=${token}`;
+      setPresignedUrl(proxyUrl);
+      setIsLoadingPresigned(false);
+    } else {
+      setPresignedUrl(recordingUrl);
+      setIsLoadingPresigned(false);
+    }
+    return () => { active = false; };
+  }, [recordingUrl, log?.id, log?.vapi_call_id]);
 
   if (!log) return null;
 
@@ -49,7 +85,6 @@ const CallLogDetailsDrawer: React.FC<CallLogDetailsDrawerProps> = ({ log, isOpen
   const HeaderIcon = directionMeta.Icon;
   const callSummary = typeof log.summary === 'string' ? log.summary.trim() : '';
   const notes = typeof log.notes === 'string' ? log.notes.trim() : '';
-  const recordingUrl = typeof log.recording_url === 'string' ? log.recording_url.trim() : '';
   const callerNumber =
     typeof log.caller_number === 'string' && log.caller_number.trim()
       ? log.caller_number.trim()
@@ -69,10 +104,11 @@ const CallLogDetailsDrawer: React.FC<CallLogDetailsDrawerProps> = ({ log, isOpen
   };
 
   const handleDownloadRecording = async () => {
-    if (!recordingUrl) return;
+    const downloadUrl = presignedUrl || recordingUrl;
+    if (!downloadUrl) return;
     setDownloadingRecording(true);
     try {
-      const res = await fetch(recordingUrl);
+      const res = await fetch(downloadUrl);
       if (!res.ok) throw new Error('Failed to fetch recording');
       const blob = await res.blob();
       const objectUrl = URL.createObjectURL(blob);
@@ -83,7 +119,7 @@ const CallLogDetailsDrawer: React.FC<CallLogDetailsDrawerProps> = ({ log, isOpen
       URL.revokeObjectURL(objectUrl);
       toast.success('Recording downloaded');
     } catch {
-      window.open(recordingUrl, '_blank', 'noopener,noreferrer');
+      window.open(downloadUrl, '_blank', 'noopener,noreferrer');
       toast.message('Could not download directly — opened recording in a new tab');
     } finally {
       setDownloadingRecording(false);
@@ -260,15 +296,23 @@ const CallLogDetailsDrawer: React.FC<CallLogDetailsDrawerProps> = ({ log, isOpen
                 <h3 className="text-xs font-mono font-bold uppercase tracking-widest text-[hsl(var(--muted-foreground))]">Audio Recording</h3>
               </div>
               <div className="border border-[hsl(var(--border-v))] rounded-xl p-4 space-y-3 bg-[hsl(var(--primary))]/5">
-                <AudioPlayer src={recordingUrl} className="w-full bg-[hsl(var(--background))]/60 border border-[hsl(var(--border-v))]" />
-                <a
-                  href={recordingUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-[10px] font-mono text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors"
-                >
-                  Open in new tab <ExternalLink size={10} />
-                </a>
+                <AudioPlayer 
+                  src={
+                    (recordingUrl.includes('.r2.cloudflarestorage.com') && !presignedUrl)
+                      ? undefined 
+                      : (presignedUrl || recordingUrl)
+                  } 
+                  stopPlayback={!isOpen}
+                  className="w-full bg-[hsl(var(--background))]/60 border border-[hsl(var(--border-v))]" 
+                />
+                    <a
+                      href={presignedUrl || recordingUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-[10px] font-mono text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors"
+                    >
+                      Open in new tab <ExternalLink size={10} />
+                    </a>
               </div>
             </section>
           )}

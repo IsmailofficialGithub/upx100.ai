@@ -11,6 +11,7 @@ const LeadsView: React.FC = () => {
   const [selectedLead, setSelectedLead] = useState<any>(null);
   const [selectedCallLog, setSelectedCallLog] = useState<any>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [detailsCache, setDetailsCache] = useState<Record<string, any>>({});
   const [isCallLogDrawerOpen, setIsCallLogDrawerOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 

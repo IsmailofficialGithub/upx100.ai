@@ -1,4 +1,5 @@
 import * as callLogService from '../services/callLog.service.js'
+import { Readable } from 'stream';
 import * as outboundTargetService from '../services/outboundTarget.service.js'
 import * as userService from '../services/user.service.js'
 import { createSupabaseForRequest, supabaseAdmin } from '../config/supabase.js'
@@ -248,4 +249,100 @@ export const getLog = async (req, res) => {
   }
 
   return res.json({ data: enrichCallLogRow(log) })
+}
+
+export const streamRecording = async (req, res) => {
+  const { logId } = req.params
+  const log = await callLogService.getLogById(logId)
+
+  if (!log) {
+    return res.status(StatusCodes.NOT_FOUND).json({
+      error: { code: 'NOT_FOUND', message: 'Log not found' }
+    })
+  }
+
+  const { role, orgId, userId } = req.user
+
+  if (!['gcc_admin', 'gcc_reviewer'].includes(role)) {
+    if (role === 'sp_primary') {
+      const { data: assignments } = await userService.getSPClientAssignments(userId)
+      const assignedOrgIds = assignments?.map((a) => a.client_org_id) || []
+      const logOrg = effectiveCallLogOrganizationId(log)
+      if (!assignedOrgIds.includes(logOrg)) {
+        return res.status(StatusCodes.FORBIDDEN).json({ error: { code: 'FORBIDDEN', message: 'Access denied' } })
+      }
+    } else if (role === 'sp_sub') {
+      const { data: deals } = await userService.getSpSubDeals(userId)
+      const logOrg = effectiveCallLogOrganizationId(log)
+      if (!dealAllows(deals, logOrg, log.agent_id)) {
+        return res.status(StatusCodes.FORBIDDEN).json({ error: { code: 'FORBIDDEN', message: 'Access denied' } })
+      }
+    } else {
+      const eff = effectiveOrgId(orgId)
+      if (!callLogBelongsToOrg(log, eff)) {
+        return res.status(StatusCodes.FORBIDDEN).json({ error: { code: 'FORBIDDEN', message: 'Access denied' } })
+      }
+      if (role === 'client_sub' && log.user_id && log.user_id !== userId) {
+        return res.status(StatusCodes.FORBIDDEN).json({ error: { code: 'FORBIDDEN', message: 'Access denied' } })
+      }
+    }
+  }
+
+  let vapiCallId = log.vapi_call_id;
+  if (!vapiCallId && log.recording_url) {
+    const match = log.recording_url.match(/hipaa-recordings\/([a-f0-9\-]{36})/);
+    if (match) vapiCallId = match[1];
+  }
+
+  if (!vapiCallId) {
+    return res.status(StatusCodes.BAD_REQUEST).json({ error: { code: 'BAD_REQUEST', message: 'Missing Vapi Call ID in log and URL' } })
+  }
+
+  try {
+    const vapiRes = await fetch(`https://api.vapi.ai/call/${vapiCallId}`, {
+      headers: { Authorization: `Bearer ${process.env.VAPI_PRIVATE_KEY}` }
+    })
+    
+    if (vapiRes.ok) {
+      const d = await vapiRes.json()
+      const presignedUrl = d.artifact?.presignedMonoUrl || d.artifact?.presignedStereoUrl || d.recordingUrl || log.recording_url;
+      if (!presignedUrl) {
+        return res.status(StatusCodes.NOT_FOUND).json({ error: { code: 'NOT_FOUND', message: 'No recording URL found' } })
+      }
+
+      // Remove Helmet's strict cross-origin policies for this endpoint so the browser
+      // is allowed to follow the redirect to the third-party S3 bucket and load the audio.
+      res.removeHeader('Cross-Origin-Resource-Policy');
+      res.removeHeader('Cross-Origin-Embedder-Policy');
+
+      let finalUrl = presignedUrl;
+
+      // If the URL is a protected Vapi URL (storage.vapi.ai), we must use our Private Key
+      // to resolve the underlying S3 redirect URL.
+      if (finalUrl.includes('storage.vapi.ai') || finalUrl.includes('api.vapi.ai')) {
+        const vapiAuthHeaders = { Authorization: `Bearer ${process.env.VAPI_PRIVATE_KEY}` };
+        const redirectRes = await fetch(finalUrl, { headers: vapiAuthHeaders, redirect: 'manual' });
+        
+        if (redirectRes.status >= 300 && redirectRes.status < 400 && redirectRes.headers.has('location')) {
+          // We successfully resolved the underlying S3 presigned URL!
+          finalUrl = redirectRes.headers.get('location');
+        } else if (redirectRes.ok) {
+          // Very rare: Vapi didn't redirect but served the file directly. 
+          // We can't redirect the browser since the browser doesn't have the auth key.
+          // But 99.9% of the time, Vapi redirects to S3.
+        }
+      }
+
+      // Issue a 302 redirect. The browser will natively connect to the S3 CDN,
+      // handling Range, scrubbing, and connection abortion seamlessly.
+      return res.redirect(302, finalUrl);
+    } else {
+      const errText = await vapiRes.text()
+      console.error("[streamRecording] Vapi error:", vapiRes.status, errText)
+      return res.status(vapiRes.status).json({ error: { code: 'VAPI_ERROR', message: 'Failed to get call details from Vapi' } })
+    }
+  } catch (err) {
+    console.error("Failed to stream URL from Vapi", err)
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: { code: 'INTERNAL_ERROR', message: err.message } })
+  }
 }

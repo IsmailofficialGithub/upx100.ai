@@ -41,7 +41,7 @@ const decodeJwt = (token) => {
  */
 export const auth = async (req, res, next) => {
   try {
-    const authHeader = req.headers.authorization
+    const authHeader = req.headers.authorization || (req.query.token ? `Bearer ${req.query.token}` : null)
     if (!authHeader?.startsWith('Bearer ')) {
       return res.status(StatusCodes.UNAUTHORIZED).json({
         error: { code: 'UNAUTHORIZED', message: 'Missing or invalid authorization header' }

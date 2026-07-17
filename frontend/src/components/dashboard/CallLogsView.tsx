@@ -44,6 +44,7 @@ const CallLogsView: React.FC = () => {
   const callLogsEndpoint = isAdminCallLogs ? '/admin/call-logs' : '/call-logs';
   const [selectedLog, setSelectedLog] = useState<any>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [detailsCache, setDetailsCache] = useState<Record<string, any>>({});
   const defaultDirection: CallDirectionFilter =
     canAccessInbound && canAccessOutbound
       ? 'all'
@@ -61,13 +62,22 @@ const CallLogsView: React.FC = () => {
 
   const handleViewDetail = async (log: any) => {
     try {
+      if (detailsCache[log.id]) {
+        setSelectedLog(detailsCache[log.id]);
+        setIsDrawerOpen(true);
+        return;
+      }
+      
       const response = await api.get(`/call-logs/${log.id}`);
       const detail = response.data.data;
-      setSelectedLog({
+      const mergedLog = {
         ...log,
         ...detail,
         agent_name: detail.agent_name || log.agent_name,
-      });
+      };
+      
+      setDetailsCache(prev => ({ ...prev, [log.id]: mergedLog }));
+      setSelectedLog(mergedLog);
       setIsDrawerOpen(true);
     } catch {
       toast.error('Failed to fetch call details');
