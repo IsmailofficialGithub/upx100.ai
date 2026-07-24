@@ -242,8 +242,8 @@ function PortalSidebarChrome({
       >
         <div className="flex items-center justify-between px-5 py-[18px] border-b border-[hsl(var(--border))]">
           <div className="flex items-center gap-2.5 text-[hsl(var(--foreground))]">
-            <img src="/logo.png" alt="UP100X.AI" className="h-12 w-12 object-contain theme-logo" />
-            <span className="font-mono font-bold text-sm tracking-tight">UP100X.AI</span>
+            <img src="/logo.png" alt="Q-UP.AI" className="h-12 w-12 object-contain theme-logo" />
+            <span className="font-mono font-bold text-sm tracking-tight">Q-UP.AI</span>
           </div>
           <button type="button" onClick={onClose} className="md:hidden text-[hsl(var(--muted-foreground))] p-1">
             <X size={20} />
@@ -606,7 +606,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       >
         <div className="flex items-center justify-between p-4 border-b border-[hsl(var(--border-v))]">
           <div>
-            <h1 className="font-mono text-sm font-bold text-[hsl(var(--primary))]">UP100X</h1>
+            <h1 className="font-mono text-sm font-bold text-[hsl(var(--primary))]">Q-UP</h1>
             <p className="text-[10px] font-mono text-[hsl(var(--muted-foreground))] mt-0.5 leading-snug">
               <span>{user?.entityName || portalSubtitle}</span>
             </p>

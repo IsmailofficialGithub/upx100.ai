@@ -405,7 +405,7 @@ export const loginShowcaseCompanies = [
     industry: 'Data infrastructure',
     headline: '37% lift in connect rate vs. prior agency',
     summary:
-      'Context-rich calling on funding and hiring signals. UP100X handles sourcing, scrubbing, and live dialing across two regions.',
+      'Context-rich calling on funding and hiring signals. Q-UP handles sourcing, scrubbing, and live dialing across two regions.',
   },
   {
     id: 'meridian',

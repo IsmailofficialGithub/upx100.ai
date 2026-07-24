@@ -75,7 +75,7 @@ export function downloadMonthlyExportPdf(payload: MonthlyExportPayload): void {
   let y = 16;
 
   doc.setFontSize(15);
-  doc.text('UP100X — Monthly activity report', 14, y);
+  doc.text('Q-UP — Monthly activity report', 14, y);
   y += 7;
   doc.setFontSize(9);
   doc.setTextColor(70, 70, 70);
@@ -189,5 +189,5 @@ export function downloadMonthlyExportPdf(payload: MonthlyExportPayload): void {
   });
 
   const slug = new Date().toISOString().slice(0, 10);
-  doc.save(`up100x-monthly-report-${slug}.pdf`);
+  doc.save(`q-up-monthly-report-${slug}.pdf`);
 }

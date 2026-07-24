@@ -1,6 +1,6 @@
 /**
  * Client ROI simulation — models the *client's* spend vs expected closed revenue,
- * not UP100X internal unit economics.
+ * not Q-UP internal unit economics.
  */
 
 export const DEFAULT_MONTHLY_MEETINGS = 18;

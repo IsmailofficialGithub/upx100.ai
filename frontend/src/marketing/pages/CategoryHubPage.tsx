@@ -15,7 +15,7 @@ export default function CategoryHubPage() {
     <MarketingShell canvasOpacity={0.06}>
       <nav className="container-main pt-24 pb-0">
         <div className="flex items-center gap-2 font-mono text-[11px] text-[#555] tracking-wide">
-          <Link to="/" className="text-[#555] hover:text-[#a0a0a0] no-underline transition-colors">UP100X.AI</Link>
+          <Link to="/" className="text-[#555] hover:text-[#a0a0a0] no-underline transition-colors">Q-UP.AI</Link>
           <span className="opacity-50">/</span>
           <Link to="/industries" className="text-[#555] hover:text-[#a0a0a0] no-underline transition-colors">Industries</Link>
           <span className="opacity-50">/</span>

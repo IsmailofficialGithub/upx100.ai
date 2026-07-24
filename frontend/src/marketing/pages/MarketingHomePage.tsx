@@ -189,7 +189,7 @@ export default function MarketingHomePage() {
                   </div>
                   <ChevronRight size={14} className="text-up-dark-4" />
                   <div>
-                    <p className="text-[10px] font-mono text-up-green">UP100X</p>
+                    <p className="text-[10px] font-mono text-up-green">Q-UP</p>
                     <p className="text-sm font-bold text-up-green">{currencySymbol}39</p>
                   </div>
                 </div>
@@ -318,7 +318,7 @@ export default function MarketingHomePage() {
               <span className="w-3 h-3 rounded-full bg-red-500/60" />
               <span className="w-3 h-3 rounded-full bg-yellow-500/60" />
               <span className="w-3 h-3 rounded-full bg-green-500/60" />
-              <span className="flex-1 font-mono text-[9px] text-[#555] text-center">portal.up100x.ai/dashboard</span>
+              <span className="flex-1 font-mono text-[9px] text-[#555] text-center">portal.q-up.ai/dashboard</span>
             </div>
             <CampaignDashboardPreview />
             <div className="px-4 py-3 border-t border-up-dark-3 flex flex-wrap justify-between items-center gap-3 font-mono text-[10px] text-[#555]">

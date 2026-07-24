@@ -62,7 +62,7 @@ const LandingPage: React.FC = () => {
       <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'bg-[hsl(var(--card))]/80 backdrop-blur-xl border-b border-[hsl(var(--border-v))]' : 'bg-transparent'}`}>
         <div className="max-w-[1200px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="flex items-center gap-2">
-            <span className="font-mono text-lg font-bold text-[hsl(var(--primary))]">UP100X.AI</span>
+            <span className="font-mono text-lg font-bold text-[hsl(var(--primary))]">Q-UP.AI</span>
           </button>
 
           {/* Desktop Nav */}
@@ -95,7 +95,7 @@ const LandingPage: React.FC = () => {
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-[60] bg-[hsl(var(--card))] flex flex-col">
           <div className="flex items-center justify-between p-4 border-b border-white/10">
-            <span className="font-mono text-lg font-bold text-[hsl(var(--primary))]">UP100X.AI</span>
+            <span className="font-mono text-lg font-bold text-[hsl(var(--primary))]">Q-UP.AI</span>
             <button onClick={() => setMobileMenuOpen(false)} className="p-2 text-[hsl(var(--foreground))]">
               <X size={24} />
             </button>
@@ -205,7 +205,7 @@ const LandingPage: React.FC = () => {
                   </div>
                   <ChevronRight size={14} className="text-[hsl(var(--border-v))]" />
                   <div>
-                    <p className="text-[10px] font-mono text-[hsl(var(--primary))]">UP100X</p>
+                    <p className="text-[10px] font-mono text-[hsl(var(--primary))]">Q-UP</p>
                     <p className="text-sm font-bold text-[hsl(var(--primary))]">{currencySymbol}39</p>
                   </div>
                 </div>
@@ -304,7 +304,7 @@ const LandingPage: React.FC = () => {
                 <span className="w-3 h-3 rounded-full bg-green-400/60" />
               </div>
               <div className="flex-1 mx-4">
-                <div className="bg-black/30 rounded-md px-3 py-1 text-[10px] font-mono text-[hsl(var(--muted-foreground))] text-center">client.up100x.ai/analytics</div>
+                <div className="bg-black/30 rounded-md px-3 py-1 text-[10px] font-mono text-[hsl(var(--muted-foreground))] text-center">client.q-up.ai/analytics</div>
               </div>
             </div>
 
@@ -477,7 +477,7 @@ const LandingPage: React.FC = () => {
         <div className="max-w-[1200px] mx-auto px-4 sm:px-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
             <div>
-              <span className="font-mono text-sm font-bold text-[hsl(var(--primary))]">UP100X.AI</span>
+              <span className="font-mono text-sm font-bold text-[hsl(var(--primary))]">Q-UP.AI</span>
               <p className="text-xs text-[hsl(var(--muted-foreground))] mt-2">AI-powered sales development. No friction. Full results.</p>
             </div>
             <div>
@@ -507,7 +507,7 @@ const LandingPage: React.FC = () => {
             </div>
           </div>
           <div className="pt-6 border-t border-[hsl(var(--border-v))] flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-[11px] text-[hsl(var(--muted-foreground))]/50">© 2025 UP100X.AI. All rights reserved.</p>
+            <p className="text-[11px] text-[hsl(var(--muted-foreground))]/50">© 2025 Q-UP.AI. All rights reserved.</p>
             <p className="text-[11px] text-[hsl(var(--muted-foreground))]/50">
               {isUK ? 'PECR/TPS screening · GDPR-oriented program' : 'Compliance gates · STIR/SHAKEN attested traffic'}
             </p>

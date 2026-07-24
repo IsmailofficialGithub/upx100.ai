@@ -159,7 +159,7 @@ export function DemoCallForm({ id = 'demo' }: { id?: string }) {
           className="mt-1 accent-up-green cursor-pointer"
         />
         <label htmlFor={`consent-${id}`} className="text-[11px] text-[#555] leading-relaxed">
-          By checking this box, I provide my Prior Express Written Consent to be contacted by UP100X.AI at the phone number provided above using an automated telephone dialing system and/or pre-recorded voice. I understand that consent is not a condition of any purchase. Message and data rates may apply.
+          By checking this box, I provide my Prior Express Written Consent to be contacted by Q-UP.AI at the phone number provided above using an automated telephone dialing system and/or pre-recorded voice. I understand that consent is not a condition of any purchase. Message and data rates may apply.
         </label>
       </div>
       <button

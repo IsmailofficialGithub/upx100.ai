@@ -20,7 +20,7 @@ export function Logo({ to = '/', size = 32, className = '' }: LogoProps) {
     return (
       <Link to={to} className={`flex items-center gap-2.5 no-underline ${className}`}>
         {svg}
-        <span className="font-mono font-bold text-[17px] text-white tracking-tight">UP100X.AI</span>
+        <span className="font-mono font-bold text-[17px] text-white tracking-tight">Q-UP.AI</span>
       </Link>
     );
   }
@@ -28,7 +28,7 @@ export function Logo({ to = '/', size = 32, className = '' }: LogoProps) {
   return (
     <div className={`flex items-center gap-2.5 ${className}`}>
       {svg}
-      <span className="font-mono font-bold text-[17px] text-white tracking-tight">UP100X.AI</span>
+      <span className="font-mono font-bold text-[17px] text-white tracking-tight">Q-UP.AI</span>
     </div>
   );
 }

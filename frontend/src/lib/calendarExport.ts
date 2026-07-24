@@ -130,14 +130,14 @@ export function buildIcsCalendar(
   const lines: string[] = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//UP100X//EN',
+    'PRODID:-//Q-UP//EN',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
   ];
   const now = new Date();
   const stamp = `${now.getUTCFullYear()}${pad2(now.getUTCMonth() + 1)}${pad2(now.getUTCDate())}T${pad2(now.getUTCHours())}${pad2(now.getUTCMinutes())}00Z`;
   for (const m of events) {
-    const uid = `${m.id}@up100x.calendar`;
+    const uid = `${m.id}@q-up.calendar`;
     const { start: dtStart, end: dtEnd } = icsUtcRange(m.date, m.time);
     const summary = escapeIcsText(`${m.company} — ${m.contact}`);
     const desc = escapeIcsText([m.title, m.email].filter(Boolean).join(' · '));

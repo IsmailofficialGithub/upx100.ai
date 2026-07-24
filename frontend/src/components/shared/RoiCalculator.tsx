@@ -53,7 +53,7 @@ const RoiCalculator: React.FC<Props> = ({ currencySource: currencySourceProp, cl
           Client ROI simulation
         </p>
         <p className="text-[10px] text-[hsl(var(--muted-foreground))] leading-relaxed">
-          Models the client&apos;s expected closed revenue vs their monthly platform retainer — not UP100X internal
+          Models the client&apos;s expected closed revenue vs their monthly platform retainer — not Q-UP internal
           COGS. For GCC operations cost, use finance / commissions views.
         </p>
         {subtitle && <p className="text-[10px] text-[hsl(var(--muted-foreground))] leading-relaxed">{subtitle}</p>}

@@ -12,7 +12,7 @@ export function MarketingFooter() {
           <div>
             <Logo to="/" size={24} />
             <p className="font-mono text-[10px] text-[#555] mt-3 leading-relaxed tracking-wide">
-              UP100X.AI LLC
+              Q-UP.AI LLC
               <br />
               Texas, United States
             </p>
@@ -41,7 +41,7 @@ export function MarketingFooter() {
           </div>
         </div>
         <div className="flex flex-col sm:flex-row justify-between gap-3 pt-4 border-t border-up-dark-3 font-mono text-[10px] text-[#555] tracking-wide">
-          <span>© 2026 UP100X.AI LLC. All rights reserved.</span>
+          <span>© 2026 Q-UP.AI LLC. All rights reserved.</span>
           <span>{isUK ? 'PECR/TPS screening · GDPR-oriented program' : 'TCPA Compliant · STIR/SHAKEN attested traffic'}</span>
         </div>
       </div>
