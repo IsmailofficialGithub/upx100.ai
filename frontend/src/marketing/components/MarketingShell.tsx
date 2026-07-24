@@ -25,15 +25,15 @@ export function MarketingShell({
   useScrollReveal([children]);
 
   return (
-    <div className="min-h-screen bg-black text-white overflow-x-hidden">
+    <div className="min-h-screen bg-black text-white">
       <GradientCanvas opacity={canvasOpacity} />
-      <div className="relative z-[1]">
-        <MarketingNav
-          variant={navVariant}
-          verticalLabel={verticalLabel}
-          ctaHref={ctaHref}
-          ctaLabel={ctaLabel}
-        />
+      <MarketingNav
+        variant={navVariant}
+        verticalLabel={verticalLabel}
+        ctaHref={ctaHref}
+        ctaLabel={ctaLabel}
+      />
+      <div className="relative z-[1] overflow-x-hidden">
         <main>{children}</main>
         <MarketingFooter />
       </div>

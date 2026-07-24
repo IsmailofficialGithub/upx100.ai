@@ -1,13 +1,8 @@
-import { useState } from 'react';
-
+import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-
 import { Moon, Sun, Menu, X } from 'lucide-react';
-
 import { useTheme } from '@/context/ThemeContext';
-
 import { Logo } from './Logo';
-
 import type { NavVariant } from '../types';
 
 
@@ -39,20 +34,26 @@ export function MarketingNav({
 }: MarketingNavProps) {
 
   const [open, setOpen] = useState(false);
-
   const location = useLocation();
-
   const navigate = useNavigate();
-
   const { isLight, toggleMode } = useTheme();
-
   const isHome = location.pathname === '/';
 
-
-
   const hashLink = (hash: string) => (isHome ? hash : `/${hash}`);
-
   const close = () => setOpen(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+  useEffect(() => {
+    setOpen(false);
+  }, [location.pathname]);
 
 
 
@@ -126,7 +127,7 @@ export function MarketingNav({
 
         onClick={() => navigate('/login')}
 
-        className="text-[13px] text-[#a0a0a0] hover:text-white transition-colors bg-transparent border-none cursor-pointer whitespace-nowrap hidden sm:inline"
+        className="text-[13px] text-[#a0a0a0] hover:text-white transition-colors bg-transparent border-none cursor-pointer whitespace-nowrap"
 
       >
 
@@ -155,133 +156,71 @@ export function MarketingNav({
 
 
   return (
-
-    <nav className="fixed top-0 inset-x-0 z-[1000] h-16 flex items-center bg-black/82 backdrop-blur-xl border-b border-up-dark-3">
-
-      <div className="container-main w-full flex items-center justify-between gap-4">
-
-        {variant === 'full' ? (
-
-          <>
-
-            {/* Left: logo + links */}
-
-            <div className="flex items-center gap-6 lg:gap-8 min-w-0 flex-1">
-
-              <Logo to="/" />
-
-              <div className="hidden lg:flex items-center gap-6 xl:gap-7 min-w-0">
-
-                {navLinks}
-
+    <>
+      <nav className="fixed top-0 inset-x-0 z-[1000] h-16 flex items-center bg-black/82 backdrop-blur-xl border-b border-up-dark-3">
+        <div className="container-main w-full flex items-center justify-between gap-4">
+          {variant === 'full' ? (
+            <>
+              {/* Left: logo + links */}
+              <div className="flex items-center gap-6 lg:gap-8 min-w-0 flex-1">
+                <Logo to="/" />
+                <div className="hidden lg:flex items-center gap-6 xl:gap-7 min-w-0">
+                  {navLinks}
+                </div>
               </div>
 
-            </div>
+              {/* Right: theme, login, CTA */}
+              <div className="hidden lg:flex items-center">
+                {navActions}
+              </div>
 
-
-
-            {/* Right: theme, login, CTA */}
-
-            <div className="hidden lg:flex items-center">
-
-              {navActions}
-
-            </div>
-
-
-
-            {/* Mobile toggle */}
-
-            <button
-
-              type="button"
-
-              className="lg:hidden p-2 text-white shrink-0"
-
-              aria-label={open ? 'Close menu' : 'Open menu'}
-
-              aria-expanded={open}
-
-              onClick={() => setOpen(!open)}
-
-            >
-
-              {open ? <X size={22} /> : <Menu size={22} />}
-
-            </button>
-
-          </>
-
-        ) : (
-
-          <>
-
-            <div className="flex items-center min-w-0">
-
-              <Logo to="/" />
-
-              {verticalLabel && (
-
-                <span className="hidden sm:inline font-mono text-[10px] uppercase tracking-widest text-[#555] border-l border-up-dark-4 pl-3.5 ml-3.5 truncate">
-
-                  {verticalLabel}
-
-                </span>
-
-              )}
-
-            </div>
-
-            <a
-
-              href={ctaHref.startsWith('#') && !isHome ? `/${ctaHref}` : ctaHref}
-
-              className="font-display font-semibold text-[13px] bg-up-green text-black px-4 sm:px-5 py-2 rounded-md no-underline hover:shadow-[0_0_24px_rgba(0,255,136,0.15)] transition-all whitespace-nowrap shrink-0"
-
-            >
-
-              {ctaLabel}
-
-            </a>
-
-          </>
-
-        )}
-
-      </div>
-
-
-
-      {/* Mobile menu */}
-
-      {variant === 'full' && open && (
-
-        <div className="lg:hidden fixed inset-0 top-16 z-[999] bg-black/96 backdrop-blur-xl overflow-y-auto">
-
-          <div className="container-main py-8 flex flex-col gap-8">
-
-            <div className="flex flex-col gap-5">
-
-              {navLinks}
-
-            </div>
-
-            <div className="pt-6 border-t border-up-dark-3 flex flex-col sm:flex-row sm:items-center gap-4">
-
-              {navActions}
-
-            </div>
-
-          </div>
-
+              {/* Mobile toggle */}
+              <button
+                type="button"
+                className="lg:hidden p-2 text-white shrink-0"
+                aria-label={open ? 'Close menu' : 'Open menu'}
+                aria-expanded={open}
+                onClick={() => setOpen((prev) => !prev)}
+              >
+                {open ? <X size={22} /> : <Menu size={22} />}
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center min-w-0">
+                <Logo to="/" />
+                {verticalLabel && (
+                  <span className="hidden sm:inline font-mono text-[10px] uppercase tracking-widest text-[#555] border-l border-up-dark-4 pl-3.5 ml-3.5 truncate">
+                    {verticalLabel}
+                  </span>
+                )}
+              </div>
+              <a
+                href={ctaHref.startsWith('#') && !isHome ? `/${ctaHref}` : ctaHref}
+                className="font-display font-semibold text-[13px] bg-up-green text-black px-4 sm:px-5 py-2 rounded-md no-underline hover:shadow-[0_0_24px_rgba(0,255,136,0.15)] transition-all whitespace-nowrap shrink-0"
+              >
+                {ctaLabel}
+              </a>
+            </>
+          )}
         </div>
+      </nav>
 
+      {/* Outside nav: backdrop-filter on nav would trap position:fixed and clip the panel to h-16 */}
+      {variant === 'full' && open && (
+        <div className="lg:hidden fixed inset-0 top-16 z-[999] bg-black/96 backdrop-blur-xl overflow-y-auto">
+          <div className="container-main py-8 flex flex-col gap-8">
+            <div className="flex flex-col gap-5">
+              {navLinks}
+            </div>
+            <div className="pt-6 border-t border-up-dark-3 flex flex-col sm:flex-row sm:items-center gap-4">
+              {navActions}
+            </div>
+          </div>
+        </div>
       )}
-
-    </nav>
-
+    </>
   );
-
 }
 
 
