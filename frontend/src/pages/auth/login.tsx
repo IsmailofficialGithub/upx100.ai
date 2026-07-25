@@ -3,13 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { loginShowcaseCompanies } from '@/data/mockData';
 import { toast } from 'sonner';
+import { Logo } from '@/marketing/components/Logo';
 import {
   Mail,
   Lock,
   ArrowRight,
   ChevronLeft,
   ShieldCheck,
-  Zap,
   Globe,
   Building2,
   Eye,
@@ -86,12 +86,7 @@ const Login = () => {
           </button>
 
           <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-[hsl(var(--primary))]/10 rounded-xl flex items-center justify-center">
-                <Zap size={24} className="text-[hsl(var(--primary))]" />
-              </div>
-              <span className="font-mono text-2xl font-bold tracking-tight text-[hsl(var(--foreground))]">Q-UP.AI</span>
-            </div>
+            <Logo to="/" size={40} className="[&>span]:text-2xl" />
             <h1 className="text-4xl font-display font-bold leading-tight text-[hsl(var(--foreground))]">
               Step into the future of <span className="text-[hsl(var(--primary))]">AI Sales</span>.
             </h1>
@@ -181,7 +176,7 @@ const Login = () => {
               <span className="text-sm">Home</span>
             </button>
             <div className="flex items-center gap-2">
-              <span className="font-mono text-xl font-bold text-[hsl(var(--primary))]">Q-UP.AI</span>
+              <Logo to="/" size={28} />
             </div>
           </div>
 
