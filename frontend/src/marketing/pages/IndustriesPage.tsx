@@ -16,7 +16,7 @@ export default function IndustriesPage() {
             <br />
             Built for <span className="text-up-green">Your Industry.</span>
           </h1>
-          <p className="text-base text-[#a0a0a0] leading-relaxed mb-10 mkt-fade-up">
+          <p className="text-base text-[hsl(var(--muted-foreground))] leading-relaxed mb-10 mkt-fade-up">
             Every vertical has unique pain points, unique workflows, and unique compliance requirements. We don&apos;t sell generic software —{' '}
             <strong className="text-up-green font-semibold">we deploy managed AI agents configured for exactly how your business operates.</strong>
           </p>
@@ -24,7 +24,7 @@ export default function IndustriesPage() {
             {INDUSTRY_STATS.map((s) => (
               <div key={s.label} className="text-center">
                 <div className="font-mono text-2xl md:text-[32px] font-bold text-up-green tracking-tight">{s.val}</div>
-                <div className="font-mono text-[9px] text-[#555] uppercase tracking-widest mt-1">{s.label}</div>
+                <div className="font-mono text-[9px] text-[hsl(var(--muted-foreground))] uppercase tracking-widest mt-1">{s.label}</div>
               </div>
             ))}
           </div>
@@ -33,7 +33,7 @@ export default function IndustriesPage() {
 
       <section className="pb-24 md:pb-28">
         <div className="container-main">
-          <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-[#555] text-center mb-9 mkt-fade-up">Choose Your Industry</p>
+          <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-[hsl(var(--muted-foreground))] text-center mb-9 mkt-fade-up">Choose Your Industry</p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {CATEGORY_CARDS.map((cat, i) => (
               <Link
@@ -50,9 +50,9 @@ export default function IndustriesPage() {
                   ))}
                 </div>
                 <h2 className="font-display text-xl font-bold mb-2.5 tracking-tight">{cat.title}</h2>
-                <p className="text-[13px] text-[#a0a0a0] leading-relaxed flex-1 mb-5">{cat.pain}</p>
+                <p className="text-[13px] text-[hsl(var(--muted-foreground))] leading-relaxed flex-1 mb-5">{cat.pain}</p>
                 <div className="flex justify-between items-center pt-4 border-t border-up-dark-3">
-                  <span className="font-mono text-[11px] text-[#555]">{cat.count} verticals</span>
+                  <span className="font-mono text-[11px] text-[hsl(var(--muted-foreground))]">{cat.count} verticals</span>
                   <span className="font-mono text-[11px] font-semibold text-up-green group-hover:gap-2 flex items-center gap-1 transition-all">
                     Explore →
                   </span>
@@ -67,10 +67,10 @@ export default function IndustriesPage() {
         <div className="container-main">
           <div className="mkt-fade-up bg-up-dark-1 border border-up-dark-4 rounded-xl p-10 md:p-14 max-w-2xl mx-auto text-center relative overflow-hidden">
             <h2 className="font-display font-bold text-2xl md:text-[32px] tracking-tight mb-3">Don&apos;t see your industry?</h2>
-            <p className="text-sm text-[#a0a0a0] mb-7 leading-relaxed max-w-md mx-auto">
+            <p className="text-sm text-[hsl(var(--muted-foreground))] mb-7 leading-relaxed max-w-md mx-auto">
               We build custom AI agents for any business that relies on phone-based sales or inbound lead capture.
             </p>
-            <Link to="/#demo" className="inline-flex font-display font-bold text-[15px] bg-up-green text-black px-8 py-3.5 rounded-lg no-underline hover:shadow-[0_0_32px_rgba(0,255,136,0.15)] transition-all">
+            <Link to="/#demo" className="inline-flex font-display font-bold text-[15px] bg-up-green text-up-on-green px-8 py-3.5 rounded-lg no-underline hover:shadow-[0_0_32px_rgba(0,255,136,0.15)] transition-all">
               Get a Live Demo →
             </Link>
           </div>

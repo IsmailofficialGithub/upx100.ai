@@ -25,7 +25,7 @@ export function MarketingShell({
   useScrollReveal([children]);
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-background text-foreground">
       <GradientCanvas opacity={canvasOpacity} />
       <MarketingNav
         variant={navVariant}

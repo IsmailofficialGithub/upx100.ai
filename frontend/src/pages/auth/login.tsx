@@ -101,24 +101,24 @@ const Login = () => {
           </div>
 
           <div className="grid grid-cols-2 gap-4 mt-8">
-            <div className="p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm">
+            <div className="p-4 rounded-2xl bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] backdrop-blur-sm">
               <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center mb-3">
                 <ShieldCheck size={18} className="text-emerald-500" />
               </div>
-              <h3 className="text-sm font-semibold text-white mb-1">Secure Access</h3>
-              <p className="text-xs text-white/40">Bank-grade encryption for all your data.</p>
+              <h3 className="text-sm font-semibold text-[hsl(var(--foreground))] mb-1">Secure Access</h3>
+              <p className="text-xs text-[hsl(var(--muted-foreground))]">Bank-grade encryption for all your data.</p>
             </div>
-            <div className="p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm">
+            <div className="p-4 rounded-2xl bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] backdrop-blur-sm">
               <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center mb-3">
                 <Globe size={18} className="text-blue-500" />
               </div>
-              <h3 className="text-sm font-semibold text-white mb-1">Global Scale</h3>
-              <p className="text-xs text-white/40">Monitor outreach across multiple regions.</p>
+              <h3 className="text-sm font-semibold text-[hsl(var(--foreground))] mb-1">Global Scale</h3>
+              <p className="text-xs text-[hsl(var(--muted-foreground))]">Monitor outreach across multiple regions.</p>
             </div>
           </div>
 
-          <div className="pt-8 border-t border-white/5">
-            <p className="text-xs font-mono text-white/30 uppercase tracking-[0.2em] mb-3">Who we run campaigns for</p>
+          <div className="pt-8 border-t border-[hsl(var(--border))]">
+            <p className="text-xs font-mono text-[hsl(var(--muted-foreground))] uppercase tracking-[0.2em] mb-3">Who we run campaigns for</p>
             <div
               role="tablist"
               aria-label="Client companies"
@@ -138,7 +138,7 @@ const Login = () => {
                     className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all border ${
                       selected
                         ? 'bg-[hsl(var(--primary))]/15 border-[hsl(var(--primary))]/50 text-[hsl(var(--primary))]'
-                        : 'bg-white/5 border-white/10 text-white/50 hover:text-white/80 hover:border-white/20'
+                        : 'bg-[hsl(var(--muted))] border-[hsl(var(--border-v))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:border-[hsl(var(--border))]'
                     }`}
                   >
                     {c.shortLabel}
@@ -151,7 +151,7 @@ const Login = () => {
               role="tabpanel"
               id={`showcase-panel-${activeShowcase.id}`}
               aria-labelledby={`showcase-tab-${activeShowcase.id}`}
-              className="mt-4 p-4 rounded-2xl bg-white/[0.04] border border-white/10 backdrop-blur-sm"
+              className="mt-4 p-4 rounded-2xl bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] backdrop-blur-sm"
             >
               <div className="flex items-start gap-3">
                 <div className="w-9 h-9 rounded-xl bg-[hsl(var(--primary))]/15 flex items-center justify-center flex-shrink-0">
@@ -159,11 +159,11 @@ const Login = () => {
                 </div>
                 <div className="min-w-0 space-y-1.5">
                   <div className="flex flex-wrap items-baseline gap-2">
-                    <p className="text-sm font-semibold text-white">{activeShowcase.name}</p>
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-white/35">{activeShowcase.industry}</span>
+                    <p className="text-sm font-semibold text-[hsl(var(--foreground))]">{activeShowcase.name}</p>
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-[hsl(var(--muted-foreground))]">{activeShowcase.industry}</span>
                   </div>
                   <p className="text-sm font-display font-semibold text-[hsl(var(--primary))] leading-snug">{activeShowcase.headline}</p>
-                  <p className="text-xs text-white/55 leading-relaxed">{activeShowcase.summary}</p>
+                  <p className="text-xs text-[hsl(var(--muted-foreground))] leading-relaxed">{activeShowcase.summary}</p>
                 </div>
               </div>
             </div>
@@ -204,7 +204,7 @@ const Login = () => {
                       placeholder="name@company.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-sm focus:outline-none focus:border-[hsl(var(--primary))]/50 focus:ring-4 focus:ring-[hsl(var(--primary))]/5 transition-all"
+                      className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-2xl py-4 pl-12 pr-4 text-sm text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--muted-foreground))] focus:outline-none focus:border-[hsl(var(--primary))]/50 focus:ring-4 focus:ring-[hsl(var(--primary))]/5 transition-all"
                     />
                   </div>
                 </div>
@@ -222,7 +222,7 @@ const Login = () => {
                       placeholder="••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-12 text-sm focus:outline-none focus:border-[hsl(var(--primary))]/50 focus:ring-4 focus:ring-[hsl(var(--primary))]/5 transition-all"
+                      className="w-full bg-[hsl(var(--muted))] border border-[hsl(var(--border-v))] rounded-2xl py-4 pl-12 pr-12 text-sm text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--muted-foreground))] focus:outline-none focus:border-[hsl(var(--primary))]/50 focus:ring-4 focus:ring-[hsl(var(--primary))]/5 transition-all"
                     />
                     <button
                       type="button"
@@ -236,17 +236,17 @@ const Login = () => {
                 </div>
 
                 <div className="flex items-center gap-2 py-2">
-                  <input type="checkbox" id="remember" className="w-4 h-4 rounded border-white/10 bg-white/5 text-[hsl(var(--primary))] focus:ring-0 focus:ring-offset-0" />
+                  <input type="checkbox" id="remember" className="w-4 h-4 rounded border-[hsl(var(--border-v))] bg-[hsl(var(--muted))] text-[hsl(var(--primary))] focus:ring-0 focus:ring-offset-0" />
                   <label htmlFor="remember" className="text-xs text-[hsl(var(--muted-foreground))] select-none">Remember for 30 days</label>
                 </div>
 
                 <button 
                   type="submit" 
                   disabled={isLoading}
-                  className="w-full bg-[hsl(var(--primary))] text-black font-bold py-4 rounded-2xl hover:opacity-90 transition-all flex items-center justify-center gap-2 group disabled:opacity-50"
+                  className="w-full bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] font-bold py-4 rounded-2xl hover:opacity-90 transition-all flex items-center justify-center gap-2 group disabled:opacity-50"
                 >
                   {isLoading ? (
-                    <div className="w-5 h-5 border-2 border-black/20 border-t-black rounded-full animate-spin" />
+                    <div className="w-5 h-5 border-2 border-current/20 border-t-current rounded-full animate-spin" />
                   ) : (
                     <>
                       Sign In to Portal
@@ -263,7 +263,7 @@ const Login = () => {
             </div>
           </div>
           
-          <p className="mt-8 text-center text-[11px] font-mono text-white/20 uppercase tracking-[0.2em]">
+          <p className="mt-8 text-center text-[11px] font-mono text-[hsl(var(--muted-foreground))] uppercase tracking-[0.2em]">
             Secure Infrastructure · ISO 27001 Certified
           </p>
         </div>

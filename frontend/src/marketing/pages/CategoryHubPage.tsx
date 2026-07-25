@@ -14,12 +14,12 @@ export default function CategoryHubPage() {
   return (
     <MarketingShell canvasOpacity={0.06}>
       <nav className="container-main pt-24 pb-0">
-        <div className="flex items-center gap-2 font-mono text-[11px] text-[#555] tracking-wide">
-          <Link to="/" className="text-[#555] hover:text-[#a0a0a0] no-underline transition-colors">Q-UP.AI</Link>
+        <div className="flex items-center gap-2 font-mono text-[11px] text-[hsl(var(--muted-foreground))] tracking-wide">
+          <Link to="/" className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--muted-foreground))] no-underline transition-colors">Q-UP.AI</Link>
           <span className="opacity-50">/</span>
-          <Link to="/industries" className="text-[#555] hover:text-[#a0a0a0] no-underline transition-colors">Industries</Link>
+          <Link to="/industries" className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--muted-foreground))] no-underline transition-colors">Industries</Link>
           <span className="opacity-50">/</span>
-          <span className="text-[#a0a0a0]">{hub.title}</span>
+          <span className="text-[hsl(var(--muted-foreground))]">{hub.title}</span>
         </div>
       </nav>
 
@@ -33,13 +33,13 @@ export default function CategoryHubPage() {
             {hub.heroHeadline.split('.').slice(0, 2).join('.')}
             <span className="text-up-green">.</span>
           </h1>
-          <p className="text-base text-[#a0a0a0] leading-relaxed mkt-fade-up">{hub.heroSub}</p>
+          <p className="text-base text-[hsl(var(--muted-foreground))] leading-relaxed mkt-fade-up">{hub.heroSub}</p>
         </div>
       </section>
 
       <section className="pb-24 md:pb-28">
         <div className="container-main">
-          <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-[#555] mb-8 mkt-fade-up">Choose Your Segment</p>
+          <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-[hsl(var(--muted-foreground))] mb-8 mkt-fade-up">Choose Your Segment</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {hub.verticals.map((v, i) => (
               <Link
@@ -53,19 +53,19 @@ export default function CategoryHubPage() {
                   <span className={`font-mono text-[9px] font-semibold uppercase tracking-wider px-2 py-1 rounded border shrink-0 ${
                     v.status === 'live'
                       ? 'text-up-green bg-up-green/5 border-up-green/15'
-                      : 'text-[#555] bg-up-dark-2 border-up-dark-4'
+                      : 'text-[hsl(var(--muted-foreground))] bg-up-dark-2 border-up-dark-4'
                   }`}>
                     {v.status === 'live' ? 'Live' : 'Coming Soon'}
                   </span>
                 </div>
                 <h2 className="font-display text-xl font-bold mb-2 tracking-tight">{v.title}</h2>
-                <p className="text-[13px] text-[#a0a0a0] leading-relaxed flex-1 mb-5">{v.body}</p>
+                <p className="text-[13px] text-[hsl(var(--muted-foreground))] leading-relaxed flex-1 mb-5">{v.body}</p>
                 {v.metrics && v.metrics.length > 0 && (
                   <div className="flex flex-wrap gap-5 pt-4 border-t border-up-dark-3 mb-4">
                     {v.metrics.map((m) => (
                       <div key={m.label}>
                         <div className="font-mono text-base font-bold text-up-green tracking-tight">{m.val}</div>
-                        <div className="font-mono text-[8px] text-[#555] uppercase tracking-wide mt-0.5">{m.label}</div>
+                        <div className="font-mono text-[8px] text-[hsl(var(--muted-foreground))] uppercase tracking-wide mt-0.5">{m.label}</div>
                       </div>
                     ))}
                   </div>
@@ -81,7 +81,7 @@ export default function CategoryHubPage() {
 
       <section className="pb-24 text-center">
         <div className="container-main">
-          <Link to="/#demo" className="inline-flex font-display font-bold text-[15px] bg-up-green text-black px-8 py-3.5 rounded-lg no-underline hover:shadow-[0_0_32px_rgba(0,255,136,0.15)] transition-all mkt-fade-up">
+          <Link to="/#demo" className="inline-flex font-display font-bold text-[15px] bg-up-green text-up-on-green px-8 py-3.5 rounded-lg no-underline hover:shadow-[0_0_32px_rgba(0,255,136,0.15)] transition-all mkt-fade-up">
             Get a Live Demo →
           </Link>
         </div>

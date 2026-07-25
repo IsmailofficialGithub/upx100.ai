@@ -33,6 +33,15 @@
     --font-display: 'Space Grotesk', sans-serif;
     --font-body: 'Inter', sans-serif;
     --font-mono: 'JetBrains Mono', monospace;
+    /* Marketing / brand surfaces (RGB channels for Tailwind alpha) */
+    --up-green: 0 255 136;
+    --up-blue: 0 136 255;
+    --up-on-green: 0 0 0;
+    --up-dark-0: 0 0 0;
+    --up-dark-1: 10 10 10;
+    --up-dark-2: 17 17 17;
+    --up-dark-3: 26 26 26;
+    --up-dark-4: 42 42 42;
   }
 
   [data-theme="us-light"],
@@ -60,6 +69,14 @@
     --border-v: 0 0% 0% / 0.18;
     --input: 0 0% 90%;
     --ring: 210 100% 50%;
+    --up-green: 0 136 255;
+    --up-blue: 0 102 204;
+    --up-on-green: 255 255 255;
+    --up-dark-0: 245 245 243;
+    --up-dark-1: 255 255 255;
+    --up-dark-2: 245 245 243;
+    --up-dark-3: 228 228 224;
+    --up-dark-4: 196 196 192;
   }
 
   [data-theme="uk-dark"] {
@@ -133,6 +150,63 @@
   .container-main {
     @apply max-w-[1200px] mx-auto px-6 sm:px-8 lg:px-10 xl:px-12;
   }
+}
+
+/*
+  Force theme-aware brand colors. Vite can serve a stale Tailwind bake-in of
+  rgb(10 10 10) for .bg-up-dark-*; unlayered rules beat @layer utilities.
+*/
+.bg-up-dark-0 { background-color: rgb(var(--up-dark-0) / var(--tw-bg-opacity, 1)); }
+.bg-up-dark-1 { background-color: rgb(var(--up-dark-1) / var(--tw-bg-opacity, 1)); }
+.bg-up-dark-2 { background-color: rgb(var(--up-dark-2) / var(--tw-bg-opacity, 1)); }
+.bg-up-dark-3 { background-color: rgb(var(--up-dark-3) / var(--tw-bg-opacity, 1)); }
+.bg-up-dark-4 { background-color: rgb(var(--up-dark-4) / var(--tw-bg-opacity, 1)); }
+.border-up-dark-3 { border-color: rgb(var(--up-dark-3) / var(--tw-border-opacity, 1)); }
+.border-up-dark-4 { border-color: rgb(var(--up-dark-4) / var(--tw-border-opacity, 1)); }
+.text-up-dark-4 { color: rgb(var(--up-dark-4) / var(--tw-text-opacity, 1)); }
+.bg-up-green { background-color: rgb(var(--up-green) / var(--tw-bg-opacity, 1)); }
+.bg-up-green\/5 { background-color: rgb(var(--up-green) / 0.05); }
+.bg-up-green\/10 { background-color: rgb(var(--up-green) / 0.1); }
+.text-up-green { color: rgb(var(--up-green) / var(--tw-text-opacity, 1)); }
+.border-up-green { border-color: rgb(var(--up-green) / var(--tw-border-opacity, 1)); }
+.border-up-green\/15 { border-color: rgb(var(--up-green) / 0.15); }
+.border-up-green\/20 { border-color: rgb(var(--up-green) / 0.2); }
+.border-up-green\/25 { border-color: rgb(var(--up-green) / 0.25); }
+.border-up-green\/30 { border-color: rgb(var(--up-green) / 0.3); }
+.border-up-green\/40 { border-color: rgb(var(--up-green) / 0.4); }
+.text-up-on-green { color: rgb(var(--up-on-green) / var(--tw-text-opacity, 1)); }
+.bg-up-blue { background-color: rgb(var(--up-blue) / var(--tw-bg-opacity, 1)); }
+.bg-up-blue\/5 { background-color: rgb(var(--up-blue) / 0.05); }
+.text-up-blue { color: rgb(var(--up-blue) / var(--tw-text-opacity, 1)); }
+.border-up-blue { border-color: rgb(var(--up-blue) / var(--tw-border-opacity, 1)); }
+.border-up-blue\/15 { border-color: rgb(var(--up-blue) / 0.15); }
+.border-up-blue\/20 { border-color: rgb(var(--up-blue) / 0.2); }
+.border-up-blue\/40 { border-color: rgb(var(--up-blue) / 0.4); }
+.border-up-blue\/50 { border-color: rgb(var(--up-blue) / 0.5); }
+
+/* Light mode: soft section bands + readable industry cards */
+[data-theme$='-light'] .mkt-band {
+  background-color: hsl(var(--muted));
+}
+[data-theme$='-light'] .mkt-blueprint-card {
+  background-image: none;
+  background-color: rgb(var(--up-dark-1));
+}
+[data-theme$='-light'] .mkt-blueprint-card .mkt-blueprint-scrim {
+  background-color: transparent;
+}
+[data-theme$='-light'] .mkt-blueprint-card .mkt-blueprint-label,
+[data-theme$='-light'] .mkt-blueprint-card .mkt-blueprint-icon,
+[data-theme$='-light'] .mkt-blueprint-card .mkt-blueprint-metric,
+[data-theme$='-light'] .mkt-blueprint-card .mkt-blueprint-desc {
+  color: hsl(var(--foreground));
+}
+[data-theme$='-light'] .mkt-blueprint-card .mkt-blueprint-label,
+[data-theme$='-light'] .mkt-blueprint-card .mkt-blueprint-icon-wrap {
+  background-color: hsl(var(--muted));
+}
+[data-theme$='-light'] .mkt-blueprint-card .mkt-blueprint-desc {
+  color: hsl(var(--muted-foreground));
 }
 
 @keyframes pulse-glow {

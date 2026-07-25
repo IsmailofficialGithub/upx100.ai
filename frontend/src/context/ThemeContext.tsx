@@ -4,6 +4,8 @@ type Region = 'US' | 'UK';
 type Mode = 'dark' | 'light';
 type ThemeKey = 'us-dark' | 'us-light' | 'uk-dark' | 'uk-light';
 
+const MODE_STORAGE_KEY = 'q-up-theme-mode';
+
 interface ThemeContextType {
   region: Region;
   mode: Mode;
@@ -38,9 +40,19 @@ const ThemeContext = createContext<ThemeContextType>({
 
 export const useTheme = () => useContext(ThemeContext);
 
+function readStoredMode(): Mode {
+  try {
+    const saved = localStorage.getItem(MODE_STORAGE_KEY);
+    if (saved === 'light' || saved === 'dark') return saved;
+  } catch {
+    /* ignore */
+  }
+  return 'dark';
+}
+
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [region, setRegionState] = useState<Region>('US');
-  const [mode, setMode] = useState<Mode>('dark');
+  const [mode, setMode] = useState<Mode>(readStoredMode);
 
   const theme: ThemeKey = `${region.toLowerCase()}-${mode}` as ThemeKey;
   const isUK = region === 'UK';
@@ -54,10 +66,16 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
-  }, [theme]);
+    document.documentElement.classList.toggle('dark', mode === 'dark');
+    try {
+      localStorage.setItem(MODE_STORAGE_KEY, mode);
+    } catch {
+      /* ignore */
+    }
+  }, [theme, mode]);
 
   const setRegion = useCallback((r: Region) => setRegionState(r), []);
-  const toggleMode = useCallback(() => setMode(prev => prev === 'dark' ? 'light' : 'dark'), []);
+  const toggleMode = useCallback(() => setMode((prev) => (prev === 'dark' ? 'light' : 'dark')), []);
 
   return (
     <ThemeContext.Provider value={{
