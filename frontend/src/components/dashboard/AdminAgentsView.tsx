@@ -1329,7 +1329,7 @@ const AdminAgentsView: React.FC = () => {
                             setFormData({ ...formData, script: template });
                             toast.info('Base template generated!');
                           }}
-                          className="text-[9px] bg-[hsl(var(--primary)/10)] text-[hsl(var(--primary))] px-2 py-1 rounded hover:bg-[hsl(var(--primary)/20)] transition-colors font-semibold"
+                          className="text-[9px] bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))] border border-[hsl(var(--primary))]/25 px-2 py-1 rounded hover:bg-[hsl(var(--primary))]/20 transition-colors font-semibold"
                         >
                           Generate from Details
                         </button>
