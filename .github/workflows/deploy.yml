@@ -11,6 +11,7 @@ jobs:
   deploy:
     name: Deploy to EC2
     runs-on: ubuntu-latest
+    environment: production
     
     steps:
       - name: Execute deployment script on EC2
