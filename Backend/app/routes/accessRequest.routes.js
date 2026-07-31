@@ -4,7 +4,7 @@ import {
   getAccessRequests,
   updateAccessRequestStatus
 } from '../controllers/accessRequest.controller.js'
-import { requireAuth } from '../middlewares/auth.js'
+import { auth, isAdmin } from '../middlewares/auth.js'
 
 const router = express.Router()
 
@@ -12,7 +12,7 @@ const router = express.Router()
 router.post('/', createAccessRequest)
 
 // Protected endpoints for admin review
-router.get('/', requireAuth, getAccessRequests)
-router.patch('/:id/status', requireAuth, updateAccessRequestStatus)
+router.get('/', auth, isAdmin, getAccessRequests)
+router.patch('/:id/status', auth, isAdmin, updateAccessRequestStatus)
 
 export default router
