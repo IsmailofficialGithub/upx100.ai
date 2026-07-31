@@ -1,6 +1,6 @@
 import { Link, Navigate, useParams } from 'react-router-dom';
 import { MarketingShell } from '../components/MarketingShell';
-import { PainCards, PathCards, DemoCallForm, WaitlistForm } from '../components/MarketingSections';
+import { PainCards, PathCards, DemoCallForm, AccessRequestForm } from '../components/MarketingSections';
 import { getCategoryTitle } from '../data/categories';
 import { getVerticalPage } from '../data/verticals';
 import { EA_FEATURES } from '../types';
@@ -91,7 +91,7 @@ export default function VerticalPage() {
             </div>
           </div>
           <div className="mkt-fade-up" style={{ transitionDelay: '0.1s' }}>
-            {isEarlyAccess ? <WaitlistForm /> : <DemoCallForm id="vertical-demo" />}
+            {isEarlyAccess ? <AccessRequestForm /> : <DemoCallForm id="vertical-demo" />}
           </div>
         </div>
       </section>
