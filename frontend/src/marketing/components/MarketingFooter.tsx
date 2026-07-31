@@ -20,10 +20,10 @@ export function MarketingFooter() {
           <div>
             <p className="font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))] tracking-widest mb-3">Navigate</p>
             <ul className="space-y-2 list-none p-0 m-0">
-              <li><a href="/#how-it-works" className="font-mono text-[11px] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--muted-foreground))] no-underline transition-colors">How It Works</a></li>
+              <li><Link to="/how-it-works" className="font-mono text-[11px] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--muted-foreground))] no-underline transition-colors">How It Works</Link></li>
               <li><Link to="/industries" className="font-mono text-[11px] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--muted-foreground))] no-underline transition-colors">Industries</Link></li>
-              <li><a href="/#pricing" className="font-mono text-[11px] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--muted-foreground))] no-underline transition-colors">Pricing</a></li>
-              <li><a href="/#demo" className="font-mono text-[11px] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--muted-foreground))] no-underline transition-colors">Live Demo</a></li>
+              <li><Link to="/pricing" className="font-mono text-[11px] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--muted-foreground))] no-underline transition-colors">Pricing</Link></li>
+              <li><Link to="/demo" className="font-mono text-[11px] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--muted-foreground))] no-underline transition-colors">Live Demo</Link></li>
               <li>
                 <button type="button" onClick={() => navigate('/client/dashboard')} className="font-mono text-[11px] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--muted-foreground))] bg-transparent border-none cursor-pointer p-0 transition-colors">
                   Client Portal

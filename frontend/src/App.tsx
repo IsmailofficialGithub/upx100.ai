@@ -7,6 +7,10 @@ import MarketingHomePage from '@/marketing/pages/MarketingHomePage';
 import IndustriesPage from '@/marketing/pages/IndustriesPage';
 import CategoryHubPage from '@/marketing/pages/CategoryHubPage';
 import VerticalPage from '@/marketing/pages/VerticalPage';
+import HowItWorksPage from '@/marketing/pages/HowItWorksPage';
+import PricingPage from '@/marketing/pages/PricingPage';
+import DemoPage from '@/marketing/pages/DemoPage';
+import ScrollToTop from '@/components/layout/ScrollToTop';
 
 import Login from '@/pages/auth/login';
 import DashboardShell from '@/components/layout/DashboardShell';
@@ -45,10 +49,14 @@ function App() {
     <ThemeProvider>
       <AuthProvider>
         <GccTenantScopeProvider>
+        <ScrollToTop />
         <Toaster position="top-right" richColors />
         <Routes>
 
           <Route path="/" element={<MarketingHomePage />} />
+          <Route path="/how-it-works" element={<HowItWorksPage />} />
+          <Route path="/pricing" element={<PricingPage />} />
+          <Route path="/demo" element={<DemoPage />} />
           <Route path="/industries" element={<IndustriesPage />} />
           <Route path="/industries/:categorySlug" element={<CategoryHubPage />} />
           <Route path="/industries/:categorySlug/:verticalSlug" element={<VerticalPage />} />
