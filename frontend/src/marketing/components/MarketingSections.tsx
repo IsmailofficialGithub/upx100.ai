@@ -229,26 +229,36 @@ export function AccessRequestForm() {
       <p className="text-xs text-[hsl(var(--muted-foreground))] mb-6">We'll reach out to set up your pipeline.</p>
       
       <div className="mb-4">
-        <label className="font-mono text-[10px] uppercase tracking-widest text-[hsl(var(--muted-foreground))] block mb-2">Your Name</label>
-        <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full px-4 py-3 bg-up-dark-2 border border-up-dark-4 rounded-md text-[hsl(var(--foreground))] font-mono text-sm outline-none focus:border-up-green" />
+        <label className="font-mono text-[10px] uppercase tracking-widest text-[hsl(var(--muted-foreground))] block mb-2">
+          Your Name <span className="text-red-500">*</span>
+        </label>
+        <input type="text" value={name} onChange={(e) => setName(e.target.value)} required className="w-full px-4 py-3 bg-up-dark-2 border border-up-dark-4 rounded-md text-[hsl(var(--foreground))] font-mono text-sm outline-none focus:border-up-green" />
       </div>
       <div className="mb-4">
-        <label className="font-mono text-[10px] uppercase tracking-widest text-[hsl(var(--muted-foreground))] block mb-2">Company Name</label>
+        <label className="font-mono text-[10px] uppercase tracking-widest text-[hsl(var(--muted-foreground))] block mb-2">
+          Company Name <span className="lowercase text-[8px]">(optional)</span>
+        </label>
         <input type="text" value={company} onChange={(e) => setCompany(e.target.value)} className="w-full px-4 py-3 bg-up-dark-2 border border-up-dark-4 rounded-md text-[hsl(var(--foreground))] font-mono text-sm outline-none focus:border-up-green" />
       </div>
       <div className="mb-4">
-        <label className="font-mono text-[10px] uppercase tracking-widest text-[hsl(var(--muted-foreground))] block mb-2">Number of Employees</label>
+        <label className="font-mono text-[10px] uppercase tracking-widest text-[hsl(var(--muted-foreground))] block mb-2">
+          Number of Employees <span className="lowercase text-[8px]">(optional)</span>
+        </label>
         <input type="text" value={employees} onChange={(e) => setEmployees(e.target.value)} className="w-full px-4 py-3 bg-up-dark-2 border border-up-dark-4 rounded-md text-[hsl(var(--foreground))] font-mono text-sm outline-none focus:border-up-green" />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
         <div>
-          <label className="font-mono text-[10px] uppercase tracking-widest text-[hsl(var(--muted-foreground))] block mb-2">Phone</label>
+          <label className="font-mono text-[10px] uppercase tracking-widest text-[hsl(var(--muted-foreground))] block mb-2">
+            Phone <span className="lowercase text-[8px]">(optional)</span>
+          </label>
           <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full px-4 py-3 bg-up-dark-2 border border-up-dark-4 rounded-md text-[hsl(var(--foreground))] font-mono text-sm outline-none focus:border-up-green" />
         </div>
         <div>
-          <label className="font-mono text-[10px] uppercase tracking-widest text-[hsl(var(--muted-foreground))] block mb-2">Email</label>
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-4 py-3 bg-up-dark-2 border border-up-dark-4 rounded-md text-[hsl(var(--foreground))] font-mono text-sm outline-none focus:border-up-green" />
+          <label className="font-mono text-[10px] uppercase tracking-widest text-[hsl(var(--muted-foreground))] block mb-2">
+            Email <span className="text-red-500">*</span>
+          </label>
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full px-4 py-3 bg-up-dark-2 border border-up-dark-4 rounded-md text-[hsl(var(--foreground))] font-mono text-sm outline-none focus:border-up-green" />
         </div>
       </div>
       <p className="font-mono text-[10px] uppercase tracking-widest text-[hsl(var(--muted-foreground))] mb-2">What Are You Most Interested In?</p>
