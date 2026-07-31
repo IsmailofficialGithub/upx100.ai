@@ -1,0 +1,53 @@
+name: Deploy to Production EC2
+
+on:
+  push:
+    branches:
+      - main
+  # Allow manual triggering
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Execute deployment script on EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            echo "Starting deployment..."
+            
+            # Navigate to project directory
+            cd ~/100xUp_live
+            
+            # Pull latest changes from the main branch
+            git pull origin main
+            
+            # Build and deploy Backend
+            echo "Installing backend dependencies..."
+            cd Backend
+            npm i
+            
+            echo "Restarting backend PM2 process..."
+            pm2 restart 100xUp-backend
+            
+            # Build and deploy Frontend
+            echo "Installing frontend dependencies..."
+            cd ../frontend
+            npm i --legacy-peer-deps
+            
+            echo "Building frontend..."
+            npm run build
+            
+            echo "Deploying frontend to NGINX..."
+            sudo cp -r dist/* /var/www/up100x_live/
+            
+            echo "Restarting NGINX..."
+            sudo systemctl restart nginx
+            
+            echo "Deployment completed successfully!"
