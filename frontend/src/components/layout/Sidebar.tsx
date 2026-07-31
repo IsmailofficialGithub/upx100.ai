@@ -68,6 +68,7 @@ const GCC_ADMIN_NAV: GccNavGroup[] = [
     label: 'System',
     items: [
       { label: 'AI Agent Management', path: '/admin/agents', icon: Cpu },
+      { label: 'Access Requests', path: '/admin/access-requests', icon: Users },
       { label: 'Phone Numbers', path: '/admin/phone-numbers', icon: Phone },
       { label: 'Leads', path: '/admin/leads', icon: FileText },
       { label: 'Outbound Targets', path: '/admin/outbound-targets', icon: FileText, channel: 'outbound' },
@@ -97,6 +98,7 @@ const GCC_REVIEWER_NAV: GccNavGroup[] = [
     label: 'System',
     items: [
       { label: 'AI Agent Management', path: '/admin/agents', icon: Cpu },
+      { label: 'Access Requests', path: '/admin/access-requests', icon: Users },
       { label: 'Phone Numbers', path: '/admin/phone-numbers', icon: Phone },
       { label: 'Outbound Targets', path: '/admin/outbound-targets', icon: FileText, channel: 'outbound' },
     ],
@@ -499,7 +501,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     );
   }
 
-  const navItems = [
+  type NavItem = {
+    label: string;
+    path: string;
+    icon: LucideIcon;
+    group: string;
+    roles: string[];
+    channel?: 'inbound' | 'outbound';
+  };
+
+  const navItems: NavItem[] = [
     {
       label: 'Dashboard',
       path: `/${rolePrefix}/dashboard`,
@@ -549,6 +560,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       icon: Cpu,
       group: 'MANAGEMENT',
       roles: ['gcc_admin', 'gcc_reviewer', 'client_admin', 'client_sub', 'sp_primary', 'sp_sub'],
+    },
+    {
+      label: 'Access Requests',
+      path: `/${rolePrefix}/access-requests`,
+      icon: Users,
+      group: 'MANAGEMENT',
+      roles: ['gcc_admin', 'gcc_reviewer'],
     },
     {
       label: 'Call Logs',

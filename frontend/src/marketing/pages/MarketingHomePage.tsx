@@ -7,7 +7,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { pricingPlans } from '@/data/mockData';
 import api from '@/lib/api';
 import { MarketingShell } from '../components/MarketingShell';
-import { DemoCallForm } from '../components/MarketingSections';
+import { DemoCallForm, AccessRequestForm } from '../components/MarketingSections';
 import { CampaignDashboardPreview } from '../components/CampaignDashboardPreview';
 
 const STEPS = [
@@ -358,6 +358,24 @@ export default function MarketingHomePage() {
               >
                 <Play size={20} fill="currentColor" /> Enter Client Portal
               </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Access Request */}
+      <section id="request-access" className="section-padding relative">
+        <div className="container-main max-w-5xl">
+          <div className="text-center mb-10">
+            <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-[hsl(var(--muted-foreground))] mb-4 mkt-fade-up">Ready to Scale?</p>
+            <h2 className="font-display font-bold text-3xl md:text-[42px] tracking-tight mb-4 mkt-fade-up">Request Access to the Platform</h2>
+            <p className="text-[hsl(var(--muted-foreground))] leading-relaxed mkt-fade-up max-w-lg mx-auto">
+              Submit your details and our team will get in touch to set up your AI sales pipeline.
+            </p>
+          </div>
+          <div className="flex justify-center">
+            <div className="w-full max-w-2xl mkt-fade-up">
+              <AccessRequestForm />
             </div>
           </div>
         </div>

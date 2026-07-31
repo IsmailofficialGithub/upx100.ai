@@ -19,6 +19,7 @@ import AdminDashboardView from '@/components/dashboard/AdminDashboardView';
 import { AdminSalesPartnersView, AdminClientUsersView } from '@/components/dashboard/AdminUserView';
 import AdminOrgView from '@/components/dashboard/AdminOrgView';
 import AdminDataView from '@/components/dashboard/AdminDataView';
+import AdminAccessRequestsView from '@/components/dashboard/AdminAccessRequestsView';
 import AdminPhoneNumbersView from '@/components/dashboard/AdminPhoneNumbersView';
 import AdminAgentsView from '@/components/dashboard/AdminAgentsView';
 import LeadsView from '@/components/dashboard/LeadsView';
@@ -77,6 +78,7 @@ function App() {
             <Route path="sales-partners" element={<AdminSalesPartnersView />} />
             <Route path="client-users" element={<Navigate to="/admin/user" replace />} />
             <Route path="organizations" element={<AdminOrgView />} />
+            <Route path="access-requests" element={<AdminAccessRequestsView />} />
 
             <Route path="phone-numbers" element={<AdminPhoneNumbersView />} />
 

@@ -179,30 +179,76 @@ export function DemoCallForm({ id = 'demo' }: { id?: string }) {
   );
 }
 
-export function WaitlistForm() {
+export function AccessRequestForm() {
   const [path, setPath] = useState<'defend' | 'attack'>('defend');
+  const [name, setName] = useState('');
+  const [company, setCompany] = useState('');
+  const [employees, setEmployees] = useState('');
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!name.trim() || !email.trim()) {
+      toast.error('Name and Email are required');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await api.post('/access-requests', {
+        name,
+        company,
+        employees,
+        phone,
+        email,
+        interest: path,
+      });
+      toast.success('Access request submitted! We will be in touch shortly.');
+      setName('');
+      setCompany('');
+      setEmployees('');
+      setPhone('');
+      setEmail('');
+    } catch (error: unknown) {
+      const message =
+        (error as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error
+          ?.message || 'Could not submit your request. Please try again.';
+      toast.error(message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="bg-up-dark-1 border border-up-dark-4 rounded-xl p-8 md:p-9 relative">
       <span className="inline-flex font-mono text-[9px] font-semibold uppercase tracking-wider text-up-blue bg-up-blue/5 border border-up-blue/15 px-2.5 py-1 rounded mb-5">
-        Early Access
+        Request Access
       </span>
-      <h3 className="font-display text-xl font-bold mb-1.5">Join the Waitlist</h3>
-      <p className="text-xs text-[hsl(var(--muted-foreground))] mb-6">We&apos;ll reach out when your industry goes live.</p>
-      {['Your Name', 'Company Name', 'Number of Employees'].map((label) => (
-        <div key={label} className="mb-4">
-          <label className="font-mono text-[10px] uppercase tracking-widest text-[hsl(var(--muted-foreground))] block mb-2">{label}</label>
-          <input type="text" className="w-full px-4 py-3 bg-up-dark-2 border border-up-dark-4 rounded-md text-[hsl(var(--foreground))] font-mono text-sm outline-none focus:border-up-green" />
-        </div>
-      ))}
+      <h3 className="font-display text-xl font-bold mb-1.5">Get Started</h3>
+      <p className="text-xs text-[hsl(var(--muted-foreground))] mb-6">We'll reach out to set up your pipeline.</p>
+      
+      <div className="mb-4">
+        <label className="font-mono text-[10px] uppercase tracking-widest text-[hsl(var(--muted-foreground))] block mb-2">Your Name</label>
+        <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full px-4 py-3 bg-up-dark-2 border border-up-dark-4 rounded-md text-[hsl(var(--foreground))] font-mono text-sm outline-none focus:border-up-green" />
+      </div>
+      <div className="mb-4">
+        <label className="font-mono text-[10px] uppercase tracking-widest text-[hsl(var(--muted-foreground))] block mb-2">Company Name</label>
+        <input type="text" value={company} onChange={(e) => setCompany(e.target.value)} className="w-full px-4 py-3 bg-up-dark-2 border border-up-dark-4 rounded-md text-[hsl(var(--foreground))] font-mono text-sm outline-none focus:border-up-green" />
+      </div>
+      <div className="mb-4">
+        <label className="font-mono text-[10px] uppercase tracking-widest text-[hsl(var(--muted-foreground))] block mb-2">Number of Employees</label>
+        <input type="text" value={employees} onChange={(e) => setEmployees(e.target.value)} className="w-full px-4 py-3 bg-up-dark-2 border border-up-dark-4 rounded-md text-[hsl(var(--foreground))] font-mono text-sm outline-none focus:border-up-green" />
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
         <div>
           <label className="font-mono text-[10px] uppercase tracking-widest text-[hsl(var(--muted-foreground))] block mb-2">Phone</label>
-          <input type="tel" className="w-full px-4 py-3 bg-up-dark-2 border border-up-dark-4 rounded-md text-[hsl(var(--foreground))] font-mono text-sm outline-none focus:border-up-green" />
+          <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full px-4 py-3 bg-up-dark-2 border border-up-dark-4 rounded-md text-[hsl(var(--foreground))] font-mono text-sm outline-none focus:border-up-green" />
         </div>
         <div>
           <label className="font-mono text-[10px] uppercase tracking-widest text-[hsl(var(--muted-foreground))] block mb-2">Email</label>
-          <input type="email" className="w-full px-4 py-3 bg-up-dark-2 border border-up-dark-4 rounded-md text-[hsl(var(--foreground))] font-mono text-sm outline-none focus:border-up-green" />
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-4 py-3 bg-up-dark-2 border border-up-dark-4 rounded-md text-[hsl(var(--foreground))] font-mono text-sm outline-none focus:border-up-green" />
         </div>
       </div>
       <p className="font-mono text-[10px] uppercase tracking-widest text-[hsl(var(--muted-foreground))] mb-2">What Are You Most Interested In?</p>
@@ -214,8 +260,8 @@ export function WaitlistForm() {
           </label>
         ))}
       </div>
-      <button type="button" className="w-full py-3.5 bg-up-green text-up-on-green rounded-lg font-display font-bold text-sm hover:shadow-[0_0_32px_rgba(0,255,136,0.15)] transition-all">
-        Join Early Access →
+      <button type="button" onClick={handleSubmit} disabled={isSubmitting} className={`w-full py-3.5 bg-up-green text-up-on-green rounded-lg font-display font-bold text-sm transition-all ${isSubmitting ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-[0_0_32px_rgba(0,255,136,0.15)] cursor-pointer'}`}>
+        {isSubmitting ? 'Submitting...' : 'Request Access →'}
       </button>
       <p className="font-mono text-[10px] text-[hsl(var(--muted-foreground))] text-center mt-3">No spam. No obligation.</p>
     </div>

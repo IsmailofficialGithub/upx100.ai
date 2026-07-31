@@ -30,6 +30,7 @@ const gccPortalAdminTitles: Record<string, string> = {
   '/admin/sales-partners': 'Sales Partners',
   '/admin/commissions': 'Revenue & Payments',
   '/admin/agents': 'AI Agent Management',
+  '/admin/access-requests': 'Platform Access Requests',
   '/admin/phone-numbers': 'Phone Numbers',
   '/admin/leads': 'Leads',
   '/admin/outbound-targets': 'Outbound Targets',

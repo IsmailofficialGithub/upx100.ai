@@ -18,6 +18,7 @@ import outboundTargetRoutes from './outboundTarget.routes.js'
 import outboundCampaignRoutes from './outboundCampaign.routes.js'
 import billingRoutes from './billing.routes.js'
 import marketingRoutes from './marketing.routes.js'
+import accessRequestRoutes from './accessRequest.routes.js'
 
 const router = express.Router()
 
@@ -42,5 +43,6 @@ router.use('/voice-clones', voiceCloneRoutes)
 router.use('/target-uploads', targetUploadRoutes)
 router.use('/outbound-targets', outboundTargetRoutes)
 router.use('/outbound-campaigns', outboundCampaignRoutes)
+router.use('/access-requests', accessRequestRoutes)
 
 export default router
