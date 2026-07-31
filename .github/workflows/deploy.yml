@@ -20,6 +20,14 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Fetch .env from EC2
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+          scp ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:~/100xUp_live/frontend/.env ./frontend/.env || echo "No frontend .env found on server"
+
       - name: Install and Build Frontend
         working-directory: ./frontend
         run: |
