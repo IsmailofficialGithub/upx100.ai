@@ -10,6 +10,9 @@ import VerticalPage from '@/marketing/pages/VerticalPage';
 import HowItWorksPage from '@/marketing/pages/HowItWorksPage';
 import PricingPage from '@/marketing/pages/PricingPage';
 import DemoPage from '@/marketing/pages/DemoPage';
+import PrivacyPolicyPage from '@/marketing/pages/PrivacyPolicyPage';
+import TermsOfServicePage from '@/marketing/pages/TermsOfServicePage';
+import TcpaNoticePage from '@/marketing/pages/TcpaNoticePage';
 import ScrollToTop from '@/components/layout/ScrollToTop';
 
 import Login from '@/pages/auth/login';
@@ -57,6 +60,9 @@ function App() {
           <Route path="/how-it-works" element={<HowItWorksPage />} />
           <Route path="/pricing" element={<PricingPage />} />
           <Route path="/demo" element={<DemoPage />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+          <Route path="/terms-of-service" element={<TermsOfServicePage />} />
+          <Route path="/tcpa-notice" element={<TcpaNoticePage />} />
           <Route path="/industries" element={<IndustriesPage />} />
           <Route path="/industries/:categorySlug" element={<CategoryHubPage />} />
           <Route path="/industries/:categorySlug/:verticalSlug" element={<VerticalPage />} />

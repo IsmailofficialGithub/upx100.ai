@@ -34,9 +34,9 @@ export function MarketingFooter() {
           <div>
             <p className="font-mono text-[10px] uppercase text-[hsl(var(--muted-foreground))] tracking-widest mb-3">Legal</p>
             <ul className="space-y-2 list-none p-0 m-0">
-              <li><span className="font-mono text-[11px] text-[hsl(var(--muted-foreground))]">Privacy Policy</span></li>
-              <li><span className="font-mono text-[11px] text-[hsl(var(--muted-foreground))]">Terms of Service</span></li>
-              <li><span className="font-mono text-[11px] text-[hsl(var(--muted-foreground))]">TCPA Notice</span></li>
+              <li><Link to="/privacy-policy" className="font-mono text-[11px] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--muted-foreground))] no-underline transition-colors">Privacy Policy</Link></li>
+              <li><Link to="/terms-of-service" className="font-mono text-[11px] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--muted-foreground))] no-underline transition-colors">Terms of Service</Link></li>
+              <li><Link to="/tcpa-notice" className="font-mono text-[11px] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--muted-foreground))] no-underline transition-colors">TCPA Notice</Link></li>
             </ul>
           </div>
         </div>
