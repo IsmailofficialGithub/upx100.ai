@@ -33,6 +33,7 @@ import VoicePersonaView from '@/components/dashboard/VoicePersonaView';
 import HitlQueueView from '@/components/dashboard/HitlQueueView';
 import CommissionsPage from '@/components/dashboard/CommissionsPage';
 import OutboundTargetsView from '@/components/dashboard/OutboundTargetsView';
+import EmailLogsView from '@/components/dashboard/EmailLogsView';
 // Import BillingView for Stripe billing
 import BillingView from '@/components/dashboard/BillingView';
 import AdminPaymentsView from '@/components/dashboard/AdminPaymentsView';
@@ -76,6 +77,7 @@ function App() {
             <Route path="agents" element={<AdminAgentsView />} />
             <Route path="team" element={<TeamView />} />
             <Route path="outbound-targets" element={<OutboundTargetsView />} />
+            <Route path="email-logs" element={<EmailLogsView />} />
             <Route path="billing" element={<BillingView />} />
           </Route>
 
@@ -113,6 +115,7 @@ function App() {
             } />
             <Route path="payments" element={<AdminPaymentsView />} />
             <Route path="outbound-targets" element={<OutboundTargetsView />} />
+            <Route path="email-logs" element={<EmailLogsView />} />
 
           </Route>
 
@@ -168,6 +171,7 @@ function App() {
             } />
             <Route path="team" element={<TeamView />} />
             <Route path="outbound-targets" element={<OutboundTargetsView />} />
+            <Route path="email-logs" element={<EmailLogsView />} />
           </Route>
 
         </Routes>
