@@ -35,8 +35,8 @@ CREATE POLICY "Org members can view their org's email logs"
   ON public.email_logs FOR SELECT 
   USING (
     organization_id IN (
-      SELECT organization_id FROM public.profile_org_assignments 
-      WHERE profile_id = auth.uid()
+      SELECT organization_id FROM public.profiles 
+      WHERE id = auth.uid()
     )
   );
 
@@ -45,17 +45,17 @@ CREATE POLICY "SP primary can view their clients' email logs"
   USING (
     EXISTS (
       SELECT 1 FROM public.sp_client_assignments sca
-      JOIN public.profiles p ON p.id = sca.sp_profile_id
-      WHERE p.id = auth.uid() 
-      AND p.role = 'sp_primary'
+      WHERE sca.sp_user_id = auth.uid() 
       AND sca.client_org_id = public.email_logs.organization_id
     )
   );
 
--- Insert seed data for testing
-INSERT INTO public.email_logs (organization_id, recipient_email, subject, body, status, created_at)
-VALUES 
-  ('00000000-0000-4000-a000-000000000003', 'test1@example.com', 'Call Summary: Discovery Call', 'Here is the summary of our call...', 'sent', now()),
-  ('00000000-0000-4000-a000-000000000003', 'test2@example.com', 'Follow Up', 'Thank you for your time...', 'sent', now() - interval '1 day'),
-  ('00000000-0000-4000-a000-000000000003', 'test3@example.com', 'Action Items', 'Please find the action items...', 'failed', now() - interval '2 days')
-ON CONFLICT DO NOTHING;
+CREATE POLICY "SP sub can view their clients' email logs" 
+  ON public.email_logs FOR SELECT 
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.sp_sub_deals ssd
+      WHERE ssd.sp_sub_user_id = auth.uid() 
+      AND ssd.client_org_id = public.email_logs.organization_id
+    )
+  );
