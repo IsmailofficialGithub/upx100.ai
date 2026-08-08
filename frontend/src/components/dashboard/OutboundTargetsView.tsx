@@ -37,20 +37,26 @@ import {
   AlertCircle,
 } from 'lucide-react';
 
-type AppendTargetInput = { name: string; phone: string; email: string; status: string };
+type AppendTargetInput = { name: string; phone: string; email: string; company_name?: string; status: string };
 
 type ManualAppendRow = {
   id: string;
   name: string;
   phone: string;
+  email: string;
+  company_name: string;
   phoneError: string;
+  emailError: string;
 };
 
 const createManualAppendRow = (): ManualAppendRow => ({
   id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
   name: '',
   phone: '',
+  email: '',
+  company_name: '',
   phoneError: '',
+  emailError: '',
 });
 
 type PageTab = 'campaigns' | 'initiate' | 'targets';
@@ -80,6 +86,7 @@ type OutboundTargetRow = {
   name: string | null;
   phone: string;
   email: string | null;
+  company_name?: string | null;
   status: string;
   created_at: string;
   user_id: string | null;
@@ -124,7 +131,7 @@ type OutboundCampaignRow = {
   } | null;
 };
 
-type OutboundCampaignDetail = OutboundCampaignRow & {
+type OutboundCampaignDetail = Omit<OutboundCampaignRow, 'outbound_targets'> & {
   outbound_targets?: OutboundTargetRow[];
 };
 
@@ -179,6 +186,8 @@ const OutboundTargetsView: React.FC = () => {
   const [singlePhone, setSinglePhone] = useState('');
   const [singlePhoneError, setSinglePhoneError] = useState('');
   const [singleName, setSingleName] = useState('');
+  const [singleEmail, setSingleEmail] = useState('');
+  const [singleCompany, setSingleCompany] = useState('');
   const [singleAgentId, setSingleAgentId] = useState('');
   const [singleOrgId, setSingleOrgId] = useState('');
   const [isSavingSingle, setIsSavingSingle] = useState(false);
@@ -188,6 +197,7 @@ const OutboundTargetsView: React.FC = () => {
   const [editPhone, setEditPhone] = useState('');
   const [editName, setEditName] = useState('');
   const [editEmail, setEditEmail] = useState('');
+  const [editCompany, setEditCompany] = useState('');
   const [editStatus, setEditStatus] = useState('outbound');
   const [editAgentId, setEditAgentId] = useState('');
   const [isSavingEdit, setIsSavingEdit] = useState(false);
@@ -198,7 +208,7 @@ const OutboundTargetsView: React.FC = () => {
 
   // Bulk Import State
   const [csvFileName, setCsvFileName] = useState('');
-  const [csvData, setCsvData] = useState<Array<{ name: string; phone: string; email: string; status: string }> | null>(null);
+  const [csvData, setCsvData] = useState<AppendTargetInput[] | null>(null);
   const [showAllCsvRows, setShowAllCsvRows] = useState(false);
   const [isUploadingBulk, setIsUploadingBulk] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -207,7 +217,7 @@ const OutboundTargetsView: React.FC = () => {
   // Append to existing list
   const [appendCampaign, setAppendCampaign] = useState<OutboundCampaignRow | null>(null);
   const [appendCsvFileName, setAppendCsvFileName] = useState('');
-  const [appendCsvData, setAppendCsvData] = useState<Array<{ name: string; phone: string; email: string; status: string }> | null>(null);
+  const [appendCsvData, setAppendCsvData] = useState<AppendTargetInput[] | null>(null);
   const [showAllAppendCsvRows, setShowAllAppendCsvRows] = useState(false);
   const [isUploadingAppend, setIsUploadingAppend] = useState(false);
   const [appendDragOver, setAppendDragOver] = useState(false);
@@ -481,6 +491,8 @@ const OutboundTargetsView: React.FC = () => {
       setSinglePhone('');
       setSinglePhoneError('');
       setSingleName('');
+      setSingleEmail('');
+      setSingleCompany('');
     }
   }, [isAddModalOpen, organizationId, orgChoices]);
 
@@ -514,12 +526,18 @@ const OutboundTargetsView: React.FC = () => {
       return;
     }
 
+    if (!singleEmail.trim()) {
+      toast.error('Email is required');
+      return;
+    }
+
     setIsSavingSingle(true);
     try {
       await api.post('/outbound-targets', {
         phone: normalizeE164Phone(singlePhone),
         name: singleName.trim() || null,
-        email: null,
+        email: singleEmail.trim(),
+        company_name: singleCompany.trim() || null,
         status: 'initiate',
         agent_id: singleAgentId,
         organization_id: targetOrg,
@@ -541,6 +559,7 @@ const OutboundTargetsView: React.FC = () => {
     setEditPhone(row.phone);
     setEditName(row.name || '');
     setEditEmail(row.email || '');
+    setEditCompany(row.company_name || '');
     setEditStatus(row.status);
     setEditAgentId(row.agent_id || '');
     setIsEditModalOpen(true);
@@ -554,12 +573,18 @@ const OutboundTargetsView: React.FC = () => {
       return;
     }
 
+    if (!editEmail.trim()) {
+      toast.error('Email is required');
+      return;
+    }
+
     setIsSavingEdit(true);
     try {
       await api.patch(`/outbound-targets/${editingTarget.id}`, {
         phone: editPhone.trim(),
         name: editName.trim() || null,
-        email: editEmail.trim() || null,
+        email: editEmail.trim(),
+        company_name: editCompany.trim() || null,
         status: editStatus,
         agent_id: editAgentId || null,
       });
@@ -638,7 +663,7 @@ const OutboundTargetsView: React.FC = () => {
     }
   };
 
-  const parseCsvText = (text: string): Array<{ name: string; phone: string; email: string; status: string }> | null => {
+  const parseCsvText = (text: string): AppendTargetInput[] | null => {
     const lines = text.split('\n').filter((l) => l.trim());
     if (!lines.length) return null;
 
@@ -646,10 +671,15 @@ const OutboundTargetsView: React.FC = () => {
     const phoneIdx = headers.indexOf('phone');
     const nameIdx = headers.indexOf('name');
     const emailIdx = headers.indexOf('email');
+    const companyIdx = headers.findIndex(h => h === 'company' || h === 'company_name' || h === 'company name');
     const statusIdx = headers.indexOf('status');
 
     if (phoneIdx === -1) {
       toast.error('CSV must contain a "Phone" column');
+      return null;
+    }
+    if (emailIdx === -1) {
+      toast.error('CSV must contain an "Email" column');
       return null;
     }
 
@@ -660,21 +690,23 @@ const OutboundTargetsView: React.FC = () => {
         const phoneVal = cols[phoneIdx]?.trim() || '';
         const nameVal = nameIdx !== -1 ? cols[nameIdx]?.trim() || '' : '';
         const emailVal = emailIdx !== -1 ? cols[emailIdx]?.trim() || '' : '';
+        const companyVal = companyIdx !== -1 ? cols[companyIdx]?.trim() || '' : '';
         const statusVal = statusIdx !== -1 ? cols[statusIdx]?.trim() || 'outbound' : 'outbound';
 
         return {
           name: nameVal,
           phone: phoneVal,
           email: emailVal,
+          company_name: companyVal,
           status: statusVal,
         };
       })
-      .filter((r) => r.phone);
+      .filter((r) => r.phone && r.email);
   };
 
   const readCsvFile = (
     file: File,
-    onSuccess: (fileName: string, data: Array<{ name: string; phone: string; email: string; status: string }>) => void,
+    onSuccess: (fileName: string, data: AppendTargetInput[]) => void,
   ) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -743,22 +775,24 @@ const OutboundTargetsView: React.FC = () => {
       let hasError = false;
       const validatedRows = filledRows.map((row) => {
         const phoneError = getPhoneValidationError(row.phone);
-        if (phoneError) hasError = true;
-        return { ...row, phoneError: phoneError || '' };
+        const emailError = !row.email.trim() ? 'Email is required' : '';
+        if (phoneError || emailError) hasError = true;
+        return { ...row, phoneError: phoneError || '', emailError };
       });
 
       if (hasError) {
         setManualRows((prev) =>
           prev.map((row) => validatedRows.find((v) => v.id === row.id) ?? row),
         );
-        toast.error('Fix invalid phone numbers before saving');
+        toast.error('Fix errors before saving');
         return;
       }
 
       targets = filledRows.map((row) => ({
         name: row.name.trim(),
         phone: normalizeE164Phone(row.phone),
-        email: '',
+        email: row.email.trim(),
+        company_name: row.company_name.trim() || undefined,
         status: 'outbound',
       }));
     }
@@ -808,8 +842,8 @@ const OutboundTargetsView: React.FC = () => {
     row.outbound_targets?.[0]?.count ?? 0;
 
   const downloadCsvTemplate = () => {
-    const header = 'Phone,Name,Email,Status';
-    const sample = '+15550199,John Doe,john@example.com,outbound';
+    const header = 'Phone,Name,Email,Company,Status';
+    const sample = '+15550199,John Doe,john@example.com,Acme Corp,outbound';
     const csv = `${header}\n${sample}\n`;
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -1643,6 +1677,33 @@ const OutboundTargetsView: React.FC = () => {
 
               <div>
                 <label className="block text-[10px] font-mono uppercase tracking-wider text-[hsl(var(--muted-foreground))] mb-1.5">
+                  Email Address *
+                </label>
+                <input
+                  type="email"
+                  required
+                  placeholder="e.g. john@example.com"
+                  value={singleEmail}
+                  onChange={(e) => setSingleEmail(e.target.value)}
+                  className="w-full bg-[hsl(var(--secondary))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[hsl(var(--primary))]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono uppercase tracking-wider text-[hsl(var(--muted-foreground))] mb-1.5">
+                  Company Name
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Acme Corp"
+                  value={singleCompany}
+                  onChange={(e) => setSingleCompany(e.target.value)}
+                  className="w-full bg-[hsl(var(--secondary))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[hsl(var(--primary))]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono uppercase tracking-wider text-[hsl(var(--muted-foreground))] mb-1.5">
                   Phone Number *
                 </label>
                 <input
@@ -2040,7 +2101,7 @@ const OutboundTargetsView: React.FC = () => {
                     {manualRows.map((row, index) => (
                       <div
                         key={row.id}
-                        className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2 items-start p-3 rounded-xl border border-[hsl(var(--border-v))] bg-[hsl(var(--secondary))]/50"
+                        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_1fr_auto] gap-2 items-start p-3 rounded-xl border border-[hsl(var(--border-v))] bg-[hsl(var(--secondary))]/50"
                       >
                         <div>
                           <label className="block text-[9px] font-mono uppercase tracking-wider text-[hsl(var(--muted-foreground))] mb-1">
@@ -2088,6 +2149,52 @@ const OutboundTargetsView: React.FC = () => {
                             <p className="text-[9px] text-red-500 mt-1">{row.phoneError}</p>
                           )}
                         </div>
+                        <div>
+                          <label className="block text-[9px] font-mono uppercase tracking-wider text-[hsl(var(--muted-foreground))] mb-1">
+                            Email *
+                          </label>
+                          <input
+                            type="email"
+                            placeholder="user@example.com"
+                            value={row.email}
+                            onChange={(e) =>
+                              setManualRows((prev) =>
+                                prev.map((r) =>
+                                  r.id === row.id ? { ...r, email: e.target.value, emailError: '' } : r,
+                                ),
+                              )
+                            }
+                            onBlur={() => {
+                              if (!row.email.trim()) {
+                                setManualRows((prev) =>
+                                  prev.map((r) => (r.id === row.id ? { ...r, emailError: 'Email required' } : r)),
+                                );
+                              }
+                            }}
+                            className={`w-full bg-[hsl(var(--secondary))] border rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[hsl(var(--primary))] ${
+                              row.emailError ? 'border-red-500' : 'border-[hsl(var(--border-v))]'
+                            }`}
+                          />
+                          {row.emailError && (
+                            <p className="text-[9px] text-red-500 mt-1">{row.emailError}</p>
+                          )}
+                        </div>
+                        <div>
+                          <label className="block text-[9px] font-mono uppercase tracking-wider text-[hsl(var(--muted-foreground))] mb-1">
+                            Company
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="Optional"
+                            value={row.company_name}
+                            onChange={(e) =>
+                              setManualRows((prev) =>
+                                prev.map((r) => (r.id === row.id ? { ...r, company_name: e.target.value } : r)),
+                              )
+                            }
+                            className="w-full bg-[hsl(var(--secondary))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[hsl(var(--primary))]"
+                          />
+                        </div>
                         <button
                           type="button"
                           onClick={() =>
@@ -2102,7 +2209,7 @@ const OutboundTargetsView: React.FC = () => {
                           <Trash2 size={14} />
                         </button>
                         {index === manualRows.length - 1 && (
-                          <div className="sm:col-span-3">
+                          <div className="sm:col-span-2 lg:col-span-5 mt-2">
                             <button
                               type="button"
                               onClick={() => setManualRows((prev) => [...prev, createManualAppendRow()])}
@@ -2191,12 +2298,25 @@ const OutboundTargetsView: React.FC = () => {
 
               <div>
                 <label className="block text-[10px] font-mono uppercase tracking-wider text-[hsl(var(--muted-foreground))] mb-1.5">
-                  Email Address
+                  Email Address *
                 </label>
                 <input
                   type="email"
+                  required
                   value={editEmail}
                   onChange={(e) => setEditEmail(e.target.value)}
+                  className="w-full bg-[hsl(var(--secondary))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[hsl(var(--primary))]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono uppercase tracking-wider text-[hsl(var(--muted-foreground))] mb-1.5">
+                  Company Name
+                </label>
+                <input
+                  type="text"
+                  value={editCompany}
+                  onChange={(e) => setEditCompany(e.target.value)}
                   className="w-full bg-[hsl(var(--secondary))] border border-[hsl(var(--border-v))] rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[hsl(var(--primary))]"
                 />
               </div>

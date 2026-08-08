@@ -8,6 +8,7 @@ import {
   Loader2,
   Copy,
   Check,
+  Mail,
 } from 'lucide-react';
 import { getApiBaseUrl } from '@/lib/api';
 import { toast } from 'sonner';
@@ -48,6 +49,8 @@ const CallLogDetailsDrawer: React.FC<CallLogDetailsDrawerProps> = ({ log, isOpen
   const recordingUrl = typeof log?.recording_url === 'string' ? log.recording_url.trim() : '';
 
   const [isLoadingPresigned, setIsLoadingPresigned] = useState(false);
+  const [emailLogs, setEmailLogs] = useState<any[]>([]);
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
 
   React.useEffect(() => {
     let active = true;
@@ -75,6 +78,17 @@ const CallLogDetailsDrawer: React.FC<CallLogDetailsDrawerProps> = ({ log, isOpen
       setPresignedUrl(recordingUrl);
       setIsLoadingPresigned(false);
     }
+    
+    if (log?.id) {
+      api.get(`/email-logs?call_log_id=${log.id}`)
+        .then(res => {
+          if (active && res.data?.data) {
+            setEmailLogs(res.data.data);
+          }
+        })
+        .catch(err => console.error('Failed to fetch email logs', err));
+    }
+
     return () => { active = false; };
   }, [recordingUrl, log?.id, log?.vapi_call_id]);
 
@@ -275,6 +289,34 @@ const CallLogDetailsDrawer: React.FC<CallLogDetailsDrawerProps> = ({ log, isOpen
             </section>
           )}
 
+          {/* Email Logs Section */}
+          {emailLogs.length > 0 && (
+            <section className="space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--primary))]" />
+                <h3 className="text-xs font-mono font-bold uppercase tracking-widest text-[hsl(var(--muted-foreground))]">Emails Sent</h3>
+              </div>
+              <div className="grid gap-3">
+                {emailLogs.map((email: any) => (
+                  <div key={email.id} className="bg-[hsl(var(--card))] border border-[hsl(var(--border-v))] rounded-xl p-4 flex items-center justify-between">
+                    <div className="flex flex-col gap-1 min-w-0">
+                      <span className="text-sm font-semibold truncate">{email.subject || 'No Subject'}</span>
+                      <span className="text-xs text-[hsl(var(--muted-foreground))] truncate">To: {email.recipient_email}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsEmailModalOpen(true)}
+                      className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-[hsl(var(--muted))] hover:bg-[hsl(var(--primary))]/10 hover:text-[hsl(var(--primary))] text-[hsl(var(--muted-foreground))] rounded-lg transition-all text-[10px] font-bold"
+                    >
+                      <Mail size={12} />
+                      VIEW
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
           {/* Transcript Section */}
           <section className="space-y-4">
             <div className="flex items-center gap-2">
@@ -343,6 +385,52 @@ const CallLogDetailsDrawer: React.FC<CallLogDetailsDrawerProps> = ({ log, isOpen
           </div>
         </div>
       </div>
+
+      {isEmailModalOpen && emailLogs.length > 0 && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-[hsl(var(--card))] rounded-xl w-full max-w-2xl flex flex-col max-h-[85vh] border border-[hsl(var(--border-v))] shadow-xl overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-[hsl(var(--border-v))] bg-[hsl(var(--muted))]">
+              <div className="flex items-center gap-2">
+                <Mail size={16} className="text-[hsl(var(--primary))]" />
+                <h2 className="text-sm font-bold font-mono text-[hsl(var(--foreground))]">EMAIL LOG DETAIL</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEmailModalOpen(false)}
+                className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] p-1"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-5 flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-4">
+              {emailLogs.map((selectedLog: any) => (
+                <div key={selectedLog.id} className="flex flex-col gap-4 border-b border-[hsl(var(--border-v))] pb-4 last:border-0 last:pb-0">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Recipient</span>
+                      <span className="text-sm font-medium">{selectedLog.recipient_email}</span>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Status</span>
+                      <span className="text-sm font-bold uppercase">{selectedLog.status}</span>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Subject</span>
+                    <span className="text-sm font-semibold p-2 bg-[hsl(var(--background))] rounded border border-[hsl(var(--border-v))]">{selectedLog.subject || 'No Subject'}</span>
+                  </div>
+                  <div className="flex flex-col gap-1 mt-2">
+                    <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Body Content</span>
+                    <div className="p-3 bg-[hsl(var(--background))] rounded border border-[hsl(var(--border-v))] whitespace-pre-wrap text-sm text-[hsl(var(--foreground))]">
+                      {selectedLog.body || 'No Body Content'}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

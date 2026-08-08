@@ -19,6 +19,7 @@ import outboundCampaignRoutes from './outboundCampaign.routes.js'
 import billingRoutes from './billing.routes.js'
 import marketingRoutes from './marketing.routes.js'
 import accessRequestRoutes from './accessRequest.routes.js'
+import emailLogRoutes from './emailLog.routes.js'
 
 const router = express.Router()
 
@@ -44,5 +45,6 @@ router.use('/target-uploads', targetUploadRoutes)
 router.use('/outbound-targets', outboundTargetRoutes)
 router.use('/outbound-campaigns', outboundCampaignRoutes)
 router.use('/access-requests', accessRequestRoutes)
+router.use('/email-logs', emailLogRoutes)
 
 export default router

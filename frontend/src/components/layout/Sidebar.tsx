@@ -20,6 +20,7 @@ import {
   Banknote,
   CreditCard,
   PhoneOutgoing,
+  Mail,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -46,6 +47,7 @@ const GCC_ADMIN_NAV: GccNavGroup[] = [
       { label: 'Command Center', path: '/admin/dashboard', icon: LayoutDashboard },
       { label: 'All Clients', path: '/admin/organizations', icon: Building2 },
       { label: 'Live Calls', path: '/admin/call-logs', icon: Phone },
+      { label: 'Email Logs', path: '/admin/email-logs', icon: Mail },
       { label: 'HITL Queue', path: '/admin/hitl', icon: BarChart3 },
     ],
   },
@@ -83,6 +85,7 @@ const GCC_REVIEWER_NAV: GccNavGroup[] = [
       { label: 'Command Center', path: '/admin/dashboard', icon: LayoutDashboard },
       { label: 'All Clients', path: '/admin/organizations', icon: Building2 },
       { label: 'Live Calls', path: '/admin/call-logs', icon: Phone },
+      { label: 'Email Logs', path: '/admin/email-logs', icon: Mail },
       { label: 'HITL Queue', path: '/admin/hitl', icon: BarChart3 },
     ],
   },
@@ -125,6 +128,7 @@ const PARTNER_PRIMARY_NAV: GccNavGroup[] = [
     label: 'Network',
     items: [
       { label: 'Call Logs', path: '/partner/call-logs', icon: Phone },
+      { label: 'Email Logs', path: '/partner/email-logs', icon: Mail },
       { label: 'Leads', path: '/partner/leads', icon: FileText },
       { label: 'Outbound Targets', path: '/partner/outbound-targets', icon: FileText, channel: 'outbound' },
       { label: 'Client Phone Numbers', path: '/partner/phone-numbers', icon: Phone },
@@ -148,6 +152,7 @@ const PARTNER_SUB_NAV: GccNavGroup[] = [
     label: 'Network',
     items: [
       { label: 'Call Logs', path: '/partner/call-logs', icon: Phone },
+      { label: 'Email Logs', path: '/partner/email-logs', icon: Mail },
       { label: 'Leads', path: '/partner/leads', icon: FileText },
       { label: 'Outbound Targets', path: '/partner/outbound-targets', icon: FileText, channel: 'outbound' },
       { label: 'Client Phone Numbers', path: '/partner/phone-numbers', icon: Phone },
@@ -164,6 +169,7 @@ const CLIENT_ADMIN_PORTAL_NAV: GccNavGroup[] = [
       { label: 'Dashboard', path: '/client/dashboard', icon: LayoutDashboard },
       { label: 'Calendar & Meetings', path: '/client/calendar', icon: CalendarDays },
       { label: 'Call Logs', path: '/client/call-logs', icon: Phone },
+      { label: 'Email Logs', path: '/client/email-logs', icon: Mail },
       { label: 'Leads', path: '/client/leads', icon: FileText },
       { label: 'Outbound Calling', path: '/client/outbound-targets', icon: PhoneOutgoing, channel: 'outbound' },
     ],
@@ -193,6 +199,7 @@ const CLIENT_SUB_PORTAL_NAV: GccNavGroup[] = [
       { label: 'Dashboard', path: '/client/dashboard', icon: LayoutDashboard },
       { label: 'Calendar & Meetings', path: '/client/calendar', icon: CalendarDays },
       { label: 'Call Logs', path: '/client/call-logs', icon: Phone },
+      { label: 'Email Logs', path: '/client/email-logs', icon: Mail },
       { label: 'Leads', path: '/client/leads', icon: FileText },
       { label: 'Outbound Calling', path: '/client/outbound-targets', icon: PhoneOutgoing, channel: 'outbound' },
     ],
@@ -572,6 +579,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       label: 'Call Logs',
       path: `/${rolePrefix}/call-logs`,
       icon: Phone,
+      group: 'MANAGEMENT',
+      roles: ['gcc_admin', 'gcc_reviewer', 'sp_primary', 'sp_sub', 'client_admin', 'client_sub'],
+    },
+    {
+      label: 'Email Logs',
+      path: `/${rolePrefix}/email-logs`,
+      icon: Mail,
       group: 'MANAGEMENT',
       roles: ['gcc_admin', 'gcc_reviewer', 'sp_primary', 'sp_sub', 'client_admin', 'client_sub'],
     },
